@@ -3,8 +3,8 @@
 
 #include <vector>
 #include <string>
-#include <istream>
-#include <ostream>
+#include <iostream>
+#include <assert.h>
 
 namespace d2 {
 
@@ -35,59 +35,121 @@ namespace d2 {
   template <typename D2Type1, typename D2Type2>
   inline real_t GetDistance( const d2<D2Type1>& op1, 
 			     const d2<D2Type2>& op2, 
-			     real_t* cache) {
-    // to be implement
-    return 0.f;
-  }
+			     real_t* cache);
+
 
   template <typename D2Type>
-  std::istream& operator>> (std::istream& is, d2<D2Type> & op) {
+  std::istream& operator>> (std::istream& is, d2<D2Type> & op);
+  template <typename D2Type>
+  std::ostream& operator<< (std::ostream& os, const d2<D2Type> &op);
+
+  // specifications
+  template <>
+  std::istream& operator>> (std::istream& is, d2<real_t> & op) {
+    //is >> op.dim >> op.len;
+    for (size_t i=0; i<op.len; ++i) is >> op.w[i];
+    for (size_t i=0; i<op.len * op.dim; ++i) is >> op.supp[i];
     return is;
   }
 
-  template <typename D2Type>
-  std::ostream& operator<< (std::ostream& os, const d2<D2Type> &op) {
+  template <>
+  std::ostream& operator<< (std::ostream& os, const d2<real_t> & op) {
+    os << op.dim << std::endl << op.len << std::endl;
+    for (size_t i=0; i<op.len; ++i) os << op.w[i]; os << std::endl;
+    for (size_t i=0; i<op.len; ++i) {
+      for (size_t j=0; j<op.dim; ++j) 
+	os << op.supp[i];
+      os << std::endl;
+    }
     return os;
   }
 
 
-  template <typename D2Type>
-  class d2_block {
+  class d2_block_base {
   public:
-    d2_block(const size_t thesize, const size_t thelen): size(thesize), len(thelen) {
-      // allocate mem
+    d2_block_base() {};
+    virtual int append(std::istream &is) = 0;
+  };
+
+  template <typename D2Type>
+  class d2_block : public d2_block_base {
+  public:
+    d2_block(const size_t thesize, 
+	     const size_t thedim,
+	     const size_t thelen,
+	     const std::string &thetype = std::string("euclidean")): 
+      dim(thedim), len(thelen), type(thetype) {
+      // allocate block memory
+      p_w = (real_t*) malloc(sizeof(real_t) * thesize * thelen);
+      if (type == "euclidean") {
+	p_supp = (real_t *) malloc(sizeof(real_t) * thesize * thelen * dim);
+      }
     };
     std::vector< d2<D2Type> > vec;    
     
     /* get specific d2 in the block */
     inline d2<D2Type> operator[](size_t ind) const {return vec[ind];}
 
-  private:
     size_t dim, size;
     size_t len, max_len;
     size_t col, max_col;
 
     std::string type;
 
+    int append(std::istream &is);
+  private:
     /* actual binary data */
     real_t *p_w;
     D2Type* p_supp;
 
   };
 
+  /* append one d2 */
   template <typename D2Type>
+  int d2_block<D2Type>::append(std::istream &is) {
+    d2<D2Type> theone;
+    is >> theone.dim >> theone.len;
+    assert(theone.dim == dim);
+    if (theone.len + col > max_col) {
+      if (type == "euclidean") {
+	max_col *=2;
+	p_w = (real_t*) realloc(p_w, sizeof(real_t)*max_col);
+	p_supp = (real_t*) realloc(p_supp, sizeof(real_t)*max_col*dim);
+      } else {
+	std::cerr << "Unrecognized type!" << std::endl;
+      }
+    }
+    size += 1;
+    col += theone.len;
+    if (theone.len > max_len) max_len = theone.len;
+    theone.w = p_w + col;
+    if (type == "euclidean") {
+      theone.supp = p_supp + col*dim;
+    } else {
+      std::cerr << "Unrecognized type!" << std::endl;
+    }
+    is >> theone;
+
+    return 0;
+  }
+  
+
   class mult_d2_block {
   public:
     size_t size;
     std::vector< index_t > label;
-    std::vector< d2_block<D2Type> > phase;
+    std::vector< d2_block_base* > phase;
+    std::vector< std::string > type;
 
     mult_d2_block(const size_t n, 
-		  const int* len_arr,
+		  const size_t* dim_arr,
+		  const size_t* len_arr,
+		  const std::string* str_arr,
 		  const size_t num_of_phases = 1)
-      : size(n) {      
-      for (int i=0; i<num_of_phases; ++i) {
-	phase.push_back( d2_block<D2Type>(n, len_arr[i]) );
+    {      
+      for (size_t i=0; i<num_of_phases; ++i) {
+	if (str_arr[i] == "euclidean")
+	  phase.push_back( new d2_block<real_t>(n, dim_arr[i], len_arr[i], "euclidean"));
 	label.resize(n);
       }
     };
@@ -99,6 +161,8 @@ namespace d2 {
 
     void write_split(std::string filename);    
   };
+
+
 
 
 }
