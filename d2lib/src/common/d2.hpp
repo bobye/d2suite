@@ -75,6 +75,7 @@ namespace d2 {
 
   class d2_block_base {
   public:
+    friend class mult_d2_block;
     d2_block_base() {};
     d2_block_base(const size_t thesize, 
 		  const size_t thedim,
@@ -91,7 +92,7 @@ namespace d2 {
 
     std::string type;
 
-  private:
+  protected:
     virtual int append(std::istream &is) = 0;
     virtual void align_d2vec() = 0;
 
@@ -118,7 +119,7 @@ namespace d2 {
     /* get specific d2 in the block */
     inline d2<D2Type>& operator[](size_t ind) {return vec[ind];}
 
-  private:
+  protected:
     /* actual binary data */
     real_t *p_w;
     D2Type* p_supp;
@@ -179,7 +180,6 @@ namespace d2 {
 
   class mult_d2_block {
   public:
-    friend d2_block_base;
     size_t size;
     std::vector< index_t > label;
     std::vector< d2_block_base* > phase;
