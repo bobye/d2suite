@@ -1,4 +1,5 @@
 #include "common/d2.hpp"
+#include "common/d2_io_impl.hpp"
 
 int main(int argc, char** argv) {
 
