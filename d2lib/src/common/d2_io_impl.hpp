@@ -38,6 +38,59 @@ namespace d2 {
     return os;
   }
 
+  template <>
+  std::istream& operator>> (std::istream& is, d2<index_t> & op) {
+    for (size_t i=0; i<op.len; ++i) is >> op.w[i];
+    for (size_t i=0; i<op.len; ++i) is >> op.supp[i];
+    return is;
+  }
+
+  template <>
+  std::ostream& operator<< (std::ostream& os, const d2<index_t> & op) {
+    os << op.dim << std::endl << op.len << std::endl;
+    for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
+    for (size_t i=0; i<op.len; ++i) os << op.supp[i] << " "; os << std::endl;
+    return os;
+  }
+
+  template <>
+  std::istream& operator>> (std::istream& is, d2<char> & op) {
+    int c;
+    for (size_t i=0; i<op.len; ++i) is >> op.w[i];
+    for (size_t i=0; i<op.len; ++i) {      
+      while ((c =is.peek()) == ' ' || c == '\n') is.ignore();
+      is.get(op.supp + i*op.dim, ' ');
+    }
+    return is;
+  }
+
+  template <>
+  std::ostream& operator<< (std::ostream& os, const d2<char> & op) {
+    os << op.dim << std::endl << op.len << std::endl;
+    for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
+    for (size_t i=0; i<op.len; ++i) {
+      for (size_t j=0; j<op.dim; ++j) 
+	os << op.supp[i*op.dim + j];
+      os << " ";
+    }
+    os << std::endl;
+    return os;
+  }
+
+  template <>
+  std::istream& operator>> (std::istream& is, d2<void> & op) {
+    for (size_t i=0; i<op.len; ++i) is >> op.w[i];
+    return is;
+  }
+
+  template <>
+  std::ostream& operator<< (std::ostream& os, const d2<void> & op) {
+    os << op.dim << std::endl << op.len << std::endl;
+    for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
+    return os;
+  }
+
+
 
   /* append one d2 */
   template <typename D2Type>
