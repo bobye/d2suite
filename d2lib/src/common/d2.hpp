@@ -21,9 +21,14 @@ namespace d2 {
   typedef unsigned index_t;
 
 
+  class d2_base {
+  public:
+    virtual inline void put(std::ostream &os) const = 0;
+  };
 
   template <typename D2Type>
-  struct d2 {
+  class d2 : public d2_base {
+  public:
     /* this defines the dimension of supports */
     size_t dim;
     /* this defines the length of supports */
@@ -32,6 +37,8 @@ namespace d2 {
     real_t* w;
     /* this defines the support arrays */
     D2Type* supp;
+
+    inline void put(std::ostream &os) const { os << *this; }
   };
 
   template <typename D2Type1, typename D2Type2>
@@ -56,10 +63,10 @@ namespace d2 {
   template <>
   std::ostream& operator<< (std::ostream& os, const d2<real_t> & op) {
     os << op.dim << std::endl << op.len << std::endl;
-    for (size_t i=0; i<op.len; ++i) os << op.w[i]; os << std::endl;
+    for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
     for (size_t i=0; i<op.len; ++i) {
       for (size_t j=0; j<op.dim; ++j) 
-	os << op.supp[i*op.dim + j];
+	os << op.supp[i*op.dim + j] << " ";
       os << std::endl;
     }
     return os;
@@ -76,17 +83,23 @@ namespace d2 {
       dim(thedim), len(thelen), type(thetype), col(0), max_len(0), size(0) {};
 
     virtual int append(std::istream &is) = 0;
+    virtual void align_d2vec() = 0;
+    virtual inline d2_base& operator[](size_t ind) = 0;
+
 
     size_t dim, size;
     size_t len, max_len;
     size_t col, max_col;
 
     std::string type;
+
+
   };
 
   template <typename D2Type>
   class d2_block : public d2_block_base {
   public:
+    typedef d2_block<D2Type> T;
     d2_block(const size_t thesize, 
 	     const size_t thedim,
 	     const size_t thelen,
@@ -102,9 +115,10 @@ namespace d2 {
     std::vector< d2<D2Type> > vec;    
     
     /* get specific d2 in the block */
-    inline d2<D2Type> operator[](size_t ind) const {return vec[ind];}
+    inline d2<D2Type>& operator[](size_t ind) {return vec[ind];}
 
     int append(std::istream &is);
+    void align_d2vec();
   private:
     /* actual binary data */
     real_t *p_w;
@@ -120,26 +134,44 @@ namespace d2 {
     if (is.fail() || is.eof()) return 1;
     assert(theone.dim == dim);
     if (theone.len + col > max_col) {
+      std::cerr << "Warning: memory insufficient, reallocate!" << std::endl;
       if (type == "euclidean") {
 	max_col *=2;
 	p_w = (real_t*) realloc(p_w, sizeof(real_t)*max_col);
 	p_supp = (real_t*) realloc(p_supp, sizeof(real_t)*max_col*dim);
       } else {
-	std::cerr << "Unrecognized type!" << std::endl;
+	std::cerr << "Error: unrecognized type!" << std::endl;
+	exit(1);
       }
     }
-    size += 1;
-    col += theone.len;
     if (theone.len > max_len) max_len = theone.len;
     theone.w = p_w + col;
     if (type == "euclidean") {
       theone.supp = p_supp + col*dim;
     } else {
-      std::cerr << "Unrecognized type!" << std::endl;
+      std::cerr << "Error: unrecognized type!" << std::endl;
+      exit(1);
     }
     is >> theone;
+    vec.push_back(theone);
+
+    size += 1;
+    col += theone.len;
 
     return is.eof();
+  }
+
+  template <typename D2Type>
+  void d2_block<D2Type>::align_d2vec() {
+    if (type == "euclidean") {
+      assert(size > 0);
+      vec[0].w = p_w;
+      vec[0].supp = p_supp;
+      for (size_t i=1; i<size; ++i) {
+	vec[i].w = vec[i-1].w + vec[i-1].len;
+	vec[i].supp = vec[i-1].supp + vec[i-1].len * dim;
+      }
+    }
   }
   
 
@@ -164,14 +196,14 @@ namespace d2 {
     };
 
     /* file io */
-    void read(std::string filename, size_t size);
-    void write(std::string filename);
+    void read(const std::string &filename, const size_t size);
+    void write(const std::string &filename);
 
-
-    void write_split(std::string filename);    
+    
+    void write_split(const std::string &filename);    
   };
 
-  void mult_d2_block::read(std::string filename, size_t size) {
+  void mult_d2_block::read(const std::string &filename, const size_t size) {
     std::ifstream fs;
     int checkEnd = 0;
     fs.open(filename, std::ifstream::in);
@@ -184,10 +216,35 @@ namespace d2 {
       if (checkEnd > 0) break;
     }
     this->size = phase.back()->size;
+    for (size_t j =0; j<phase.size(); ++j) {
+      phase[j]->align_d2vec();
+    }
     if (this->size < size) 
       std::cerr << "Warning: only read " << this->size << " instances." << std::endl; 
-
+   
     fs.close();
+  }
+
+  void mult_d2_block::write(const std::string &filename) {
+    if (filename != "") {
+      std::ofstream fs;
+      fs.open(filename, std::ofstream::out);
+      assert(fs.is_open());
+
+      for (size_t i=0; i<size; ++i) {
+	for (size_t j=0; j<phase.size(); ++j) {
+	  (*phase[j])[i].put(fs);
+	}
+      }
+      fs.close();    
+    } else {
+      for (size_t i=0; i<size; ++i) {
+	for (size_t j=0; j<phase.size(); ++j) {
+	  (*phase[j])[i].put(std::cout);
+	}
+      }
+
+    }
   }
 
 }
