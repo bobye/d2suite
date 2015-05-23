@@ -82,8 +82,6 @@ namespace d2 {
 		  const std::string &thetype = std::string("euclidean")): 
       dim(thedim), len(thelen), type(thetype), col(0), max_len(0), size(0) {};
 
-    virtual int append(std::istream &is) = 0;
-    virtual void align_d2vec() = 0;
     virtual inline d2_base& operator[](size_t ind) = 0;
 
 
@@ -93,6 +91,9 @@ namespace d2 {
 
     std::string type;
 
+  private:
+    virtual int append(std::istream &is) = 0;
+    virtual void align_d2vec() = 0;
 
   };
 
@@ -117,12 +118,13 @@ namespace d2 {
     /* get specific d2 in the block */
     inline d2<D2Type>& operator[](size_t ind) {return vec[ind];}
 
-    int append(std::istream &is);
-    void align_d2vec();
   private:
     /* actual binary data */
     real_t *p_w;
     D2Type* p_supp;
+
+    int append(std::istream &is);
+    void align_d2vec();
 
   };
 
@@ -177,6 +179,7 @@ namespace d2 {
 
   class mult_d2_block {
   public:
+    friend d2_block_base;
     size_t size;
     std::vector< index_t > label;
     std::vector< d2_block_base* > phase;
