@@ -2,7 +2,9 @@
 #define _D2_IO_IMPL_H_
 
 
-#include "d2.hpp"
+#include "d2_data.hpp"
+
+#include <assert.h>
 
 namespace d2 {
 
