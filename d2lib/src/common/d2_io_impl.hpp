@@ -7,6 +7,13 @@
 namespace d2 {
 
   template <typename D2Type>
+  inline void d2<D2Type>::put(std::ostream &os) const { os << *this; }
+
+  std::ostream& operator<< (std::ostream&os, const d2_base &op) {
+    op.put(os); return os;
+  }
+
+  template <typename D2Type>
   std::istream& operator>> (std::istream& is, d2<D2Type> & op);
   template <typename D2Type>
   std::ostream& operator<< (std::ostream& os, const d2<D2Type> &op);
@@ -81,7 +88,7 @@ namespace d2 {
   }
   
 
-  void mult_d2_block::read(const std::string &filename, const size_t size) {
+  void md2_block::read(const std::string &filename, const size_t size) {
     std::ifstream fs;
     int checkEnd = 0;
     fs.open(filename, std::ifstream::in);
@@ -103,7 +110,7 @@ namespace d2 {
     fs.close();
   }
 
-  void mult_d2_block::write(const std::string &filename) {
+  void md2_block::write(const std::string &filename) {
     if (filename != "") {
       std::ofstream fs;
       fs.open(filename, std::ofstream::out);
@@ -111,14 +118,14 @@ namespace d2 {
 
       for (size_t i=0; i<size; ++i) {
 	for (size_t j=0; j<phase.size(); ++j) {
-	  (*phase[j])[i].put(fs);
+	  fs << (*phase[j])[i];
 	}
       }
       fs.close();    
     } else {
       for (size_t i=0; i<size; ++i) {
 	for (size_t j=0; j<phase.size(); ++j) {
-	  (*phase[j])[i].put(std::cout);
+	  std::cout << (*phase[j])[i];
 	}
       }
 

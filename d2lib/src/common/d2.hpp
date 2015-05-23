@@ -38,19 +38,19 @@ namespace d2 {
     /* this defines the support arrays */
     D2Type* supp;
 
-    inline void put(std::ostream &os) const { os << *this; }
+    inline void put(std::ostream &os) const;    
   };
 
-  template <typename D2Type1, typename D2Type2>
-  inline real_t GetDistance( const d2<D2Type1>& op1, 
-			     const d2<D2Type2>& op2, 
+  template <typename D2T1, typename D2T2>
+  inline real_t GetDistance( const d2<D2T1>& op1, 
+			     const d2<D2T2>& op2, 
 			     real_t* cache);
 
 
 
   class d2_block_base {
   public:
-    friend class mult_d2_block;
+    friend class md2_block;
     d2_block_base() {};
     d2_block_base(const size_t thesize, 
 		  const size_t thedim,
@@ -68,7 +68,11 @@ namespace d2 {
     std::string type;
 
   protected:
+    /* read from input stream and append a new d2 to current block */
     virtual int append(std::istream &is) = 0;
+    /* post processing to enforce vec[] of d2 aligning well with
+     * inner data blocks (aka. p_w and p_supp)
+     */
     virtual void align_d2vec() = 0;
 
   };
@@ -105,22 +109,23 @@ namespace d2 {
   };
 
 
-  class mult_d2_block {
+  class md2_block {
   public:
     size_t size;
     std::vector< index_t > label;
     std::vector< d2_block_base* > phase;
     std::vector< std::string > type;
 
-    mult_d2_block(const size_t n, 
-		  const size_t* dim_arr,
-		  const size_t* len_arr,
-		  const std::string* str_arr,
-		  const size_t num_of_phases = 1)
+    md2_block(const size_t n, 
+	      const size_t* dim_arr,
+	      const size_t* len_arr,
+	      const std::string* str_arr,
+	      const size_t num_of_phases = 1)
     {      
       for (size_t i=0; i<num_of_phases; ++i) {
-	if (str_arr[i] == "euclidean")
+	if (str_arr[i] == "euclidean") {
 	  phase.push_back( new d2_block<real_t>(n, dim_arr[i], len_arr[i], "euclidean"));
+	}
 	label.resize(n);
       }
     };
@@ -133,7 +138,8 @@ namespace d2 {
     void write_split(const std::string &filename);    
   };
 
-
 }
+
+#include "d2_io_impl.hpp"
 
 #endif /* _D2_H_ */
