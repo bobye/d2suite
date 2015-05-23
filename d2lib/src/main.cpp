@@ -4,9 +4,11 @@ int main(int argc, char** argv) {
 
   using namespace d2;
 
-  size_t len = 10, dim = 3;
-  std::vector<std::string> type; type.push_back("euclidean");
-  mult_d2_block data (100, &dim, &len, &type[0]);
+  size_t len[2] = {8, 8}, dim[2] = {3, 3}, size=2000;
+  std::string type[2] = {"euclidean", "euclidean"}; 
+  
+  mult_d2_block data (size, dim, len, type, 2);
+  data.read("mountaindat.d2", size);
 
   return 0;
 }

@@ -4,6 +4,8 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <fstream>
+
 #include <assert.h>
 
 namespace d2 {
@@ -46,7 +48,6 @@ namespace d2 {
   // specifications
   template <>
   std::istream& operator>> (std::istream& is, d2<real_t> & op) {
-    //is >> op.dim >> op.len;
     for (size_t i=0; i<op.len; ++i) is >> op.w[i];
     for (size_t i=0; i<op.len * op.dim; ++i) is >> op.supp[i];
     return is;
@@ -58,7 +59,7 @@ namespace d2 {
     for (size_t i=0; i<op.len; ++i) os << op.w[i]; os << std::endl;
     for (size_t i=0; i<op.len; ++i) {
       for (size_t j=0; j<op.dim; ++j) 
-	os << op.supp[i];
+	os << op.supp[i*op.dim + j];
       os << std::endl;
     }
     return os;
@@ -68,7 +69,19 @@ namespace d2 {
   class d2_block_base {
   public:
     d2_block_base() {};
+    d2_block_base(const size_t thesize, 
+		  const size_t thedim,
+		  const size_t thelen,
+		  const std::string &thetype = std::string("euclidean")): 
+      dim(thedim), len(thelen), type(thetype), col(0), max_len(0), size(0) {};
+
     virtual int append(std::istream &is) = 0;
+
+    size_t dim, size;
+    size_t len, max_len;
+    size_t col, max_col;
+
+    std::string type;
   };
 
   template <typename D2Type>
@@ -78,23 +91,18 @@ namespace d2 {
 	     const size_t thedim,
 	     const size_t thelen,
 	     const std::string &thetype = std::string("euclidean")): 
-      dim(thedim), len(thelen), type(thetype) {
+      d2_block_base(thesize, thedim, thelen, thetype) {
       // allocate block memory
       p_w = (real_t*) malloc(sizeof(real_t) * thesize * thelen);
       if (type == "euclidean") {
-	p_supp = (real_t *) malloc(sizeof(real_t) * thesize * thelen * dim);
+	p_supp = (real_t *) malloc(sizeof(real_t) * thesize * thelen * thedim);
       }
+      max_col = thesize*thelen;
     };
     std::vector< d2<D2Type> > vec;    
     
     /* get specific d2 in the block */
     inline d2<D2Type> operator[](size_t ind) const {return vec[ind];}
-
-    size_t dim, size;
-    size_t len, max_len;
-    size_t col, max_col;
-
-    std::string type;
 
     int append(std::istream &is);
   private:
@@ -109,6 +117,7 @@ namespace d2 {
   int d2_block<D2Type>::append(std::istream &is) {
     d2<D2Type> theone;
     is >> theone.dim >> theone.len;
+    if (is.fail() || is.eof()) return 1;
     assert(theone.dim == dim);
     if (theone.len + col > max_col) {
       if (type == "euclidean") {
@@ -130,7 +139,7 @@ namespace d2 {
     }
     is >> theone;
 
-    return 0;
+    return is.eof();
   }
   
 
@@ -162,8 +171,24 @@ namespace d2 {
     void write_split(std::string filename);    
   };
 
+  void mult_d2_block::read(std::string filename, size_t size) {
+    std::ifstream fs;
+    int checkEnd = 0;
+    fs.open(filename, std::ifstream::in);
+    assert(fs.is_open());
 
+    for (size_t i=0; i<size; ++i) {
+      for (size_t j=0; j<phase.size(); ++j) {
+	checkEnd += phase[j]->append(fs);
+      }
+      if (checkEnd > 0) break;
+    }
+    this->size = phase.back()->size;
+    if (this->size < size) 
+      std::cerr << "Warning: only read " << this->size << " instances." << std::endl; 
 
+    fs.close();
+  }
 
 }
 
