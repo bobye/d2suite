@@ -1,5 +1,9 @@
 # d2lib
-C++ Library of Discrete Distribution based Data Processing
+`d2lib` is a C++ library of discrete distribution
+(d2) based data processing framework. It also contains a collection of
+computing tools supporting the analysis of d2 data.
+
+*[under construction]*
 
 ## Data Format Specifications
  - discrete distribution over Euclidean space
@@ -7,11 +11,14 @@ C++ Library of Discrete Distribution based Data Processing
  - n-gram data with cross-term distance
  - dense histogram
 
-## Basic Functionality
+## Basic Functions
  - distributed/serial IO 
  - compute Wasserstein distance between a pair of D2.
 
 
-## Learning
- - Nearest Neighbors (TBA)
- - D2-clustering (TBA)
+## Learnings
+ - nearest neighbors [TBA]
+ - D2-clustering [TBA]
+
+## Tools
+ - document analysis: from bag-of-words to .d2s format [TBA]
