@@ -3,6 +3,7 @@
 
 
 #include "d2_data.hpp"
+#include "timer.h"
 
 #include <assert.h>
 
@@ -179,6 +180,8 @@ namespace d2 {
     std::ifstream fs;
     int checkEnd = 0;
 
+    double startTime = getRealTime();
+
     for (size_t i=0; i<phase.size(); ++i) 
       phase[i]->read_meta(filename + ".meta" + std::to_string(i));
 
@@ -200,6 +203,8 @@ namespace d2 {
       std::cerr << "Warning: only read " << this->size << " instances." << std::endl; 
    
     fs.close();
+
+    std::cerr << "Logging: read data in " << (getRealTime() - startTime) << " seconds." << std::endl;
   }
 
   void md2_block::write(const std::string &filename) {
