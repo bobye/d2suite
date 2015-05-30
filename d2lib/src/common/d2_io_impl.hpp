@@ -106,8 +106,14 @@ namespace d2 {
       if (type == "euclidean") {
 	max_col *=2;
 	p_w = (real_t*) realloc(p_w, sizeof(real_t)*max_col);
-	p_supp = (real_t*) realloc(p_supp, sizeof(real_t)*max_col*dim);
-      } else {
+	p_supp = (D2Type*) realloc(p_supp, sizeof(D2Type)*max_col*dim);
+      }
+      else if (type == "wordid") {
+	max_col *=2;
+	p_w = (real_t*) realloc(p_w, sizeof(real_t)*max_col);
+	p_supp = (D2Type*) realloc(p_supp, sizeof(D2Type)*max_col);
+      }
+      else {
 	std::cerr << "Error: unrecognized type!" << std::endl;
 	exit(1);
       }
@@ -116,7 +122,11 @@ namespace d2 {
     theone.w = p_w + col;
     if (type == "euclidean") {
       theone.supp = p_supp + col*dim;
-    } else {
+    } 
+    else if (type == "wordid") {
+      theone.supp = p_supp + col;
+    }
+    else {
       std::cerr << "Error: unrecognized type!" << std::endl;
       exit(1);
     }
@@ -131,14 +141,19 @@ namespace d2 {
 
   template <typename D2Type>
   void d2_block<D2Type>::align_d2vec() {
+    assert(size > 0);
+    vec[0].w = p_w;
+    vec[0].supp = p_supp;
     if (type == "euclidean") {
-      assert(size > 0);
-      vec[0].w = p_w;
-      vec[0].supp = p_supp;
       for (size_t i=1; i<size; ++i) {
 	vec[i].w = vec[i-1].w + vec[i-1].len;
 	vec[i].supp = vec[i-1].supp + vec[i-1].len * dim;
       }
+    } else if (type == "wordid") {
+      for (size_t i=1; i<size; ++i) {
+	vec[i].w = vec[i-1].w + vec[i-1].len;
+	vec[i].supp = vec[i-1].supp + vec[i-1].len;
+      }      
     }
   }
 
@@ -151,9 +166,11 @@ namespace d2 {
     fs.open(filename, std::ifstream::in);
     assert(fs.is_open());
     fs >> meta.dict_size >> meta.dict_dim;
-    for (size_t i=0; i<meta.dict_size; ++i)
-      for (size_t j=0; j<meta.dict_dim; ++j)
-	fs >> meta.dict_embedding[i*meta.dict_dim + j];    
+    if (!meta.dict_embedding) {
+      meta.dict_embedding = (real_t*) malloc(sizeof(real_t)* meta.dict_size * meta.dict_dim);
+    }
+    for (size_t i=0; i<meta.dict_size*meta.dict_dim; ++i)
+	fs >> meta.dict_embedding[i];    
     fs.close();
   }
 

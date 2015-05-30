@@ -11,7 +11,8 @@ CPP_SOURCE_FILES=\
 
 
 CPP_SOURCE_WITH_MAIN=\
-	src/test/test_euclidean_io.cpp
+	src/test/test_euclidean_io.cpp\
+	src/test/test_20newsgroups_io.cpp
 
 
 ALL_OBJECTS=\
@@ -51,8 +52,8 @@ clean:
 		find . -name "$$pattern" | xargs rm; \
 	done
 
-test: $(TESTS)
+test: $(TESTS) all
 
 %.test: %
-	$<
+	$< > /dev/null
 

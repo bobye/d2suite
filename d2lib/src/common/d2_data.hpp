@@ -76,7 +76,9 @@ namespace d2 {
   class meta {};
 
   template <>
-  struct meta<index_t> {
+  class meta<index_t> {
+  public:
+    meta(): dict_size(0), dict_dim(0), dict_embedding(NULL) {};
     size_t dict_size, dict_dim;
     real_t *dict_embedding;
   };
@@ -93,7 +95,10 @@ namespace d2 {
       // allocate block memory
       p_w = (real_t*) malloc(sizeof(real_t) * thesize * thelen);
       if (type == "euclidean") {
-	p_supp = (real_t *) malloc(sizeof(real_t) * thesize * thelen * thedim);
+	p_supp = (D2Type *) malloc(sizeof(D2Type) * thesize * thelen * thedim);
+      }
+      if (type == "wordid") {
+	p_supp = (D2Type *) malloc(sizeof(D2Type) * thesize * thelen);
       }
       max_col = thesize*thelen;
     };
@@ -133,6 +138,9 @@ namespace d2 {
       for (size_t i=0; i<num_of_phases; ++i) {
 	if (str_arr[i] == "euclidean") {
 	  phase.push_back( new d2_block<real_t>(n, dim_arr[i], len_arr[i], "euclidean"));
+	}
+	if (str_arr[i] == "wordid") {
+	  phase.push_back( new d2_block<index_t>(n, dim_arr[i], len_arr[i], "wordid"));
 	}
 	label.resize(n);
       }
