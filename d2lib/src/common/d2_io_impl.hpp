@@ -141,11 +141,31 @@ namespace d2 {
       }
     }
   }
-  
+
+  template <>
+  void d2_block<real_t>::read_meta(const std::string &filename) {}
+
+  template <>
+  void d2_block<index_t>::read_meta(const std::string &filename) {
+    std::ifstream fs;
+    fs.open(filename, std::ifstream::in);
+    assert(fs.is_open());
+    fs >> meta.dict_size >> meta.dict_dim;
+    for (size_t i=0; i<meta.dict_size; ++i)
+      for (size_t j=0; j<meta.dict_dim; ++j)
+	fs >> meta.dict_embedding[i*meta.dict_dim + j];    
+    fs.close();
+  }
+
 
   void md2_block::read(const std::string &filename, const size_t size) {
     std::ifstream fs;
     int checkEnd = 0;
+
+    for (size_t i=0; i<phase.size(); ++i) 
+      phase[i]->read_meta(filename + ".meta" + std::to_string(i));
+
+    /* read main file */
     fs.open(filename, std::ifstream::in);
     assert(fs.is_open());
 

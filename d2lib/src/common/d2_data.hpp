@@ -61,6 +61,7 @@ namespace d2 {
     std::string type;
 
   protected:
+    virtual void read_meta(const std::string &filename) = 0;
     /* read from input stream and append a new d2 to current block */
     virtual int append(std::istream &is) = 0;
     /* post processing to enforce vec[] of d2 aligning well with
@@ -68,6 +69,16 @@ namespace d2 {
      */
     virtual void align_d2vec() = 0;
 
+  };
+
+
+  template <typename D2Type>
+  class meta {};
+
+  template <>
+  struct meta<index_t> {
+    size_t dict_size, dict_dim;
+    real_t *dict_embedding;
   };
 
   template <typename D2Type>
@@ -93,13 +104,17 @@ namespace d2 {
 
   protected:
     /* actual binary data */
+    typedef meta<D2Type> MetaType;
     real_t *p_w;
     D2Type* p_supp;
+    MetaType meta;
 
     int append(std::istream &is);
     void align_d2vec();
+    void read_meta(const std::string &filename);
 
   };
+
 
 
   class md2_block {
