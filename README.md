@@ -19,6 +19,7 @@ computing tools supporting the analysis of d2 data.
 ## Learnings
  - nearest neighbors [TBA]
  - D2-clustering [TBA]
+ - Dirichlet process [TBA]
 
 ## Tools
  - document analysis: from bag-of-words to .d2s format [TBA]
