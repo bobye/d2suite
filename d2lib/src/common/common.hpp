@@ -1,3 +1,4 @@
+#include <string>
 
 namespace d2 {
 
@@ -11,5 +12,12 @@ namespace d2 {
    */
   typedef unsigned index_t;
 
+#ifdef RABIT_RABIT_H_
+  inline const std::string getLogHeader() 
+  {return std::string("@d2lib(") + std::to_string(rabit::GetRank()) + ")";}
+#else
+  inline const std::string getLogHeader() 
+  {return std::string("@d2lib");}
+#endif
 
 }

@@ -7,5 +7,6 @@
 
 #include "d2_data.hpp"
 #include "d2_io_impl.hpp"
+//#include "d2_io_impl_rabit.hpp"
 
 #endif /* _D2_H_ */

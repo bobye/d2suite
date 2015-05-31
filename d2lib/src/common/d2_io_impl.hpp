@@ -4,7 +4,7 @@
 
 #include "d2_data.hpp"
 #include "timer.h"
-#include <rabit.h>
+#include <string>
 #include <assert.h>
 #include <algorithm>
 
@@ -104,7 +104,7 @@ namespace d2 {
     if (is.fail() || is.eof()) return 1;
     assert(theone.dim == dim);
     if (theone.len + col > max_col) {
-      std::cerr << "@d2lib warning: memory insufficient, reallocate!" << std::endl;
+      std::cerr << getLogHeader() << " warning: memory insufficient, reallocate!" << std::endl;
       if (type == "euclidean") {
 	max_col *=2;
 	p_w = (real_t*) realloc(p_w, sizeof(real_t)*max_col);
@@ -116,7 +116,7 @@ namespace d2 {
 	p_supp = (D2Type*) realloc(p_supp, sizeof(D2Type)*max_col);
       }
       else {
-	std::cerr << "@d2lib error: unrecognized type!" << std::endl;
+	std::cerr << getLogHeader() << " error: unrecognized type!" << std::endl;
 	exit(1);
       }
     }
@@ -129,7 +129,7 @@ namespace d2 {
       theone.supp = p_supp + col;
     }
     else {
-      std::cerr << "@d2lib error: unrecognized type!" << std::endl;
+      std::cerr << getLogHeader() << " error: unrecognized type!" << std::endl;
       exit(1);
     }
     is >> theone;
@@ -177,21 +177,24 @@ namespace d2 {
   }
 
 
-  void md2_block::read(const std::string &filename, const size_t size) {
+  void md2_block::read_meta(const std::string &filename) {
+    using namespace std;
+    double startTime = getRealTime();
+    for (size_t i=0; i<phase.size(); ++i) 
+      phase[i]->read_meta(filename + ".meta" + to_string(i));
+    cerr << getLogHeader() << " logging: read meta data in " 
+	 << (getRealTime() - startTime) << " seconds." << endl;    
+  }
+
+  void md2_block::read_main(const std::string &filename, const size_t size) {
     using namespace std;
     ifstream fs;
     int checkEnd = 0;
 
     double startTime = getRealTime();
 
-    for (size_t i=0; i<phase.size(); ++i) 
-      phase[i]->read_meta(filename + ".meta" + to_string(i));
-
     /* read main file */
-    if (rabit::GetWorldSize() == 1)
-      { fs.open(filename, ifstream::in); }
-    else 
-      { fs.open(filename + ".part" + to_string(rabit::GetRank()), ifstream::in); }
+    { fs.open(filename, ifstream::in); }
     assert(fs.is_open());
 
     for (size_t i=0; i<size; ++i) {
@@ -204,17 +207,23 @@ namespace d2 {
     for (size_t j =0; j<phase.size(); ++j) {
       phase[j]->align_d2vec();
     }
-    if (this->size < size) 
-      cerr << "@d2lib(" << rabit::GetRank()<< ") warning: only read " << this->size << " instances." << endl; 
-   
-    fs.close();
 
-    cerr << "@d2lib(" << rabit::GetRank()<< ") logging: read data in " << (getRealTime() - startTime) << " seconds." << endl;
+    if (this->size < size) {
+      cerr << getLogHeader() << " warning: only read " 
+	   << this->size << " instances." << endl; 
+    }
+    fs.close();
+    cerr << getLogHeader() << " logging: read data in " 
+	 << (getRealTime() - startTime) << " seconds." << endl;
+  }
+
+  void md2_block::read(const std::string &filename, const size_t size) {
+    read_meta(filename);
+    read_main(filename, size);
   }
 
   void md2_block::write(const std::string &filename) const {
     using namespace std;
-    if (rabit::GetWorldSize() > 1 && rabit::GetRank() != 0) return;
 
     if (filename != "") {
       ofstream fs;
@@ -239,7 +248,6 @@ namespace d2 {
 
   void md2_block::split_write(const std::string &filename, const int num_of_copies) const {
     using namespace std;
-    if (rabit::GetWorldSize() > 1 && rabit::GetRank() != 0) return;
     
     vector<size_t> rand_ind(size);
     for (size_t i=0; i<size; ++i) rand_ind[i] = i;
@@ -261,11 +269,11 @@ namespace d2 {
 	}
       }
       for (int j=0; j<num_of_copies; ++j) fs[j].close();
-      cerr << "@d2lib logging: write data into part0.." << num_of_copies << " in " 
+      cerr << getLogHeader() << " logging: write data into part0.." << num_of_copies << " in " 
 	   << (getRealTime() - startTime) << " seconds." << endl;
       
     } else {
-      cerr << "@d2lib error: empty filename specified." << endl;
+      cerr << getLogHeader() << " error: empty filename specified." << endl;
     }
   }
 

@@ -60,6 +60,7 @@ namespace d2 {
 
     std::string type;
 
+    size_t global_size;
   protected:
     virtual void read_meta(const std::string &filename) = 0;
     /* read from input stream and append a new d2 to current block */
@@ -87,7 +88,6 @@ namespace d2 {
   class d2_block : public d2_block_base {
   public:
     typedef d2_block<D2Type> T;
-    d2_block() {};
     d2_block(const size_t thesize, 
 	     const size_t thedim,
 	     const size_t thelen,
@@ -122,14 +122,13 @@ namespace d2 {
   };
 
 
-
   class md2_block {
   public:
     size_t size;
     std::vector< index_t > label;
     std::vector< d2_block_base* > phase;
     std::vector< std::string > type;
-
+    md2_block(){};
     md2_block(const size_t n, 
 	      const size_t* dim_arr,
 	      const size_t* len_arr,
@@ -151,11 +150,38 @@ namespace d2 {
     inline d2_block_base & operator[](size_t ind) const {return *phase[ind];}
 
     /* file io */
+    void read_meta(const std::string &filename);
+    void read_main(const std::string &filename, const size_t size);
     void read(const std::string &filename, const size_t size);
+
     void write(const std::string &filename) const;
     void split_write(const std::string &filename, const int num_of_copies) const;
     
     void write_split(const std::string &filename);    
+  };
+
+  class parallel_md2_block : public md2_block {    
+  public:
+    size_t global_size;
+    parallel_md2_block(const size_t n, 
+		       const size_t* dim_arr,
+		       const size_t* len_arr,
+		       const std::string* str_arr,
+		       const size_t num_of_phases = 1)
+    {      
+      for (size_t i=0; i<num_of_phases; ++i) {
+	if (str_arr[i] == "euclidean") {
+	  phase.push_back( new d2_block<real_t>(n, dim_arr[i], len_arr[i], "euclidean"));
+	}
+	if (str_arr[i] == "wordid") {
+	  phase.push_back( new d2_block<index_t>(n, dim_arr[i], len_arr[i], "wordid"));
+	}
+	label.resize(n);
+      }
+    }; 
+    void read_main(const std::string &filename, const size_t size);
+    void read(const std::string &filename, const size_t size);
+   
   };
 
 }

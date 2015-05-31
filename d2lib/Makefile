@@ -44,7 +44,7 @@ all: $(EXECUTABLES)
 	$(CXX) $(CFLAGS) $(DEFINES) $(INCLUDES) -c -o $@ $<
 
 %.rabit: %_rabit.cpp Makefile
-	$(CXX) -MM -MT $@ -MF $(patsubst %.cpp,%.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
+	$(CXX) -MM -MT $@ -MF $(patsubst %_rabit.cpp,%.rabit.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
 	$(CXX) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
 
 %: %.cpp Makefile
