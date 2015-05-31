@@ -4,7 +4,7 @@
 
 #include "d2_data.hpp"
 #include "timer.h"
-
+#include <rabit.h>
 #include <assert.h>
 
 namespace d2 {
@@ -103,7 +103,7 @@ namespace d2 {
     if (is.fail() || is.eof()) return 1;
     assert(theone.dim == dim);
     if (theone.len + col > max_col) {
-      std::cerr << "Warning: memory insufficient, reallocate!" << std::endl;
+      std::cerr << "@d2lib warning: memory insufficient, reallocate!" << std::endl;
       if (type == "euclidean") {
 	max_col *=2;
 	p_w = (real_t*) realloc(p_w, sizeof(real_t)*max_col);
@@ -115,7 +115,7 @@ namespace d2 {
 	p_supp = (D2Type*) realloc(p_supp, sizeof(D2Type)*max_col);
       }
       else {
-	std::cerr << "Error: unrecognized type!" << std::endl;
+	std::cerr << "@d2lib error: unrecognized type!" << std::endl;
 	exit(1);
       }
     }
@@ -128,7 +128,7 @@ namespace d2 {
       theone.supp = p_supp + col;
     }
     else {
-      std::cerr << "Error: unrecognized type!" << std::endl;
+      std::cerr << "@d2lib error: unrecognized type!" << std::endl;
       exit(1);
     }
     is >> theone;
@@ -177,16 +177,20 @@ namespace d2 {
 
 
   void md2_block::read(const std::string &filename, const size_t size) {
-    std::ifstream fs;
+    using namespace std;
+    ifstream fs;
     int checkEnd = 0;
 
     double startTime = getRealTime();
 
     for (size_t i=0; i<phase.size(); ++i) 
-      phase[i]->read_meta(filename + ".meta" + std::to_string(i));
+      phase[i]->read_meta(filename + ".meta" + to_string(i));
 
     /* read main file */
-    fs.open(filename, std::ifstream::in);
+    if (rabit::GetWorldSize() == 1)
+      { fs.open(filename, ifstream::in); }
+    else 
+      { fs.open(filename + to_string(rabit::GetRank()), ifstream::in); }
     assert(fs.is_open());
 
     for (size_t i=0; i<size; ++i) {
@@ -200,17 +204,20 @@ namespace d2 {
       phase[j]->align_d2vec();
     }
     if (this->size < size) 
-      std::cerr << "Warning: only read " << this->size << " instances." << std::endl; 
+      cerr << "@d2lib warning: only read " << this->size << " instances." << endl; 
    
     fs.close();
 
-    std::cerr << "Logging: read data in " << (getRealTime() - startTime) << " seconds." << std::endl;
+    cerr << "@d2lib logging: read data in " << (getRealTime() - startTime) << " seconds." << endl;
   }
 
   void md2_block::write(const std::string &filename) {
+    using namespace std;
+    if (rabit::GetWorldSize() > 1 && rabit::GetRank() != 0) return;
+
     if (filename != "") {
-      std::ofstream fs;
-      fs.open(filename, std::ofstream::out);
+      ofstream fs;
+      fs.open(filename, ofstream::out);
       assert(fs.is_open());
 
       for (size_t i=0; i<size; ++i) {
@@ -222,7 +229,7 @@ namespace d2 {
     } else {
       for (size_t i=0; i<size; ++i) {
 	for (size_t j=0; j<phase.size(); ++j) {
-	  std::cout << (*phase[j])[i];
+	  cout << (*phase[j])[i];
 	}
       }
 

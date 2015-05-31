@@ -21,5 +21,19 @@ computing tools supporting the analysis of d2 data.
  - D2-clustering [TBA]
  - Dirichlet process [TBA]
 
-## Tools
+## Builds
+
+Dependancies
+ - BLAS
+ - [rabit](https://github.com/dmlc/rabit): the use of generic parallel infrastructure
+ - [mosek](https://www.mosek.com): fast LP/QP solvers
+
+Make sure you have those re-compiled libraries installed and
+configured in the [d2lib/Makefile](d2lib/Makefile).
+```bash
+cd d2lib && make && make test
+```
+
+## Other Tools
  - document analysis: from bag-of-words to .d2s format [TBA]
+

@@ -5,7 +5,8 @@ ARCH_FLAGS=-m64
 CFLAGS=-Wextra -Wall -pedantic-errors -O3 $(ARCH_FLAGS)
 LDFLAGS=$(ARCH_FLAGS)
 DEFINES=
-INCLUDE=
+INCLUDES=-I../rabit/include
+LIBRARIES=-L../rabit/lib -lrabit
 
 CPP_SOURCE_FILES=\
 
@@ -39,7 +40,7 @@ all: $(EXECUTABLES)
 
 %: %.cpp Makefile
 	$(CXX) -MM -MT $@ -MF $(patsubst %.cpp,%.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
-	$(CXX) $(LDFLAGS) $(DEFINES) -o $@ $< $(LIBRARIES)
+	$(CXX) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
 
 
 -include $(DEPENDENCY_FILES)
