@@ -15,15 +15,20 @@ CPP_SOURCE_WITH_MAIN=\
 	src/test/test_euclidean_io.cpp\
 	src/test/test_20newsgroups_io.cpp
 
+RABIT_SOURCE_WITH_MAIN=\
+	src/test/test_20newsgroups_io_rabit.cpp
+
 
 ALL_OBJECTS=\
 	$(patsubst %.cpp, %.o, $(CPP_SOURCE_FILES))
 
 EXECUTABLES=\
+	$(patsubst %_rabit.cpp, %.rabit, $(RABIT_SOURCE_WITH_MAIN))\
 	$(patsubst %.cpp, %, $(CPP_SOURCE_WITH_MAIN))
 
 TESTS=\
-	$(patsubst %.cpp, %.test, $(CPP_SOURCE_WITH_MAIN))
+	$(patsubst %.cpp, %.test, $(CPP_SOURCE_WITH_MAIN))\
+	$(patsubst %_rabit.cpp, %.rabit_test, $(RABIT_SOURCE_WITH_MAIN))
 
 DEPENDENCY_FILES=\
 	$(patsubst %.o, %.d, $(ALL_OBJECTS))\
@@ -37,6 +42,10 @@ all: $(EXECUTABLES)
 	$(CXX) -MM -MT $@ -MF $(patsubst %.cpp,%.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
 	@# Compile
 	$(CXX) $(CFLAGS) $(DEFINES) $(INCLUDES) -c -o $@ $<
+
+%.rabit: %_rabit.cpp Makefile
+	$(CXX) -MM -MT $@ -MF $(patsubst %.cpp,%.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
+	$(CXX) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
 
 %: %.cpp Makefile
 	$(CXX) -MM -MT $@ -MF $(patsubst %.cpp,%.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
@@ -58,3 +67,5 @@ test: $(TESTS) all
 %.test: %
 	$< > /dev/null
 
+%.rabit_test: %.rabit
+	../rabit/tracker/rabit_demo.py -n 4 $<

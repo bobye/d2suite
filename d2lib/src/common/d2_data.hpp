@@ -51,7 +51,7 @@ namespace d2 {
 		  const std::string &thetype = std::string("euclidean")): 
       dim(thedim), len(thelen), type(thetype), col(0), max_len(0), size(0) {};
 
-    virtual inline d2_base& operator[](size_t ind) = 0;
+    virtual inline d2_base& operator[](const size_t ind) = 0;
 
 
     size_t dim, size;
@@ -87,6 +87,7 @@ namespace d2 {
   class d2_block : public d2_block_base {
   public:
     typedef d2_block<D2Type> T;
+    d2_block() {};
     d2_block(const size_t thesize, 
 	     const size_t thedim,
 	     const size_t thelen,
@@ -105,7 +106,7 @@ namespace d2 {
     std::vector< d2<D2Type> > vec;    
     
     /* get specific d2 in the block */
-    inline d2<D2Type>& operator[](size_t ind) {return vec[ind];}
+    inline d2<D2Type>& operator[](const size_t ind) {return vec[ind];}
 
   protected:
     /* actual binary data */
@@ -146,10 +147,13 @@ namespace d2 {
       }
     };
 
+    inline d2_block_base & operator[](size_t ind) {return *phase[ind];}
+    inline d2_block_base & operator[](size_t ind) const {return *phase[ind];}
+
     /* file io */
     void read(const std::string &filename, const size_t size);
-    void write(const std::string &filename);
-
+    void write(const std::string &filename) const;
+    void split_write(const std::string &filename, const int num_of_copies) const;
     
     void write_split(const std::string &filename);    
   };

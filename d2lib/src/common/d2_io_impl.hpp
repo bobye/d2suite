@@ -6,6 +6,7 @@
 #include "timer.h"
 #include <rabit.h>
 #include <assert.h>
+#include <algorithm>
 
 namespace d2 {
 
@@ -190,7 +191,7 @@ namespace d2 {
     if (rabit::GetWorldSize() == 1)
       { fs.open(filename, ifstream::in); }
     else 
-      { fs.open(filename + to_string(rabit::GetRank()), ifstream::in); }
+      { fs.open(filename + ".part" + to_string(rabit::GetRank()), ifstream::in); }
     assert(fs.is_open());
 
     for (size_t i=0; i<size; ++i) {
@@ -204,14 +205,14 @@ namespace d2 {
       phase[j]->align_d2vec();
     }
     if (this->size < size) 
-      cerr << "@d2lib warning: only read " << this->size << " instances." << endl; 
+      cerr << "@d2lib(" << rabit::GetRank()<< ") warning: only read " << this->size << " instances." << endl; 
    
     fs.close();
 
-    cerr << "@d2lib logging: read data in " << (getRealTime() - startTime) << " seconds." << endl;
+    cerr << "@d2lib(" << rabit::GetRank()<< ") logging: read data in " << (getRealTime() - startTime) << " seconds." << endl;
   }
 
-  void md2_block::write(const std::string &filename) {
+  void md2_block::write(const std::string &filename) const {
     using namespace std;
     if (rabit::GetWorldSize() > 1 && rabit::GetRank() != 0) return;
 
@@ -222,17 +223,49 @@ namespace d2 {
 
       for (size_t i=0; i<size; ++i) {
 	for (size_t j=0; j<phase.size(); ++j) {
-	  fs << (*phase[j])[i];
+	  fs << (*this)[j][i];
 	}
       }
       fs.close();    
     } else {
       for (size_t i=0; i<size; ++i) {
 	for (size_t j=0; j<phase.size(); ++j) {
-	  cout << (*phase[j])[i];
+	  cout << (*this)[j][i];
 	}
       }
 
+    }
+  }
+
+  void md2_block::split_write(const std::string &filename, const int num_of_copies) const {
+    using namespace std;
+    if (rabit::GetWorldSize() > 1 && rabit::GetRank() != 0) return;
+    
+    vector<size_t> rand_ind(size);
+    for (size_t i=0; i<size; ++i) rand_ind[i] = i;
+    random_shuffle(rand_ind.begin(), rand_ind.end());
+
+    if (filename != "") {
+      assert(num_of_copies > 1);
+      double startTime = getRealTime();
+      vector<ofstream> fs(num_of_copies);
+      size_t batch_size = (size-1) / num_of_copies + 1;
+
+      for (int j=0; j<num_of_copies; ++j) {
+	fs[j].open(filename + ".part" + to_string(j), ofstream::out);
+	assert(fs[j].is_open());
+      }
+      for (size_t i=0; i<size; ++i) {
+	for (size_t j=0; j<phase.size(); ++j) {
+	  fs[i/batch_size] << (*this)[j][rand_ind[i]];
+	}
+      }
+      for (int j=0; j<num_of_copies; ++j) fs[j].close();
+      cerr << "@d2lib logging: write data into part0.." << num_of_copies << " in " 
+	   << (getRealTime() - startTime) << " seconds." << endl;
+      
+    } else {
+      cerr << "@d2lib error: empty filename specified." << endl;
     }
   }
 
