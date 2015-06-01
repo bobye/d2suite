@@ -1,6 +1,6 @@
 # d2lib
-`d2lib` is a C++ library of discrete distribution
-(d2) based data processing framework. It also contains a collection of
+`d2lib` is a C++ library of discrete distribution (d2) based 
+large-scale data processing framework. It also contains a collection of
 computing tools supporting the analysis of d2 data.
 
 *[under construction]*
@@ -23,7 +23,7 @@ computing tools supporting the analysis of d2 data.
 
 ## Builds
 
-Dependancies
+Dependencies
  - BLAS
  - [rabit](https://github.com/dmlc/rabit): the use of generic parallel infrastructure
  - [mosek](https://www.mosek.com): fast LP/QP solvers
