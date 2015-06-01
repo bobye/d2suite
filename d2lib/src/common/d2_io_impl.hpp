@@ -105,33 +105,13 @@ namespace d2 {
     assert(theone.dim == dim);
     if (theone.len + col > max_col) {
       std::cerr << getLogHeader() << " warning: memory insufficient, reallocate!" << std::endl;
-      if (type == "euclidean") {
-	max_col *=2;
-	p_w = (real_t*) realloc(p_w, sizeof(real_t)*max_col);
-	p_supp = (SuppType*) realloc(p_supp, sizeof(SuppType)*max_col*dim);
-      }
-      else if (type == "wordid") {
-	max_col *=2;
-	p_w = (real_t*) realloc(p_w, sizeof(real_t)*max_col);
-	p_supp = (SuppType*) realloc(p_supp, sizeof(SuppType)*max_col);
-      }
-      else {
-	std::cerr << getLogHeader() << " error: unrecognized type!" << std::endl;
-	exit(1);
-      }
+      max_col *=2;
+      p_w = (real_t*) realloc(p_w, sizeof(real_t)*max_col);
+      p_supp = (SuppType*) realloc(p_supp, sizeof(SuppType)*D2Type::step_stride(max_col,dim));
     }
     if (theone.len > max_len) max_len = theone.len;
     theone.w = p_w + col;
-    if (type == "euclidean") {
-      theone.supp = p_supp + col*dim;
-    } 
-    else if (type == "wordid") {
-      theone.supp = p_supp + col;
-    }
-    else {
-      std::cerr << getLogHeader() << " error: unrecognized type!" << std::endl;
-      exit(1);
-    }
+    theone.supp = p_supp + D2Type::step_stride(col,dim);
     is >> theone;
     vec.push_back(theone);
 
@@ -146,16 +126,10 @@ namespace d2 {
     assert(size > 0);
     vec[0].w = p_w;
     vec[0].supp = p_supp;
-    if (type == "euclidean") {
-      for (size_t i=1; i<size; ++i) {
-	vec[i].w = vec[i-1].w + vec[i-1].len;
-	vec[i].supp = vec[i-1].supp + vec[i-1].len * dim;
-      }
-    } else if (type == "wordid") {
-      for (size_t i=1; i<size; ++i) {
-	vec[i].w = vec[i-1].w + vec[i-1].len;
-	vec[i].supp = vec[i-1].supp + vec[i-1].len;
-      }      
+
+    for (size_t i=1; i<size; ++i) {
+      vec[i].w = vec[i-1].w + vec[i-1].len;
+      vec[i].supp = vec[i-1].supp + D2Type::step_stride(vec[i-1].len, dim);
     }
   }
 
@@ -177,7 +151,8 @@ namespace d2 {
   }
 
 
-  void md2_block::read_meta(const std::string &filename) {
+  template<typename... Ts>
+  void md2_block<Ts...>::read_meta(const std::string &filename) {
     using namespace std;
     double startTime = getRealTime();
     for (size_t i=0; i<phase.size(); ++i) 
@@ -186,7 +161,8 @@ namespace d2 {
 	 << (getRealTime() - startTime) << " seconds." << endl;    
   }
 
-  void md2_block::read_main(const std::string &filename, const size_t size) {
+  template<typename... Ts>
+  void md2_block<Ts...>::read_main(const std::string &filename, const size_t size) {
     using namespace std;
     ifstream fs;
     int checkEnd = 0;
@@ -203,7 +179,7 @@ namespace d2 {
       }
       if (checkEnd > 0) break;
     }
-    this->size = phase.back()->size;
+    this->size = phase.back()->get_size();
     for (size_t j =0; j<phase.size(); ++j) {
       phase[j]->align_d2vec();
     }
@@ -217,12 +193,14 @@ namespace d2 {
 	 << (getRealTime() - startTime) << " seconds." << endl;
   }
 
-  void md2_block::read(const std::string &filename, const size_t size) {
+  template<typename... Ts>
+  void md2_block<Ts...>::read(const std::string &filename, const size_t size) {
     read_meta(filename);
     read_main(filename, size);
   }
 
-  void md2_block::write(const std::string &filename) const {
+  template<typename... Ts>
+  void md2_block<Ts...>::write(const std::string &filename) const {
     using namespace std;
 
     if (filename != "") {
@@ -246,7 +224,8 @@ namespace d2 {
     }
   }
 
-  void md2_block::split_write(const std::string &filename, const int num_of_copies) const {
+  template<typename... Ts>
+  void md2_block<Ts...>::split_write(const std::string &filename, const int num_of_copies) const {
     using namespace std;
     
     vector<size_t> rand_ind(size);
@@ -280,3 +259,4 @@ namespace d2 {
 }
 
 #endif /* _D2_IO_IMPL_H_ */
+

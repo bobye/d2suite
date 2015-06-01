@@ -8,9 +8,8 @@ int main(int argc, char** argv) {
   rabit::Init(argc, argv);
 
   size_t len[1] = {100}, dim[1] = {400}, size=20000;
-  std::string type[1] = {"wordid"}; 
   
-  parallel_md2_block data (size, dim, len, type, 1);
+  parallel_md2_block<def::WordVec> data (size, dim, len);
   std::string filename("data/20newsgroups/20newsgroups_clean/20newsgroups.d2s");
   data.read(filename, size);
 
