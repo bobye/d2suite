@@ -14,6 +14,28 @@ namespace d2 {
    * discrete distribution (d2) data. 
    */
 
+  namespace def {
+    struct Euclidean {
+      typedef real_t type;
+      static inline size_t supp_size(size_t col, size_t dim) {return col*dim;}
+    };
+
+    struct WordVec { // indexed vector
+      typedef index_t type;
+      static inline size_t supp_size(size_t col, size_t dim) {return col;}
+    };
+
+    struct NGram {
+      typedef char type;
+      static inline size_t supp_size(size_t col, size_t dim) {return col*dim;}
+    };
+
+    struct Histogram {
+      typedef void type;
+      static inline size_t supp_size(size_t col, size_t dim) {return 0;}
+    };
+  }
+
   class d2_base {
   public:
     virtual inline void put(std::ostream &os) const = 0;
@@ -29,7 +51,7 @@ namespace d2 {
     /* this defined the weight array of supports*/
     real_t* w;
     /* this defines the support arrays */
-    D2Type* supp;
+    typename D2Type::type* supp;
 
     inline void put(std::ostream &os) const;    
   };
@@ -47,9 +69,8 @@ namespace d2 {
     d2_block_base() {};
     d2_block_base(const size_t thesize, 
 		  const size_t thedim,
-		  const size_t thelen,
-		  const std::string &thetype = std::string("euclidean")): 
-      dim(thedim), len(thelen), type(thetype), col(0), max_len(0), size(0) {};
+		  const size_t thelen): 
+      dim(thedim), len(thelen), col(0), max_len(0), size(0) {};
 
     virtual inline d2_base& operator[](const size_t ind) = 0;
 
@@ -77,7 +98,7 @@ namespace d2 {
   class meta {};
 
   template <>
-  class meta<index_t> {
+  class meta<def::WordVec> {
   public:
     meta(): dict_size(0), dict_dim(0), dict_embedding(NULL) {};
     size_t dict_size, dict_dim;
@@ -86,21 +107,15 @@ namespace d2 {
 
   template <typename D2Type>
   class d2_block : public d2_block_base {
+    typedef typename D2Type::type SuppType;
   public:
-    typedef d2_block<D2Type> T;
     d2_block(const size_t thesize, 
 	     const size_t thedim,
-	     const size_t thelen,
-	     const std::string &thetype = std::string("euclidean")): 
-      d2_block_base(thesize, thedim, thelen, thetype) {
+	     const size_t thelen): 
+      d2_block_base(thesize, thedim, thelen) {
       // allocate block memory
       p_w = (real_t*) malloc(sizeof(real_t) * thesize * thelen);
-      if (type == "euclidean") {
-	p_supp = (D2Type *) malloc(sizeof(D2Type) * thesize * thelen * thedim);
-      }
-      if (type == "wordid") {
-	p_supp = (D2Type *) malloc(sizeof(D2Type) * thesize * thelen);
-      }
+      p_supp = (SuppType *) malloc(sizeof(SuppType) * D2Type::supp_size(thesize * thelen, thedim));
       max_col = thesize*thelen;
     };
     std::vector< d2<D2Type> > vec;    
@@ -112,7 +127,7 @@ namespace d2 {
     /* actual binary data */
     typedef meta<D2Type> MetaType;
     real_t *p_w;
-    D2Type* p_supp;
+    SuppType* p_supp;
     MetaType meta;
 
     int append(std::istream &is);
@@ -122,13 +137,14 @@ namespace d2 {
   };
 
 
+  //  template <typename T1, typename... Ts>
   class md2_block {
   public:
     size_t size;
     std::vector< index_t > label;
     std::vector< d2_block_base* > phase;
     std::vector< std::string > type;
-    md2_block(){};
+    md2_block(){};    
     md2_block(const size_t n, 
 	      const size_t* dim_arr,
 	      const size_t* len_arr,
@@ -137,10 +153,10 @@ namespace d2 {
     {      
       for (size_t i=0; i<num_of_phases; ++i) {
 	if (str_arr[i] == "euclidean") {
-	  phase.push_back( new d2_block<real_t>(n, dim_arr[i], len_arr[i], "euclidean"));
+	  phase.push_back( new d2_block<def::Euclidean>(n, dim_arr[i], len_arr[i]));
 	}
 	if (str_arr[i] == "wordid") {
-	  phase.push_back( new d2_block<index_t>(n, dim_arr[i], len_arr[i], "wordid"));
+	  phase.push_back( new d2_block<def::WordVec>(n, dim_arr[i], len_arr[i]));
 	}
 	label.resize(n);
       }
@@ -158,6 +174,20 @@ namespace d2 {
     void split_write(const std::string &filename, const int num_of_copies) const;
     
     void write_split(const std::string &filename);    
+
+  private:
+    /*
+    template<typename D1, typename...Ds>
+    void block_push_back_recursive(const size_t n, 
+				   const size_t* dim_arr,
+				   const size_t* len_arr,
+				   const index_t ind,
+				   const size_t num_of_phases) {
+      if (ind == num_of_phases) return;
+      phase.push_back(new d2_block<D1>(n, dim_arr[ind], len_arr[ind]));
+      block_push_back_recursive<Ds>(n, dim_arr, len_arr, ind+1, num_of_phases);
+    }
+    */
   };
 
   class parallel_md2_block : public md2_block {    
@@ -171,10 +201,10 @@ namespace d2 {
     {      
       for (size_t i=0; i<num_of_phases; ++i) {
 	if (str_arr[i] == "euclidean") {
-	  phase.push_back( new d2_block<real_t>(n, dim_arr[i], len_arr[i], "euclidean"));
+	  phase.push_back( new d2_block<def::Euclidean>(n, dim_arr[i], len_arr[i]));
 	}
 	if (str_arr[i] == "wordid") {
-	  phase.push_back( new d2_block<index_t>(n, dim_arr[i], len_arr[i], "wordid"));
+	  phase.push_back( new d2_block<def::WordVec>(n, dim_arr[i], len_arr[i]));
 	}
 	label.resize(n);
       }

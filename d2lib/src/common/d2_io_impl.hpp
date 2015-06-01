@@ -24,14 +24,14 @@ namespace d2 {
 
   // specifications
   template <>
-  std::istream& operator>> (std::istream& is, d2<real_t> & op) {
+  std::istream& operator>> (std::istream& is, d2<def::Euclidean> & op) {
     for (size_t i=0; i<op.len; ++i) is >> op.w[i];
     for (size_t i=0; i<op.len * op.dim; ++i) is >> op.supp[i];
     return is;
   }
 
   template <>
-  std::ostream& operator<< (std::ostream& os, const d2<real_t> & op) {
+  std::ostream& operator<< (std::ostream& os, const d2<def::Euclidean> & op) {
     os << op.dim << std::endl << op.len << std::endl;
     for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
     for (size_t i=0; i<op.len; ++i) {
@@ -43,14 +43,14 @@ namespace d2 {
   }
 
   template <>
-  std::istream& operator>> (std::istream& is, d2<index_t> & op) {
+  std::istream& operator>> (std::istream& is, d2<def::WordVec> & op) {
     for (size_t i=0; i<op.len; ++i) is >> op.w[i];
     for (size_t i=0; i<op.len; ++i) is >> op.supp[i];
     return is;
   }
 
   template <>
-  std::ostream& operator<< (std::ostream& os, const d2<index_t> & op) {
+  std::ostream& operator<< (std::ostream& os, const d2<def::WordVec> & op) {
     os << op.dim << std::endl << op.len << std::endl;
     for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
     for (size_t i=0; i<op.len; ++i) os << op.supp[i] << " "; os << std::endl;
@@ -58,7 +58,7 @@ namespace d2 {
   }
 
   template <>
-  std::istream& operator>> (std::istream& is, d2<char> & op) {
+  std::istream& operator>> (std::istream& is, d2<def::NGram> & op) {
     int c;
     for (size_t i=0; i<op.len; ++i) is >> op.w[i];
     for (size_t i=0; i<op.len; ++i) {      
@@ -69,7 +69,7 @@ namespace d2 {
   }
 
   template <>
-  std::ostream& operator<< (std::ostream& os, const d2<char> & op) {
+  std::ostream& operator<< (std::ostream& os, const d2<def::NGram> & op) {
     os << op.dim << std::endl << op.len << std::endl;
     for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
     for (size_t i=0; i<op.len; ++i) {
@@ -82,13 +82,13 @@ namespace d2 {
   }
 
   template <>
-  std::istream& operator>> (std::istream& is, d2<void> & op) {
+  std::istream& operator>> (std::istream& is, d2<def::Histogram> & op) {
     for (size_t i=0; i<op.len; ++i) is >> op.w[i];
     return is;
   }
 
   template <>
-  std::ostream& operator<< (std::ostream& os, const d2<void> & op) {
+  std::ostream& operator<< (std::ostream& os, const d2<def::Histogram> & op) {
     os << op.dim << std::endl << op.len << std::endl;
     for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
     return os;
@@ -108,12 +108,12 @@ namespace d2 {
       if (type == "euclidean") {
 	max_col *=2;
 	p_w = (real_t*) realloc(p_w, sizeof(real_t)*max_col);
-	p_supp = (D2Type*) realloc(p_supp, sizeof(D2Type)*max_col*dim);
+	p_supp = (SuppType*) realloc(p_supp, sizeof(SuppType)*max_col*dim);
       }
       else if (type == "wordid") {
 	max_col *=2;
 	p_w = (real_t*) realloc(p_w, sizeof(real_t)*max_col);
-	p_supp = (D2Type*) realloc(p_supp, sizeof(D2Type)*max_col);
+	p_supp = (SuppType*) realloc(p_supp, sizeof(SuppType)*max_col);
       }
       else {
 	std::cerr << getLogHeader() << " error: unrecognized type!" << std::endl;
@@ -160,10 +160,10 @@ namespace d2 {
   }
 
   template <>
-  void d2_block<real_t>::read_meta(const std::string &filename) {}
+  void d2_block<def::Euclidean>::read_meta(const std::string &filename) {}
 
   template <>
-  void d2_block<index_t>::read_meta(const std::string &filename) {
+  void d2_block<def::WordVec>::read_meta(const std::string &filename) {
     std::ifstream fs;
     fs.open(filename, std::ifstream::in);
     assert(fs.is_open());

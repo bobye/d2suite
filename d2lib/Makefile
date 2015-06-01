@@ -1,5 +1,5 @@
 CC=gcc
-CXX=g++
+CXX=g++ -std=c++11
 
 ARCH_FLAGS=-m64
 CFLAGS=-Wextra -Wall -pedantic-errors -O3 $(ARCH_FLAGS)
