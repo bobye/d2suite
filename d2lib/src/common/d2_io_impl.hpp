@@ -11,27 +11,27 @@
 namespace d2 {
 
   template <typename D2Type>
-  inline void d2<D2Type>::put(std::ostream &os) const { os << *this; }
+  inline void Elem<D2Type>::put_(std::ostream &os) const { os << *this; }
 
-  std::ostream& operator<< (std::ostream&os, const d2_base &op) {
-    op.put(os); return os;
+  std::ostream& operator<< (std::ostream&os, const ElemBase &op) {
+    op.put_(os); return os;
   }
 
   template <typename D2Type>
-  std::istream& operator>> (std::istream& is, d2<D2Type> & op);
+  std::istream& operator>> (std::istream& is, Elem<D2Type> & op);
   template <typename D2Type>
-  std::ostream& operator<< (std::ostream& os, const d2<D2Type> &op);
+  std::ostream& operator<< (std::ostream& os, const Elem<D2Type> &op);
 
   // specifications
   template <>
-  std::istream& operator>> (std::istream& is, d2<def::Euclidean> & op) {
+  std::istream& operator>> (std::istream& is, Elem<def::Euclidean> & op) {
     for (size_t i=0; i<op.len; ++i) is >> op.w[i];
     for (size_t i=0; i<op.len * op.dim; ++i) is >> op.supp[i];
     return is;
   }
 
   template <>
-  std::ostream& operator<< (std::ostream& os, const d2<def::Euclidean> & op) {
+  std::ostream& operator<< (std::ostream& os, const Elem<def::Euclidean> & op) {
     os << op.dim << std::endl << op.len << std::endl;
     for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
     for (size_t i=0; i<op.len; ++i) {
@@ -43,14 +43,14 @@ namespace d2 {
   }
 
   template <>
-  std::istream& operator>> (std::istream& is, d2<def::WordVec> & op) {
+  std::istream& operator>> (std::istream& is, Elem<def::WordVec> & op) {
     for (size_t i=0; i<op.len; ++i) is >> op.w[i];
     for (size_t i=0; i<op.len; ++i) is >> op.supp[i];
     return is;
   }
 
   template <>
-  std::ostream& operator<< (std::ostream& os, const d2<def::WordVec> & op) {
+  std::ostream& operator<< (std::ostream& os, const Elem<def::WordVec> & op) {
     os << op.dim << std::endl << op.len << std::endl;
     for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
     for (size_t i=0; i<op.len; ++i) os << op.supp[i] << " "; os << std::endl;
@@ -58,7 +58,7 @@ namespace d2 {
   }
 
   template <>
-  std::istream& operator>> (std::istream& is, d2<def::NGram> & op) {
+  std::istream& operator>> (std::istream& is, Elem<def::NGram> & op) {
     int c;
     for (size_t i=0; i<op.len; ++i) is >> op.w[i];
     for (size_t i=0; i<op.len; ++i) {      
@@ -69,7 +69,7 @@ namespace d2 {
   }
 
   template <>
-  std::ostream& operator<< (std::ostream& os, const d2<def::NGram> & op) {
+  std::ostream& operator<< (std::ostream& os, const Elem<def::NGram> & op) {
     os << op.dim << std::endl << op.len << std::endl;
     for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
     for (size_t i=0; i<op.len; ++i) {
@@ -82,13 +82,13 @@ namespace d2 {
   }
 
   template <>
-  std::istream& operator>> (std::istream& is, d2<def::Histogram> & op) {
+  std::istream& operator>> (std::istream& is, Elem<def::Histogram> & op) {
     for (size_t i=0; i<op.len; ++i) is >> op.w[i];
     return is;
   }
 
   template <>
-  std::ostream& operator<< (std::ostream& os, const d2<def::Histogram> & op) {
+  std::ostream& operator<< (std::ostream& os, const Elem<def::Histogram> & op) {
     os << op.dim << std::endl << op.len << std::endl;
     for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
     return os;
@@ -98,8 +98,8 @@ namespace d2 {
 
   /* append one d2 */
   template <typename D2Type>
-  int d2_block<D2Type>::append(std::istream &is) {
-    d2<D2Type> theone;
+  int Block<D2Type>::append(std::istream &is) {
+    Elem<D2Type> theone;
     is >> theone.dim >> theone.len;
     if (is.fail() || is.eof()) return 1;
     assert(theone.dim == dim);
@@ -113,7 +113,7 @@ namespace d2 {
     theone.w = p_w + col;
     theone.supp = p_supp + D2Type::step_stride(col,dim);
     is >> theone;
-    vec.push_back(theone);
+    vec_.push_back(theone);
 
     size += 1;
     col += theone.len;
@@ -122,47 +122,47 @@ namespace d2 {
   }
 
   template <typename D2Type>
-  void d2_block<D2Type>::align_d2vec() {
+  void Block<D2Type>::realign_vec() {
     assert(size > 0);
-    vec[0].w = p_w;
-    vec[0].supp = p_supp;
+    vec_[0].w = p_w;
+    vec_[0].supp = p_supp;
 
     for (size_t i=1; i<size; ++i) {
-      vec[i].w = vec[i-1].w + vec[i-1].len;
-      vec[i].supp = vec[i-1].supp + D2Type::step_stride(vec[i-1].len, dim);
+      vec_[i].w = vec_[i-1].w + vec_[i-1].len;
+      vec_[i].supp = vec_[i-1].supp + D2Type::step_stride(vec_[i-1].len, dim);
     }
   }
 
   template <>
-  void d2_block<def::Euclidean>::read_meta(const std::string &filename) {}
+  void Block<def::Euclidean>::read_meta(const std::string &filename) {}
 
   template <>
-  void d2_block<def::WordVec>::read_meta(const std::string &filename) {
+  void Block<def::WordVec>::read_meta(const std::string &filename) {
     std::ifstream fs;
     fs.open(filename, std::ifstream::in);
     assert(fs.is_open());
-    fs >> meta.dict_size >> meta.dict_dim;
-    if (!meta.dict_embedding) {
-      meta.dict_embedding = (real_t*) malloc(sizeof(real_t)* meta.dict_size * meta.dict_dim);
+    fs >> meta.size >> meta.dim;
+    if (!meta.embedding) {
+      meta.embedding = (real_t*) malloc(sizeof(real_t)* meta.size * meta.dim);
     }
-    for (size_t i=0; i<meta.dict_size*meta.dict_dim; ++i)
-	fs >> meta.dict_embedding[i];    
+    for (size_t i=0; i<meta.size*meta.dim; ++i)
+	fs >> meta.embedding[i];    
     fs.close();
   }
 
 
   template<typename... Ts>
-  void md2_block<Ts...>::read_meta(const std::string &filename) {
+  void BlockMultiPhase<Ts...>::read_meta(const std::string &filename) {
     using namespace std;
     double startTime = getRealTime();
-    for (size_t i=0; i<phase.size(); ++i) 
-      phase[i]->read_meta(filename + ".meta" + to_string(i));
+    for (size_t i=0; i<phase_.size(); ++i) 
+      phase_[i]->read_meta(filename + ".meta" + to_string(i));
     cerr << getLogHeader() << " logging: read meta data in " 
 	 << (getRealTime() - startTime) << " seconds." << endl;    
   }
 
   template<typename... Ts>
-  void md2_block<Ts...>::read_main(const std::string &filename, const size_t size) {
+  void BlockMultiPhase<Ts...>::read_main(const std::string &filename, const size_t size) {
     using namespace std;
     ifstream fs;
     int checkEnd = 0;
@@ -174,14 +174,14 @@ namespace d2 {
     assert(fs.is_open());
 
     for (size_t i=0; i<size; ++i) {
-      for (size_t j=0; j<phase.size(); ++j) {
-	checkEnd += phase[j]->append(fs);
+      for (size_t j=0; j<phase_.size(); ++j) {
+	checkEnd += phase_[j]->append(fs);
       }
       if (checkEnd > 0) break;
     }
-    this->size = phase.back()->get_size();
-    for (size_t j =0; j<phase.size(); ++j) {
-      phase[j]->align_d2vec();
+    this->size = phase_.back()->get_size();
+    for (size_t j =0; j<phase_.size(); ++j) {
+      phase_[j]->realign_vec();
     }
 
     if (this->size < size) {
@@ -194,13 +194,13 @@ namespace d2 {
   }
 
   template<typename... Ts>
-  void md2_block<Ts...>::read(const std::string &filename, const size_t size) {
+  void BlockMultiPhase<Ts...>::read(const std::string &filename, const size_t size) {
     read_meta(filename);
     read_main(filename, size);
   }
 
   template<typename... Ts>
-  void md2_block<Ts...>::write(const std::string &filename) const {
+  void BlockMultiPhase<Ts...>::write(const std::string &filename) const {
     using namespace std;
 
     if (filename != "") {
@@ -209,14 +209,14 @@ namespace d2 {
       assert(fs.is_open());
 
       for (size_t i=0; i<size; ++i) {
-	for (size_t j=0; j<phase.size(); ++j) {
+	for (size_t j=0; j<phase_.size(); ++j) {
 	  fs << (*this)[j][i];
 	}
       }
       fs.close();    
     } else {
       for (size_t i=0; i<size; ++i) {
-	for (size_t j=0; j<phase.size(); ++j) {
+	for (size_t j=0; j<phase_.size(); ++j) {
 	  cout << (*this)[j][i];
 	}
       }
@@ -225,7 +225,7 @@ namespace d2 {
   }
 
   template<typename... Ts>
-  void md2_block<Ts...>::split_write(const std::string &filename, const int num_of_copies) const {
+  void BlockMultiPhase<Ts...>::split_write(const std::string &filename, const int num_of_copies) const {
     using namespace std;
     
     vector<size_t> rand_ind(size);
@@ -243,7 +243,7 @@ namespace d2 {
 	assert(fs[j].is_open());
       }
       for (size_t i=0; i<size; ++i) {
-	for (size_t j=0; j<phase.size(); ++j) {
+	for (size_t j=0; j<phase_.size(); ++j) {
 	  fs[i/batch_size] << (*this)[j][rand_ind[i]];
 	}
       }

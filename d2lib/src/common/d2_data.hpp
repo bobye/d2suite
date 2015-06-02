@@ -37,13 +37,13 @@ namespace d2 {
     };
   }
 
-  class d2_base {
+  class ElemBase {
   public:
-    virtual inline void put(std::ostream &os) const = 0;
+    virtual inline void put_(std::ostream &os) const = 0;
   };
 
   template <typename D2Type>
-  class d2 : public d2_base {
+  class Elem : public ElemBase {
   public:
     /* this defines the dimension of supports */
     size_t dim;
@@ -54,14 +54,14 @@ namespace d2 {
     /* this defines the support arrays */
     typename D2Type::type* supp;
 
-    inline void put(std::ostream &os) const;    
+    inline void put_(std::ostream &os) const;    
   };
 
 
-  class d2_block_base { // interface
+  class BlockBase { // interface
   public:
 
-    virtual inline d2_base& operator[](const size_t ind) = 0;
+    virtual inline ElemBase& operator[](const size_t ind) = 0;
 
     virtual void read_meta(const std::string &filename) = 0;
     /* read from input stream and append a new d2 to current block */
@@ -69,7 +69,7 @@ namespace d2 {
     /* post processing to enforce vec[] of d2 aligning well with
      * inner data blocks (aka. p_w and p_supp)
      */
-    virtual void align_d2vec() = 0;
+    virtual void realign_vec() = 0;
     virtual size_t & get_size() = 0;
     virtual size_t get_size() const = 0;
     virtual size_t & get_global_size() = 0;
@@ -78,40 +78,42 @@ namespace d2 {
 
 
   template <typename D2Type>
-  class meta {};
+  class Meta {};
 
   template <>
-  class meta<def::WordVec> {
+  class Meta<def::WordVec> {
   public:
-    meta(): dict_size(0), dict_dim(0), dict_embedding(NULL) {};
-    size_t dict_size, dict_dim;
-    real_t *dict_embedding;
+    Meta(): size(0), dim(0), embedding(NULL) {};
+    size_t size, dim;
+    real_t *embedding;
   };
 
   template <typename D2Type>
-  class d2_block : public d2_block_base {
+  class Block : public BlockBase {
+    typedef Elem<D2Type> ElemType;
     typedef typename D2Type::type SuppType;
+    typedef Meta<D2Type> MetaType;
   public:
 
-    d2_block(const size_t thesize, 
-	     const size_t thedim,
-	     const size_t thelen): 
+    Block(const size_t thesize, 
+	    const size_t thedim,
+	    const size_t thelen): 
       dim(thedim), len(thelen), col(0), max_len(0), size(0) {
       // allocate block memory
       p_w = (real_t*) malloc(sizeof(real_t) * thesize * thelen);
       p_supp = (SuppType *) malloc(sizeof(SuppType) * D2Type::step_stride(thesize * thelen, thedim));
       max_col = thesize*thelen;
     };
-    std::vector< d2<D2Type> > vec;    
     
     /* get specific d2 in the block */
-    inline d2<D2Type>& operator[](const size_t ind) {return vec[ind];}
+    inline Elem<D2Type>& operator[](const size_t ind) {return vec_[ind];}
     
     size_t & get_size() {return size;}
     size_t get_size() const {return size;}
     size_t & get_global_size() {return global_size;}
     size_t get_global_size() const {return global_size;}
   protected:
+    std::vector< Elem<D2Type> > vec_;    
     size_t dim, size;
     size_t len, max_len;
     size_t col, max_col;
@@ -119,53 +121,50 @@ namespace d2 {
     size_t global_size;
 
     /* actual binary data */
-    typedef meta<D2Type> MetaType;
     real_t *p_w;
     SuppType* p_supp;
     MetaType meta;
 
     int append(std::istream &is);
-    void align_d2vec();
     void read_meta(const std::string &filename);
+    void realign_vec();
 
   };
 
 
   template<typename D1=def::Euclidean, typename...Ds>
-  void block_push_back_recursive(std::vector< d2_block_base*> &phase,
-				 const size_t n, 
-				 const size_t* dim_arr,
-				 const size_t* len_arr,
-				 const index_t ind) {
-    phase.push_back(new d2_block<D1>(n, dim_arr[ind], len_arr[ind]));
-    block_push_back_recursive<Ds...>(phase, n, dim_arr, len_arr, ind+1);
+  void _block_push_back_recursive(std::vector< BlockBase*> &phase,
+				  const size_t n, 
+				  const size_t* dim_arr,
+				  const size_t* len_arr,
+				  const index_t ind) {
+    phase.push_back(new Block<D1>(n, dim_arr[ind], len_arr[ind]));
+    _block_push_back_recursive<Ds...>(phase, n, dim_arr, len_arr, ind+1);
   }
 
   template<>
-  void block_push_back_recursive(std::vector< d2_block_base*> &phase,
-				 const size_t n, 
-				 const size_t* dim_arr,
-				 const size_t* len_arr,
-				 const index_t ind) {};
+  void _block_push_back_recursive(std::vector< BlockBase*> &phase,
+				  const size_t n, 
+				  const size_t* dim_arr,
+				  const size_t* len_arr,
+				  const index_t ind) {};
 
   template <typename... Ts>
-  class md2_block {
+  class BlockMultiPhase {
   public:
     size_t size;
     std::vector< index_t > label;
-    std::vector< d2_block_base* > phase;
 
-    md2_block(){};    
-    md2_block(const size_t n, 
-	      const size_t* dim_arr,
-	      const size_t* len_arr)
-    {      
-      block_push_back_recursive<Ts...>(phase, n, dim_arr, len_arr, 0);
+    BlockMultiPhase(){};    
+    BlockMultiPhase(const size_t n, 
+		      const size_t* dim_arr,
+		      const size_t* len_arr) {      
+      _block_push_back_recursive<Ts...>(phase_, n, dim_arr, len_arr, 0);
       label.resize(n);
     };
 
-    inline d2_block_base & operator[](size_t ind) {return *phase[ind];}
-    inline d2_block_base & operator[](size_t ind) const {return *phase[ind];}
+    inline BlockBase & operator[](size_t ind) {return *phase_[ind];}
+    inline BlockBase & operator[](size_t ind) const {return *phase_[ind];}
 
     /* file io */
     void read_meta(const std::string &filename);
@@ -177,15 +176,17 @@ namespace d2 {
     
     void write_split(const std::string &filename);    
 
+    size_t get_phase_size() const { return phase_.size(); }
   private:
+    std::vector< BlockBase* > phase_;
 
   };
 
 
   template <typename... Ts>
-  class parallel_md2_block : public md2_block<Ts...> {    
+  class DistributedBlockMultiPhase : public BlockMultiPhase<Ts...> {    
   public:
-    using md2_block<Ts...>::md2_block; // inherit constructor
+    using BlockMultiPhase<Ts...>::BlockMultiPhase; // inherit constructor
     size_t global_size;
 
 

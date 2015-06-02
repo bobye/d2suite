@@ -7,9 +7,9 @@ int main(int argc, char** argv) {
   using namespace d2;
   rabit::Init(argc, argv);
 
-  size_t len[1] = {100}, dim[1] = {400}, size=20000;
+  size_t len = 100, dim = 400, size=20000;
   
-  parallel_md2_block<def::WordVec> data (size, dim, len);
+  DistributedBlockMultiPhase<def::WordVec> data (size, &dim, &len);
   std::string filename("data/20newsgroups/20newsgroups_clean/20newsgroups.d2s");
   data.read(filename, size);
 
