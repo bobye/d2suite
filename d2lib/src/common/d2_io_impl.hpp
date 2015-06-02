@@ -11,13 +11,6 @@
 namespace d2 {
 
   template <typename D2Type>
-  inline void Elem<D2Type>::put_(std::ostream &os) const { os << *this; }
-
-  std::ostream& operator<< (std::ostream&os, const ElemBase &op) {
-    op.put_(os); return os;
-  }
-
-  template <typename D2Type>
   std::istream& operator>> (std::istream& is, Elem<D2Type> & op);
   template <typename D2Type>
   std::ostream& operator<< (std::ostream& os, const Elem<D2Type> &op);
@@ -146,17 +139,57 @@ namespace d2 {
       meta.embedding = (real_t*) malloc(sizeof(real_t)* meta.size * meta.dim);
     }
     for (size_t i=0; i<meta.size*meta.dim; ++i)
-	fs >> meta.embedding[i];    
+      fs >> meta.embedding[i];    
     fs.close();
   }
 
+
+
+  template<typename T1=def::Euclidean, typename... Ts>
+  int _append(std::istream &is, _BlockMultiPhaseConstructor<T1, Ts...> &t) {
+    int tag = (t.head)->append(is);
+    _BlockMultiPhaseConstructor<Ts...> & base = t;
+    return tag || _append(is, base);
+  }
+
+  template<>
+  int _append(std::istream &is, _BlockMultiPhaseConstructor<> &t) {
+    return 0;
+  }
+  
+
+  template<typename T1=def::Euclidean, typename... Ts>
+  void _read_meta(const std::string &filename, _BlockMultiPhaseConstructor<T1, Ts...> &t) {
+    (t.head)->read_meta(filename + ".meta" + std::to_string(t.ind));
+    _BlockMultiPhaseConstructor<Ts...> & base = t;
+    _read_meta<Ts...>(filename, base);
+  } 
+  template<>
+  void _read_meta(const std::string &filename, _BlockMultiPhaseConstructor<> &t) {}
+
+  template<typename T1=def::Euclidean, typename... Ts>
+  void _realgin_vec(_BlockMultiPhaseConstructor<T1, Ts...> &t) {
+    (t.head)->realign_vec();
+    _BlockMultiPhaseConstructor<Ts...> & base = t;
+    _realgin_vec<Ts...>(base);
+  }
+  template<>
+  void _realgin_vec(_BlockMultiPhaseConstructor<> &t) {}
+
+  template<typename T1=def::Euclidean, typename... Ts>
+  void _append_to(std::ostream &os, _BlockMultiPhaseConstructor<T1, Ts...> &t, size_t i) {
+    os << (*t.head)[i];
+    _BlockMultiPhaseConstructor<Ts...> &base = t;
+    _append_to(os, base, i);
+  }
+  template<>
+  void _append_to(std::ostream &os, _BlockMultiPhaseConstructor<> &t, size_t i) {}
 
   template<typename... Ts>
   void BlockMultiPhase<Ts...>::read_meta(const std::string &filename) {
     using namespace std;
     double startTime = getRealTime();
-    for (size_t i=0; i<phase_.size(); ++i) 
-      phase_[i]->read_meta(filename + ".meta" + to_string(i));
+    _read_meta<Ts...>(filename, *_constructor);
     cerr << getLogHeader() << " logging: read meta data in " 
 	 << (getRealTime() - startTime) << " seconds." << endl;    
   }
@@ -165,34 +198,24 @@ namespace d2 {
   void BlockMultiPhase<Ts...>::read_main(const std::string &filename, const size_t size) {
     using namespace std;
     ifstream fs;
-    int checkEnd = 0;
-
     double startTime = getRealTime();
-
     /* read main file */
+    int checkEnd = 0;
     { fs.open(filename, ifstream::in); }
     assert(fs.is_open());
+    size_t i;
+    for (i=0; i<size; ++i) {
+      if( _append<Ts...>(fs, *_constructor) > 0) break;
+    }
+    this->size = i;
 
-    for (size_t i=0; i<size; ++i) {
-      for (size_t j=0; j<phase_.size(); ++j) {
-	checkEnd += phase_[j]->append(fs);
-      }
-      if (checkEnd > 0) break;
-    }
-    this->size = phase_.back()->get_size();
-    for (size_t j =0; j<phase_.size(); ++j) {
-      phase_[j]->realign_vec();
-    }
+    _realgin_vec<Ts...>(*_constructor);
 
-    if (this->size < size) {
-      cerr << getLogHeader() << " warning: only read " 
-	   << this->size << " instances." << endl; 
-    }
     fs.close();
     cerr << getLogHeader() << " logging: read data in " 
-	 << (getRealTime() - startTime) << " seconds." << endl;
+    << (getRealTime() - startTime) << " seconds." << endl;
   }
-
+  
   template<typename... Ts>
   void BlockMultiPhase<Ts...>::read(const std::string &filename, const size_t size) {
     read_meta(filename);
@@ -209,23 +232,19 @@ namespace d2 {
       assert(fs.is_open());
 
       for (size_t i=0; i<size; ++i) {
-	for (size_t j=0; j<phase_.size(); ++j) {
-	  fs << (*this)[j][i];
-	}
+	_append_to(fs, *_constructor, i);
       }
       fs.close();    
     } else {
       for (size_t i=0; i<size; ++i) {
-	for (size_t j=0; j<phase_.size(); ++j) {
-	  cout << (*this)[j][i];
-	}
+	_append_to(cout, *_constructor, i);
       }
 
     }
   }
 
   template<typename... Ts>
-  void BlockMultiPhase<Ts...>::split_write(const std::string &filename, const int num_of_copies) const {
+  void BlockMultiPhase<Ts...>::split_write(const std::string &filename, const size_t num_copies) const {
     using namespace std;
     
     vector<size_t> rand_ind(size);
@@ -233,28 +252,28 @@ namespace d2 {
     random_shuffle(rand_ind.begin(), rand_ind.end());
 
     if (filename != "") {
-      assert(num_of_copies > 1);
+      assert(num_copies > 1);
       double startTime = getRealTime();
-      vector<ofstream> fs(num_of_copies);
-      size_t batch_size = (size-1) / num_of_copies + 1;
+      vector<ofstream> fs(num_copies);
+      size_t batch_size = (size-1) / num_copies + 1;
 
-      for (int j=0; j<num_of_copies; ++j) {
+      for (int j=0; j<num_copies; ++j) {
 	fs[j].open(filename + ".part" + to_string(j), ofstream::out);
 	assert(fs[j].is_open());
       }
       for (size_t i=0; i<size; ++i) {
-	for (size_t j=0; j<phase_.size(); ++j) {
-	  fs[i/batch_size] << (*this)[j][rand_ind[i]];
-	}
+	_append_to(fs[i/batch_size],  *_constructor, rand_ind[i]);
       }
-      for (int j=0; j<num_of_copies; ++j) fs[j].close();
-      cerr << getLogHeader() << " logging: write data into part0.." << num_of_copies << " in " 
+      for (int j=0; j<num_copies; ++j) fs[j].close();
+      cerr << getLogHeader() << " logging: write data into part0.." << num_copies << " in " 
 	   << (getRealTime() - startTime) << " seconds." << endl;
       
     } else {
       cerr << getLogHeader() << " error: empty filename specified." << endl;
     }
+    
   }
+
 
 }
 

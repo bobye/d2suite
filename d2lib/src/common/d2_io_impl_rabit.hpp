@@ -6,6 +6,7 @@
 
 namespace d2 {
 
+
   template<typename... Ts>
   void DistributedBlockMultiPhase<Ts...>::read_main(const std::string &filename, const size_t size) {
     using namespace rabit;
@@ -13,8 +14,6 @@ namespace d2 {
       (*this).read_main(filename + ".part" + std::to_string(GetRank()), size);
     global_size = size;
     Allreduce<op::Sum>(&global_size, 1);
-    for (size_t i=0; i<this->get_phase_size(); ++i)
-      (*this)[i].get_global_size() = global_size;
   }
 
   template<typename... Ts>
