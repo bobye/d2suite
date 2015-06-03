@@ -57,6 +57,10 @@ namespace d2 {
   template <typename... Ts> // a sequence of Elem types
   class BlockMultiPhase;
 
+#ifdef RABIT_RABIT_H_
+  template <typename... Ts>
+  class DistributedBlockMultiPhase;
+#endif 
 
   template <typename D2Type, typename MetaType>
   void pdist2 (typename D2Type::type *s1, const size_t n1,
@@ -78,13 +82,8 @@ namespace d2 {
 #include "d2_io_impl.hpp"
 
 #ifdef RABIT_RABIT_H_
-namespace d2 {
-  template <typename... Ts>
-  class DistributedBlockMultiPhase;
-}
-
 #include "d2_io_impl_rabit.hpp"
-#endif 
+#endif
 
 
 #endif /* _D2_H_ */
