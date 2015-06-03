@@ -12,7 +12,7 @@ namespace d2 {
     using namespace rabit;
     static_cast<BlockMultiPhase<Ts...> > 
       (*this).read_main(filename + ".part" + std::to_string(GetRank()), size);
-    global_size = size;
+    global_size = this->size;
     Allreduce<op::Sum>(&global_size, 1);
   }
 

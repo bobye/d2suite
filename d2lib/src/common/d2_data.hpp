@@ -76,13 +76,27 @@ namespace d2 {
     real_t *embedding;
   };
 
+  template <>
+  class Meta<def::NGram> {
+    Meta(): size(0), dist_mat(NULL) {};
+    size_t size;
+    real_t *dist_mat;
+    index_t vocab[255]; // map from char to index
+  };
+
+  template <>
+  class Meta<def::Histogram> {
+    Meta(): size(0), dist_mat(NULL) {};
+    size_t size;
+    real_t *dist_mat;
+  };
+
   template <typename D2Type>
   class Block {
     typedef Elem<D2Type> ElemType;
     typedef typename D2Type::type SuppType;
     typedef Meta<D2Type> MetaType;
   public:
-
     Block(const size_t thesize, 
 	    const size_t thedim,
 	    const size_t thelen): 
@@ -98,8 +112,6 @@ namespace d2 {
     
     size_t & get_size() {return size;}
     size_t get_size() const {return size;}
-    size_t & get_global_size() {return global_size;}
-    size_t get_global_size() const {return global_size;}
     int append(std::istream &is);
     void read_meta(const std::string &filename);
     void realign_vec();
@@ -110,14 +122,10 @@ namespace d2 {
     size_t len, max_len;
     size_t col, max_col;
 
-    size_t global_size;
-
     /* actual binary data */
     real_t *p_w;
     SuppType* p_supp;
     MetaType meta;
-
-
   };
 
 

@@ -1,3 +1,4 @@
+#include <rabit.h>
 #include "../common/d2.hpp"
 #include "../common/d2_io_impl_rabit.hpp"
 

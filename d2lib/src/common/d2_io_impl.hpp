@@ -205,7 +205,10 @@ namespace d2 {
     assert(fs.is_open());
     size_t i;
     for (i=0; i<size; ++i) {
-      if( _append<Ts...>(fs, *_constructor) > 0) break;
+      if( _append<Ts...>(fs, *_constructor) > 0) {
+	cerr << getLogHeader() << " warning: read only " << i << " instances." << endl;
+	break;
+      }
     }
     this->size = i;
 
