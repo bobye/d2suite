@@ -2,11 +2,13 @@
 #define _D2_DATA_H_
 
 #include "common.hpp"
+#include "d2_internal.hpp"
 
 #include <iostream>
 #include <fstream>
 #include <vector>
 #include <string>
+#include <assert.h>
 
 namespace d2 {
   /*!
@@ -15,18 +17,6 @@ namespace d2 {
    */
 
   namespace def {    
-    /*!
-     * The type of discrete distribution decides how the
-     * ground distance is computed. For example, d2::def::Euclidean
-     * means the ground distance is computed from the Euclidean 
-     * distance between two arbitray vectors. Also, the type
-     * of discrete distribution also decides how the data is 
-     * stored. For example, d2::def::WordVec means the raw 
-     * data is stored with index, aka, the word and the meta part 
-     * stores the actual vector w.r.t. individual indexed word. 
-     * Thus, different types corresponds to different meta data.
-     * In the case of d2::def::Euclidean, the meta data is empty.
-     */
     struct Euclidean {
       typedef real_t type;
       static inline size_t step_stride(size_t col, size_t dim) {return col*dim;}
@@ -50,114 +40,72 @@ namespace d2 {
 
 
 
-  template <typename D2Type>
-  class Elem {
-  public:
-    /* this defines the dimension of supports */
-    size_t dim;
+  template <typename D2Type, size_t dim>
+  struct Elem {
+    typedef D2Type T;
+    static const size_t D = dim;
     /* this defines the length of supports */
     size_t len;    
     /* this defined the weight array of supports*/
     real_t* w;
     /* this defines the support arrays */
     typename D2Type::type* supp;
-
   };
 
 
-  template <typename D2Type>
-  class Meta {};
 
-  template <>
-  class Meta<def::WordVec> {
-  public:
-    Meta(): size(0), dim(0), embedding(NULL) {};
-    size_t size, dim;
-    real_t *embedding;
+  template <typename ElemType>
+  class Meta : public internal::_Meta<typename ElemType::T, ElemType::D> {
+    using internal::_Meta<typename ElemType::T, ElemType::D>::_Meta;
   };
 
-  template <>
-  class Meta<def::NGram> {
-    Meta(): size(0), dist_mat(NULL) {};
-    size_t size;
-    real_t *dist_mat;
-    index_t vocab[255]; // map from char to index
-  };
-
-  template <>
-  class Meta<def::Histogram> {
-    Meta(): size(0), dist_mat(NULL) {};
-    size_t size;
-    real_t *dist_mat;
-  };
-
-  template <typename D2Type>
+  template <typename ElemType>
   class Block {
-    typedef Elem<D2Type> ElemType;
-    typedef typename D2Type::type SuppType;
-    typedef Meta<D2Type> MetaType;
+    typedef typename ElemType::T::type SuppType;
+    typedef Meta<ElemType> MetaType;
   public:
     Block(const size_t thesize, 
-	    const size_t thedim,
-	    const size_t thelen): 
-      dim(thedim), len(thelen), col(0), max_len(0), size(0) {
+	  const size_t thelen): 
+      len(thelen), col(0), max_len(0), size(0) {
       // allocate block memory
       p_w = (real_t*) malloc(sizeof(real_t) * thesize * thelen);
-      p_supp = (SuppType *) malloc(sizeof(SuppType) * D2Type::step_stride(thesize * thelen, thedim));
+      p_supp = (SuppType *) malloc(sizeof(SuppType) * ElemType::T::step_stride(thesize * thelen, ElemType::D));
+      assert(p_w && p_supp);
       max_col = thesize*thelen;
     };
+    ~Block() {
+      if (p_w != NULL) free(p_w); 
+      if (p_supp != NULL) free(p_supp); 
+    }
     
     /* get specific d2 in the block */
-    inline Elem<D2Type>& operator[](const size_t ind) {return vec_[ind];}
+    inline ElemType& operator[](const size_t ind) {return vec_[ind];}
+    inline const ElemType& operator[](const size_t ind) const {return vec_[ind];}
     
     size_t & get_size() {return size;}
     size_t get_size() const {return size;}
-    int append(std::istream &is);
+    int append(std::istream &is);    
     void read_meta(const std::string &filename);
     void realign_vec();
 
+    MetaType meta;
+
   protected:
-    std::vector< Elem<D2Type> > vec_;    
-    size_t dim, size;
+    std::vector< ElemType > vec_;    
+    size_t size;
     size_t len, max_len;
     size_t col, max_col;
 
     /* actual binary data */
     real_t *p_w;
     SuppType* p_supp;
-    MetaType meta;
-  };
-
-
-  template <typename T1=def::Euclidean, typename... Ts>
-  struct _BlockMultiPhaseConstructor: _BlockMultiPhaseConstructor<Ts...> {
-    _BlockMultiPhaseConstructor (const size_t thesize, 
-				 const size_t* thedim,
-				 const size_t* thelen,
-				 const index_t i = 0) : 
-      head(new Block<T1> (thesize, *thedim, *thelen)), ind(i),
-      _BlockMultiPhaseConstructor<Ts...>(thesize, thedim+1, thelen+1, i+1) {}
-    index_t ind;
-    Block<T1> *head;
-  };
-  template <>
-  struct _BlockMultiPhaseConstructor<> {
-    _BlockMultiPhaseConstructor (const size_t thesize, 
-				 const size_t* thedim,
-				 const size_t* thelen,
-				 const index_t i) {}    
   };
 
 
   template <typename... Ts>
-  class BlockMultiPhase {
+  class BlockMultiPhase : public internal::_BlockMultiPhaseConstructor<Ts...> {
   public:
-    BlockMultiPhase(const size_t thesize, 
-		       const size_t* thedim,
-		       const size_t* thelen) :
-      _constructor (new _BlockMultiPhaseConstructor<Ts...>(thesize, thedim, thelen)) {
-    }
-    _BlockMultiPhaseConstructor<Ts...> * _constructor;
+    using internal::_BlockMultiPhaseConstructor<Ts...>::_BlockMultiPhaseConstructor;
     size_t size;
     
     void read_meta(const std::string &filename);
@@ -169,17 +117,19 @@ namespace d2 {
 
   };
 
+#ifdef RABIT_RABIT_H_
   template <typename... Ts>
   class DistributedBlockMultiPhase : BlockMultiPhase<Ts...> {
   public:
-    using BlockMultiPhase<Ts...>::BlockMultiPhase; // inherit constructor
+    DistributedBlockMultiPhase(const size_t thesize, const size_t* thelen):
+      BlockMultiPhase<Ts...>((thesize-1) / rabit::GetWorldSize() + 1, thelen, 0) {};
     size_t global_size;
-
-
+    
     void read_main(const std::string &filename, const size_t size);
     void read(const std::string &filename, const size_t size);
-  };
 
+  };
+#endif
 }
 
 

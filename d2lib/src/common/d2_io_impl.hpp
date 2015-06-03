@@ -10,79 +10,80 @@
 
 namespace d2 {
 
-  template <typename D2Type>
-  std::istream& operator>> (std::istream& is, Elem<D2Type> & op);
-  template <typename D2Type>
-  std::ostream& operator<< (std::ostream& os, const Elem<D2Type> &op);
+  template <typename D2Type, size_t dim>
+  std::istream& operator>> (std::istream& is, Elem<D2Type, dim> & op);
+  template <typename D2Type, size_t dim>
+  std::ostream& operator<< (std::ostream& os, const Elem<D2Type, dim> &op);
+
 
   // specifications
-  template <>
-  std::istream& operator>> (std::istream& is, Elem<def::Euclidean> & op) {
+  template <size_t dim>
+  std::istream& operator>> (std::istream& is, Elem<def::Euclidean, dim> & op) {
     for (size_t i=0; i<op.len; ++i) is >> op.w[i];
-    for (size_t i=0; i<op.len * op.dim; ++i) is >> op.supp[i];
+    for (size_t i=0; i<op.len * dim; ++i) is >> op.supp[i];
     return is;
   }
 
-  template <>
-  std::ostream& operator<< (std::ostream& os, const Elem<def::Euclidean> & op) {
-    os << op.dim << std::endl << op.len << std::endl;
+  template <size_t dim>
+  std::ostream& operator<< (std::ostream& os, const Elem<def::Euclidean, dim> & op) {
+    os << dim << std::endl << op.len << std::endl;
     for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
     for (size_t i=0; i<op.len; ++i) {
-      for (size_t j=0; j<op.dim; ++j) 
-	os << op.supp[i*op.dim + j] << " ";
+      for (size_t j=0; j<dim; ++j) 
+	os << op.supp[i*dim + j] << " ";
       os << std::endl;
     }
     return os;
   }
 
-  template <>
-  std::istream& operator>> (std::istream& is, Elem<def::WordVec> & op) {
+  template <size_t dim>
+  std::istream& operator>> (std::istream& is, Elem<def::WordVec, dim> & op) {
     for (size_t i=0; i<op.len; ++i) is >> op.w[i];
     for (size_t i=0; i<op.len; ++i) is >> op.supp[i];
     return is;
   }
 
-  template <>
-  std::ostream& operator<< (std::ostream& os, const Elem<def::WordVec> & op) {
-    os << op.dim << std::endl << op.len << std::endl;
+  template <size_t dim>
+  std::ostream& operator<< (std::ostream& os, const Elem<def::WordVec, dim> & op) {
+    os << dim << std::endl << op.len << std::endl;
     for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
     for (size_t i=0; i<op.len; ++i) os << op.supp[i] << " "; os << std::endl;
     return os;
   }
 
-  template <>
-  std::istream& operator>> (std::istream& is, Elem<def::NGram> & op) {
+  template <size_t dim>
+  std::istream& operator>> (std::istream& is, Elem<def::NGram, dim> & op) {
     int c;
     for (size_t i=0; i<op.len; ++i) is >> op.w[i];
     for (size_t i=0; i<op.len; ++i) {      
       while ((c =is.peek()) == ' ' || c == '\n') is.ignore();
-      is.get(op.supp + i*op.dim, ' ');
+      is.get(op.supp + i*dim, ' ');
     }
     return is;
   }
 
-  template <>
-  std::ostream& operator<< (std::ostream& os, const Elem<def::NGram> & op) {
-    os << op.dim << std::endl << op.len << std::endl;
+  template <size_t dim>
+  std::ostream& operator<< (std::ostream& os, const Elem<def::NGram, dim> & op) {
+    os << dim << std::endl << op.len << std::endl;
     for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
     for (size_t i=0; i<op.len; ++i) {
-      for (size_t j=0; j<op.dim; ++j) 
-	os << op.supp[i*op.dim + j];
+      for (size_t j=0; j<dim; ++j) 
+	os << op.supp[i*dim + j];
       os << " ";
     }
     os << std::endl;
     return os;
   }
 
-  template <>
-  std::istream& operator>> (std::istream& is, Elem<def::Histogram> & op) {
+  template <size_t dim>
+  std::istream& operator>> (std::istream& is, Elem<def::Histogram, dim> & op) {
     for (size_t i=0; i<op.len; ++i) is >> op.w[i];
     return is;
   }
 
-  template <>
-  std::ostream& operator<< (std::ostream& os, const Elem<def::Histogram> & op) {
-    os << op.dim << std::endl << op.len << std::endl;
+  template <size_t dim>
+  std::ostream& operator<< (std::ostream& os, const Elem<def::Histogram, dim> & op) {
+    os << dim << std::endl << op.len << std::endl;
     for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
     return os;
   }
@@ -90,21 +91,22 @@ namespace d2 {
 
 
   /* append one d2 */
-  template <typename D2Type>
-  int Block<D2Type>::append(std::istream &is) {
-    Elem<D2Type> theone;
-    is >> theone.dim >> theone.len;
+  template <typename ElemType>
+  int Block<ElemType>::append(std::istream &is) {
+    ElemType theone;
+    int dim;
+    is >> dim >> theone.len; 
     if (is.fail() || is.eof()) return 1;
-    assert(theone.dim == dim);
+    assert(dim == ElemType::D);
     if (theone.len + col > max_col) {
       std::cerr << getLogHeader() << " warning: memory insufficient, reallocate!" << std::endl;
       max_col *=2;
       p_w = (real_t*) realloc(p_w, sizeof(real_t)*max_col);
-      p_supp = (SuppType*) realloc(p_supp, sizeof(SuppType)*D2Type::step_stride(max_col,dim));
+      p_supp = (SuppType*) realloc(p_supp, sizeof(SuppType)*ElemType::T::step_stride(max_col, ElemType::D));
     }
     if (theone.len > max_len) max_len = theone.len;
     theone.w = p_w + col;
-    theone.supp = p_supp + D2Type::step_stride(col,dim);
+    theone.supp = p_supp + ElemType::T::step_stride(col,ElemType::D);
     is >> theone;
     vec_.push_back(theone);
 
@@ -114,82 +116,96 @@ namespace d2 {
     return is.eof();
   }
 
-  template <typename D2Type>
-  void Block<D2Type>::realign_vec() {
+  template <typename ElemType>
+  void Block<ElemType>::realign_vec() {
     assert(size > 0);
     vec_[0].w = p_w;
     vec_[0].supp = p_supp;
 
     for (size_t i=1; i<size; ++i) {
       vec_[i].w = vec_[i-1].w + vec_[i-1].len;
-      vec_[i].supp = vec_[i-1].supp + D2Type::step_stride(vec_[i-1].len, dim);
+      vec_[i].supp = vec_[i-1].supp + ElemType::T::step_stride(vec_[i-1].len, ElemType::D);
     }
   }
 
-  template <>
-  void Block<def::Euclidean>::read_meta(const std::string &filename) {}
+  namespace internal {
 
-  template <>
-  void Block<def::WordVec>::read_meta(const std::string &filename) {
-    std::ifstream fs;
-    fs.open(filename, std::ifstream::in);
-    assert(fs.is_open());
-    fs >> meta.size >> meta.dim;
-    if (!meta.embedding) {
-      meta.embedding = (real_t*) malloc(sizeof(real_t)* meta.size * meta.dim);
+    template <size_t dim>
+    void _read_meta(const std::string &filename, 
+		    Block<Elem<def::Euclidean, dim> > & obj) {}
+
+    template <size_t dim>
+    void _read_meta(const std::string &filename,
+		    Block<Elem<def::WordVec, dim> > & obj) {
+      std::ifstream fs;
+      size_t d;
+      fs.open(filename, std::ifstream::in);
+      assert(fs.is_open());
+      fs >> d >> obj.meta.size; assert(d == dim);
+      if (!obj.meta.embedding) {
+	obj.meta.embedding = new real_t [obj.meta.size * dim];
+      }
+      for (size_t i=0; i<obj.meta.size*dim; ++i)
+	fs >> obj.meta.embedding[i];    
+      fs.close();
     }
-    for (size_t i=0; i<meta.size*meta.dim; ++i)
-      fs >> meta.embedding[i];    
-    fs.close();
+
+  }
+
+  template <typename ElemType>
+  void Block<ElemType>::read_meta(const std::string &filename) {
+    internal::_read_meta<ElemType::D>(filename, *this);
   }
 
 
+  namespace internal {
+    template<typename T1=Elem<def::Euclidean, 0>, typename... Ts>
+    int _append(std::istream &is, _BlockMultiPhaseConstructor<T1, Ts...> &t) {
+      int tag = (t.head).append(is);
+      _BlockMultiPhaseConstructor<Ts...> & base = t;
+      return tag || _append(is, base);
+    }
 
-  template<typename T1=def::Euclidean, typename... Ts>
-  int _append(std::istream &is, _BlockMultiPhaseConstructor<T1, Ts...> &t) {
-    int tag = (t.head)->append(is);
-    _BlockMultiPhaseConstructor<Ts...> & base = t;
-    return tag || _append(is, base);
-  }
-
-  template<>
-  int _append(std::istream &is, _BlockMultiPhaseConstructor<> &t) {
-    return 0;
-  }
+    template<>
+    int _append(std::istream &is, _BlockMultiPhaseConstructor<> &t) {
+      return 0;
+    }
   
 
-  template<typename T1=def::Euclidean, typename... Ts>
-  void _read_meta(const std::string &filename, _BlockMultiPhaseConstructor<T1, Ts...> &t) {
-    (t.head)->read_meta(filename + ".meta" + std::to_string(t.ind));
-    _BlockMultiPhaseConstructor<Ts...> & base = t;
-    _read_meta<Ts...>(filename, base);
-  } 
-  template<>
-  void _read_meta(const std::string &filename, _BlockMultiPhaseConstructor<> &t) {}
+    template<typename T1=Elem<def::Euclidean, 0>, typename... Ts>
+    void _read_meta(const std::string &filename, _BlockMultiPhaseConstructor<T1, Ts...> &t) {
+      (t.head).read_meta(filename + ".meta" + std::to_string(t.ind));
+      _BlockMultiPhaseConstructor<Ts...> & base = t;
+      _read_meta<Ts...>(filename, base);
+    } 
+    template<>
+    void _read_meta(const std::string &filename, _BlockMultiPhaseConstructor<> &t) {}
 
-  template<typename T1=def::Euclidean, typename... Ts>
-  void _realgin_vec(_BlockMultiPhaseConstructor<T1, Ts...> &t) {
-    (t.head)->realign_vec();
-    _BlockMultiPhaseConstructor<Ts...> & base = t;
-    _realgin_vec<Ts...>(base);
-  }
-  template<>
-  void _realgin_vec(_BlockMultiPhaseConstructor<> &t) {}
+    template<typename T1=Elem<def::Euclidean, 0>, typename... Ts>
+    void _realgin_vec(_BlockMultiPhaseConstructor<T1, Ts...> &t) {
+      (t.head).realign_vec();
+      _BlockMultiPhaseConstructor<Ts...> & base = t;
+      _realgin_vec<Ts...>(base);
+    }
+    template<>
+    void _realgin_vec(_BlockMultiPhaseConstructor<> &t) {}
 
-  template<typename T1=def::Euclidean, typename... Ts>
-  void _append_to(std::ostream &os, _BlockMultiPhaseConstructor<T1, Ts...> &t, size_t i) {
-    os << (*t.head)[i];
-    _BlockMultiPhaseConstructor<Ts...> &base = t;
-    _append_to(os, base, i);
+    template<typename T1=Elem<def::Euclidean, 0>, typename... Ts>
+    void _append_to(std::ostream &os, const _BlockMultiPhaseConstructor<T1, Ts...> &t, size_t i) {
+      os << t.head[i];
+      const _BlockMultiPhaseConstructor<Ts...> &base = t;
+      _append_to(os, base, i);
+    }
+    template<>
+    void _append_to(std::ostream &os, const _BlockMultiPhaseConstructor<> &t, size_t i) {}
+
   }
-  template<>
-  void _append_to(std::ostream &os, _BlockMultiPhaseConstructor<> &t, size_t i) {}
 
   template<typename... Ts>
   void BlockMultiPhase<Ts...>::read_meta(const std::string &filename) {
     using namespace std;
     double startTime = getRealTime();
-    _read_meta<Ts...>(filename, *_constructor);
+    internal::_read_meta<Ts...>(filename, *this);
     cerr << getLogHeader() << " logging: read meta data in " 
 	 << (getRealTime() - startTime) << " seconds." << endl;    
   }
@@ -205,14 +221,14 @@ namespace d2 {
     assert(fs.is_open());
     size_t i;
     for (i=0; i<size; ++i) {
-      if( _append<Ts...>(fs, *_constructor) > 0) {
+      if( internal::_append<Ts...>(fs, *this) > 0) {
 	cerr << getLogHeader() << " warning: read only " << i << " instances." << endl;
 	break;
       }
     }
     this->size = i;
 
-    _realgin_vec<Ts...>(*_constructor);
+    internal::_realgin_vec<Ts...>(*this);
 
     fs.close();
     cerr << getLogHeader() << " logging: read data in " 
@@ -235,12 +251,12 @@ namespace d2 {
       assert(fs.is_open());
 
       for (size_t i=0; i<size; ++i) {
-	_append_to(fs, *_constructor, i);
+	internal::_append_to(fs, *this, i);
       }
       fs.close();    
     } else {
       for (size_t i=0; i<size; ++i) {
-	_append_to(cout, *_constructor, i);
+	internal::_append_to(cout, *this, i);
       }
 
     }
@@ -265,10 +281,10 @@ namespace d2 {
 	assert(fs[j].is_open());
       }
       for (size_t i=0; i<size; ++i) {
-	_append_to(fs[i/batch_size],  *_constructor, rand_ind[i]);
+	internal::_append_to(fs[i/batch_size],  *this, rand_ind[i]);
       }
       for (int j=0; j<num_copies; ++j) fs[j].close();
-      cerr << getLogHeader() << " logging: write data into part0.." << num_copies << " in " 
+      cerr << getLogHeader() << " logging: write data into part0.." << num_copies-1 << " in " 
 	   << (getRealTime() - startTime) << " seconds." << endl;
       
     } else {
