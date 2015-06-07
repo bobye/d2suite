@@ -1,3 +1,5 @@
+include make.inc
+
 CC=gcc
 CXX=g++ -std=c++11
 MPICXX=mpicxx -std=c++11
@@ -7,10 +9,15 @@ CFLAGS=-Wextra -Wall -pedantic-errors -O3 $(ARCH_FLAGS)
 LDFLAGS=$(ARCH_FLAGS)
 DEFINES=
 INCLUDES=-I../rabit/include
-LIBRARIES=-L../rabit/lib -lrabit
+LIBRARIES=-L./lib -ld2lib -L../rabit/lib -lrabit -L$(MOSEK)/bin -Wl,-rpath,$(MOSEK)/bin -lmosek64 -lpthread $(BLAS_LIB)
+
+OS=$(shell uname)
+
+C_SOURCE_FILES=\
+	src/common/blas_like32.c\
+	src/common/blas_like64.c
 
 CPP_SOURCE_FILES=\
-
 
 CPP_SOURCE_WITH_MAIN=\
 	src/test/test_euclidean_io.cpp\
@@ -21,6 +28,7 @@ RABIT_SOURCE_WITH_MAIN=\
 
 
 ALL_OBJECTS=\
+	$(patsubst %.c, %.o, $(C_SOURCE_FILES))\
 	$(patsubst %.cpp, %.o, $(CPP_SOURCE_FILES))
 
 EXECUTABLES=\
@@ -35,8 +43,14 @@ DEPENDENCY_FILES=\
 	$(patsubst %.o, %.d, $(ALL_OBJECTS))\
 	$(patsubst %, %.d, $(EXECUTABLES))
 
+LIB=\
+	lib/libd2lib.a
 
-all: $(EXECUTABLES)
+
+all: $(EXECUTABLES) $(LIB)
+
+lib/libd2lib.a: $(ALL_OBJECTS)
+	ar cr $@ $+
 
 %.o: %.cpp Makefile
 	@# Make dependecy file
@@ -44,21 +58,32 @@ all: $(EXECUTABLES)
 	@# Compile
 	$(CXX) $(CFLAGS) $(DEFINES) $(INCLUDES) -c -o $@ $<
 
-%.rabit: %_rabit.cpp Makefile
+ifeq ($(OS), Darwin)
+%.rabit: %_rabit.cpp Makefile $(LIB)
 	$(CXX) -MM -MT $@ -MF $(patsubst %_rabit.cpp,%.rabit.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
 	$(CXX) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
+	install_name_tool -change @loader_path/libmosek64.$(MOSEK_VERSION).dylib $(MOSEK)/bin/libmosek64.$(MOSEK_VERSION).dylib $@
+else
+	$(CXX) -MM -MT $@ -MF $(patsubst %_rabit.cpp,%.rabit.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
+	$(CXX) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
+endif
 
-%: %.cpp Makefile
+ifeq ($(OS), Darwin)
+%: %.cpp Makefile $(LIB)
 	$(CXX) -MM -MT $@ -MF $(patsubst %.cpp,%.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
 	$(CXX) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
-
+	install_name_tool -change @loader_path/libmosek64.$(MOSEK_VERSION).dylib $(MOSEK)/bin/libmosek64.$(MOSEK_VERSION).dylib $@
+else
+	$(CXX) -MM -MT $@ -MF $(patsubst %.cpp,%.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
+	$(CXX) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
+endif
 
 -include $(DEPENDENCY_FILES)
 
 .PHONY: clean test
 
 clean: 
-	@rm $(EXECUTABLES)
+	@rm $(EXECUTABLES) $(LIB)
 	@for pattern in '*.o' '*.d'; do \
 		find . -name "$$pattern" | xargs rm; \
 	done
