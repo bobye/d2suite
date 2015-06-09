@@ -114,10 +114,10 @@ namespace d2 {
     };
 
   
-    template <size_t k, typename... Ts>
+    template <size_t k, typename T, typename... Ts>
     typename std::enable_if<
-      k == 0, Block<typename _elem_type_holder<0, Ts... >::type> & >::type
-    _get_block(_BlockMultiPhaseConstructor<Ts...>& t) {
+      k == 0, Block<typename _elem_type_holder<0, T, Ts... >::type> & >::type
+    _get_block(_BlockMultiPhaseConstructor<T, Ts...>& t) {
       return t.head;
     }
 
