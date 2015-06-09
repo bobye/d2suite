@@ -102,6 +102,34 @@ namespace d2 {
   };
 
 
+  namespace internal {
+    template <size_t k, typename T, typename... Ts>
+    struct _elem_type_holder {
+      typedef typename _elem_type_holder<k - 1, Ts...>::type type;
+    };
+    
+    template <typename T, typename... Ts>
+    struct _elem_type_holder<0, T, Ts...> {
+      typedef T type;
+    };
+
+  
+    template <size_t k, typename... Ts>
+    typename std::enable_if<
+      k == 0, Block<typename _elem_type_holder<0, Ts... >::type> & >::type
+    _get_block(_BlockMultiPhaseConstructor<Ts...>& t) {
+      return t.head;
+    }
+
+    template <size_t k, typename T, typename... Ts>
+    typename std::enable_if<
+      k != 0, Block<typename _elem_type_holder<k, T, Ts...>::type> & >::type
+    _get_block(_BlockMultiPhaseConstructor<T, Ts...>& t) {
+      _BlockMultiPhaseConstructor<Ts...>& base = t;
+      return _get_block<k - 1>(base);
+    }
+  }
+
   template <typename... Ts>
   class BlockMultiPhase : public internal::_BlockMultiPhaseConstructor<Ts...> {
   public:
@@ -114,6 +142,18 @@ namespace d2 {
 
     void write(const std::string &filename) const;
     void split_write(const std::string &filename, const size_t num_copies) const;
+
+    template <size_t k> 
+    Block<typename internal::_elem_type_holder<k, Ts...>::type> & 
+    get_block() { return internal::_get_block<k, Ts...>(*this); }
+
+    template <size_t k>
+    typename internal::_elem_type_holder<k, Ts...>::type & 
+    get_elem(int ind) { return (internal::_get_block<k, Ts...>(*this))[ind];}
+
+    template <size_t k>
+    const typename internal::_elem_type_holder<k, Ts...>::type & 
+    get_elem(int ind) const { return (internal::_get_block<k, Ts...>(*this))[ind];}
 
   };
 

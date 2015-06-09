@@ -65,7 +65,7 @@ namespace d2 {
   template <typename D2Type, size_t dim>
   inline void pdist2 (typename D2Type::type *s1, const size_t n1,
 		      typename D2Type::type *s2, const size_t n2,
-		      const Meta<Elem<D2Type, dim> > *meta,
+		      const Meta<Elem<D2Type, dim> > &meta,
 		      real_t* mat);
 
 
@@ -73,7 +73,7 @@ namespace d2 {
    * compute squared EMD between two discrete distributions
    */
   template <typename ElemType, typename MetaType>
-  inline real_t EMD (ElemType &e1, ElemType &e2, const MetaType *meta,
+  inline real_t EMD (ElemType &e1, ElemType &e2, const MetaType &meta,
 		     real_t* cache_mat = NULL,
 		     real_t* cache_primal = NULL, real_t* cache_dual = NULL);
 

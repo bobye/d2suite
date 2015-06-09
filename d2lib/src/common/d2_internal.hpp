@@ -55,8 +55,8 @@ namespace d2 {
 	_BlockMultiPhaseConstructor<Ts...>(thesize, thelen+1, i+1) {}
       index_t ind;
       Block<T1> head;
-
     };
+
     template <>
     class _BlockMultiPhaseConstructor<> {
     public:
@@ -64,8 +64,10 @@ namespace d2 {
 				   const size_t* thelen,
 				   const index_t i) {}    
     };
-
+    
   }
+
+    
 
 }
 

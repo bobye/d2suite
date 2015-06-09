@@ -13,8 +13,9 @@ int main(int argc, char** argv) {
   server::Init(argc, argv);
   srand(time(NULL));
   int i1 = rand() % size, i2 = rand() % size;
+  auto & block = data.get_block<0>();
   std::cerr << "squared EMD between #" << i1 << " and #" << i2 
-	    << ": "  << EMD(data.head[i1], data.head[i2], &data.head.meta, NULL, NULL, NULL) << std::endl;
+	    << ": "  << EMD(block[i1], block[i2], block.meta, NULL, NULL, NULL) << std::endl;
   server::Finalize();
 
   return 0;
