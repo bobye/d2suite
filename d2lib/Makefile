@@ -4,11 +4,11 @@ CC=gcc
 CXX=g++ -std=c++11
 MPICXX=mpicxx -std=c++11
 
-ARCH_FLAGS=-m64
+ARCH_FLAGS=-m64 -D _D2_SINGLE
 CFLAGS=-Wextra -Wall -pedantic-errors -O3 $(ARCH_FLAGS)
 LDFLAGS=$(ARCH_FLAGS)
 DEFINES=
-INCLUDES=-I../rabit/include
+INCLUDES=-I../rabit/include -I$(MOSEK)/h
 LIBRARIES=-L./lib -ld2lib -L../rabit/lib -lrabit -L$(MOSEK)/bin -Wl,-rpath,$(MOSEK)/bin -lmosek64 -lpthread $(BLAS_LIB)
 
 OS=$(shell uname)
@@ -18,9 +18,10 @@ C_SOURCE_FILES=\
 	src/common/blas_like64.c
 
 CPP_SOURCE_FILES=\
+	src/common/solver_mosek.cpp
 
 CPP_SOURCE_WITH_MAIN=\
-	src/test/test_euclidean_io.cpp\
+	src/test/test_euclidean.cpp\
 	src/test/test_20newsgroups_io.cpp
 
 RABIT_SOURCE_WITH_MAIN=\
