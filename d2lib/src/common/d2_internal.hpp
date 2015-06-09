@@ -64,6 +64,32 @@ namespace d2 {
 				   const size_t* thelen,
 				   const index_t i) {}    
     };
+
+    template <size_t k, typename T, typename... Ts>
+    struct _elem_type_holder {
+      typedef typename _elem_type_holder<k - 1, Ts...>::type type;
+    };
+    
+    template <typename T, typename... Ts>
+    struct _elem_type_holder<0, T, Ts...> {
+      typedef T type;
+    };
+
+  
+    template <size_t k, typename T, typename... Ts>
+    typename std::enable_if<
+      k == 0, Block<typename _elem_type_holder<0, T, Ts... >::type> & >::type
+    _get_block(_BlockMultiPhaseConstructor<T, Ts...>& t) {
+      return t.head;
+    }
+
+    template <size_t k, typename T, typename... Ts>
+    typename std::enable_if<
+      k != 0, Block<typename _elem_type_holder<k, T, Ts...>::type> & >::type
+    _get_block(_BlockMultiPhaseConstructor<T, Ts...>& t) {
+      _BlockMultiPhaseConstructor<Ts...>& base = t;
+      return _get_block<k - 1>(base);
+    }
     
   }
 
