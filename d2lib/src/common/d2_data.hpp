@@ -85,8 +85,13 @@ namespace d2 {
     size_t & get_size() {return size;}
     size_t get_size() const {return size;}
     int append(std::istream &is);    
-    void read_meta(const std::string &filename);
     void realign_vec();
+    void read_meta(const std::string &filename);
+    void read_main(const std::string &filename, const size_t size);
+    void read(const std::string &filename, const size_t size);
+
+    void write(const std::string &filename) const;
+    void split_write(const std::string &filename, const size_t num_copies) const;
 
     MetaType meta;
 
@@ -134,7 +139,9 @@ namespace d2 {
   class BlockMultiPhase : public internal::_BlockMultiPhaseConstructor<Ts...> {
   public:
     using internal::_BlockMultiPhaseConstructor<Ts...>::_BlockMultiPhaseConstructor;
-    size_t size;
+
+    size_t & get_size() {return size;}
+    size_t get_size() const {return size;}
     
     void read_meta(const std::string &filename);
     void read_main(const std::string &filename, const size_t size);
@@ -154,10 +161,22 @@ namespace d2 {
     template <size_t k>
     const typename internal::_elem_type_holder<k, Ts...>::type & 
     get_elem(int ind) const { return (internal::_get_block<k, Ts...>(*this))[ind];}
+  protected:
+    size_t size;
 
   };
 
 #ifdef RABIT_RABIT_H_
+  template <typename ElemType>
+  class DistributedBlock : Block<ElemType> {
+    DistributedBlock(const size_t thesize, const size_t thelen):
+      Block<ElemType>((thesize-1) / rabit::GetWorldSize() + 1, thelen) {};
+    size_t global_size;
+
+    void read_main(const std::string &filename, const size_t size);
+    void read(const std::string &filename, const size_t size);    
+  };
+
   template <typename... Ts>
   class DistributedBlockMultiPhase : BlockMultiPhase<Ts...> {
   public:
