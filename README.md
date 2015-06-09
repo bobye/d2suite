@@ -16,7 +16,7 @@ Dependencies
  - [mosek](https://www.mosek.com): fast LP/QP solvers, academic license available.
 
 Make sure you have those pre-compiled libraries installed and
-configured in the [d2lib/Makefile](d2lib/Makefile).
+configured in the [d2lib/make.inc](d2lib/make.inc).
 ```bash
 cd d2lib && make && make test
 ```
