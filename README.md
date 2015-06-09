@@ -25,7 +25,7 @@ cd d2lib && make && make test
 
 ### Basic Functions
  - distributed/serial IO 
- - compute distance between a pair of D2: Wasserstain distance (or EMD), Sinkhorn Distances (entropic regulared optimal transport).
+ - compute distance between a pair of D2: [Wasserstein distance](http://en.wikipedia.org/wiki/Wasserstein_metric) (or EMD), [Sinkhorn Distances](http://www.iip.ist.i.kyoto-u.ac.jp/member/cuturi/SI.html) (entropic regularied optimal transport).
 
 
 ### Learnings
