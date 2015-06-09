@@ -15,7 +15,7 @@ extern "C" {
   void d2_solver_release();
   void d2_solver_debug();
 
-  double d2_match_by_distmat(int n, int m, SCALAR *C, SCALAR *wX, SCALAR *wY, 
+  double d2_match_by_distmat(int n, int m, const SCALAR *C, const SCALAR *wX, const SCALAR *wY, 
 			     /** OUT **/ SCALAR *x, /** OUT **/ SCALAR *lambda, size_t index);
 
   double d2_match_by_distmat_qp(int n, int m, SCALAR *C, SCALAR *L, SCALAR rho, SCALAR *lw, SCALAR *rw, SCALAR *x0, /** OUT **/ SCALAR *x);

@@ -57,7 +57,7 @@ void d2_solver_release() {
 }
 
 
-double d2_match_by_distmat(int n, int m, SCALAR *C, SCALAR *wX, SCALAR *wY,
+double d2_match_by_distmat(const int n, const int m, const SCALAR *C, const SCALAR *wX, const SCALAR *wY,
 			   __OUT__ SCALAR *x, __OUT__ SCALAR *lambda, size_t index) {
   
   const MSKint32t numvar = n * m,

@@ -41,10 +41,10 @@ extern "C" {
    * d: dimension of data entry
    * n, m: number of data entry
    */
-  void _dpdist2(int d, size_t n, size_t m, double * A, double * B, double *C);
-  void _dpdist2_sym(int d, size_t n, size_t m, double *A, int *B, double *C, const double *vocab);
-  void _dpdist_symbolic(int d, size_t n, size_t m, int * A, int * B, double *C, 
-			const int vocab_size, const double* dist_mat);
+  void _dpdist2(const size_t d, const size_t n, const size_t m, const double * A, const double * B, double *C);
+  void _dpdist2_sym(const size_t d, const size_t n, const size_t m, const double *A, const int *Bi, double *C, const double *vocab);
+  void _dpdist_symbolic(const size_t d, const size_t n, const size_t m, const int * A, const int * B, double *C, 
+			const size_t vocab_size, const double* dist_mat);
 
 
   // assertation
@@ -80,10 +80,10 @@ extern "C" {
    * d: dimension of data entry
    * n, m: number of data entry
    */
-  void _spdist2(int d, size_t n, size_t m, float * A, float * B, float *C);
-  void _spdist2_sym(int d, size_t n, size_t m, float *A, int *B, float *C, const float *vocab);
-  void _spdist_symbolic(int d, size_t n, size_t m, int * A, int * B, float *C, 
-			const int vocab_size, const float* dist_mat);
+  void _spdist2(const size_t d, const size_t n, const size_t m, const float * A, const float * B, float *C);
+  void _spdist2_sym(const size_t d, const size_t n, const size_t m, const float *A, const int *Bi, float *C, const float *vocab);
+  void _spdist_symbolic(const size_t d, const size_t n, const size_t m, const int * A, const int * B, float *C, 
+			const size_t vocab_size, const float* dist_mat);
   
 
 #ifdef __cplusplus

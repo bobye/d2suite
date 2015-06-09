@@ -197,8 +197,8 @@ void _svmul(size_t n, float *a, float *b, float *c) {
     *c = (*a) * (*b);
 }
 
-void _spdist2(int d, size_t n, size_t m, float * A, float * B, float *C) {
-  size_t i, j; int k;
+void _spdist2(const size_t d, const size_t n, const size_t m, const float * A, const float * B, float *C) {
+  size_t i, j; size_t k;
   assert(d>0 && n>0 && m>0);
   cblas_sgemm(CblasColMajor, CblasTrans, CblasNoTrans, n, m, d, -2, 
 	      A, d, B, d, 0, C, n);
@@ -209,8 +209,8 @@ void _spdist2(int d, size_t n, size_t m, float * A, float * B, float *C) {
 	C[i*n + j] += A[j*d + k] * A[j*d + k] + B[i*d + k] * B[i*d + k];
 }
 
-void _spdist2_sym(int d, size_t n, size_t m, float *A, int *Bi, float *C, const float *vocab) {
-  size_t i, j; int k;
+void _spdist2_sym(const size_t d, const size_t n, const size_t m, const float *A, const int *Bi, float *C, const float *vocab) {
+  size_t i, j; size_t k;
   for (i=0; i<m*n; ++i) C[i] = 0;
   for (i=0; i<m; ++i)
     for (j=0; j<n; ++j) {
@@ -226,9 +226,9 @@ void _spdist2_sym(int d, size_t n, size_t m, float *A, int *Bi, float *C, const 
     }
 }
 
-void _spdist_symbolic(int d, size_t n, size_t m, int * A, int * B, float *C, 
-		      const int vocab_size, const float* dist_mat) {
-  size_t i,j; int k;
+void _spdist_symbolic(const size_t d, const size_t n, const size_t m, const int * A, const int * B, float *C, 
+		      const size_t vocab_size, const float* dist_mat) {
+  size_t i,j; size_t k;
   assert(d>0 && n>0 && m>0);
  
   for (i=0; i<m*n; ++i) C[i] = 0;

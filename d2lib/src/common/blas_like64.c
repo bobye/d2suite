@@ -197,8 +197,8 @@ void _dvmul(size_t n, double *a, double *b, double *c) {
     *c = (*a) * (*b);
 }
 
-void _dpdist2(int d, size_t n, size_t m, double * A, double * B, double *C) {
-  size_t i, j; int k;
+void _dpdist2(const size_t d, const size_t n, const size_t m, const double * A, const double * B, double *C) {
+  size_t i, j; size_t k;
   assert(d>0 && n>0 && m>0);
   cblas_dgemm(CblasColMajor, CblasTrans, CblasNoTrans, n, m, d, -2, 
 	      A, d, B, d, 0, C, n);
@@ -209,8 +209,8 @@ void _dpdist2(int d, size_t n, size_t m, double * A, double * B, double *C) {
 	C[i*n + j] += A[j*d + k] * A[j*d + k] + B[i*d + k] * B[i*d + k];
 }
 
-void _dpdist2_sym(int d, size_t n, size_t m, double *A, int *Bi, double *C, const double *vocab) {
-  size_t i, j; int k;
+void _dpdist2_sym(const size_t d, const size_t n, const size_t m, const double *A, const int *Bi, double *C, const double *vocab) {
+  size_t i, j; size_t k;
   for (i=0; i<m*n; ++i) C[i] = 0;
   for (i=0; i<m; ++i)
     for (j=0; j<n; ++j) {
@@ -226,9 +226,9 @@ void _dpdist2_sym(int d, size_t n, size_t m, double *A, int *Bi, double *C, cons
     }
 }
 
-void _dpdist_symbolic(int d, size_t n, size_t m, int * A, int * B, double *C, 
-		      const int vocab_size, const double* dist_mat) {
-  size_t i,j; int k;
+void _dpdist_symbolic(const size_t d, const size_t n, const size_t m, const int * A, const int * B, double *C, 
+		      const size_t vocab_size, const double* dist_mat) {
+  size_t i,j; size_t k;
   assert(d>0 && n>0 && m>0);
  
   for (i=0; i<m*n; ++i) C[i] = 0;
