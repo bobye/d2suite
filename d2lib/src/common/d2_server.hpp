@@ -3,6 +3,7 @@
 
 #include "solver.h"
 #include "blas_like.h"
+#include "cblas.h"
 
 namespace d2 {
 
@@ -62,6 +63,48 @@ namespace d2 {
       return val;
     }
 
+
+    template<size_t dim>
+    inline real_t _LowerThanEMD_v0(const Elem<def::Euclidean, dim> &e1,
+				   const Elem<def::Euclidean, dim> &e2,
+				   const Meta<Elem<def::Euclidean, dim> > &meta) {
+      real_t c1[dim], c2[dim], val=0, d;
+      _D2_CBLAS_FUNC(gemv)(CblasColMajor, 
+			   CblasNoTrans, 
+			   dim, e1.len, 1., e1.supp, dim, 
+			   e1.w, 1,
+			   0., c1, 1);
+
+      _D2_CBLAS_FUNC(gemv)(CblasColMajor, 
+			   CblasNoTrans, 
+			   dim, e2.len, 1., e2.supp, dim, 
+			   e2.w, 1,
+			   0., c2, 1);
+
+      for (size_t i=0; i<dim; ++i) {
+	d = (c1[i] - c2[i]);
+	d = d*d;
+	val += d;
+      }
+      
+      return val;
+    }
+
+    template<size_t dim>
+    inline real_t _LowerThanEMD_v0(const Elem<def::WordVec, dim> &e1,
+				   const Elem<def::WordVec, dim> &e2,
+				   const Meta<Elem<def::WordVec, dim> > &meta) {
+      real_t c1[dim], c2[dim], val=0, d;
+      // implement incomplete !
+
+      for (size_t i=0; i<dim; ++i) {
+	d = (c1[i] - c2[i]);
+	d = d*d;
+	val += d;
+      }
+
+      return val;
+    }
 
     template <typename D2Type, size_t dim>
     inline real_t _LowerThanEMD_v1(const Elem<D2Type, dim> &e1, const Elem<D2Type, dim> &e2,
@@ -193,6 +236,19 @@ namespace d2 {
     return internal::_EMD<dim>(e1, e2, meta, cache_mat, cache_primal, cache_dual);
   }
 
+
+  template <typename ElemType, typename MetaType>
+  inline real_t LowerThanEMD_v0(const ElemType &e1, const ElemType &e2, const MetaType &meta) {
+    return internal::_LowerThanEMD_v0<ElemType::D>(e1, e2, meta);
+  }
+
+  template <size_t dim>
+  inline real_t LowerThanEMD_v0(const Elem<def::Euclidean, dim> &e1, 
+				const Elem<def::WordVec, dim> &e2,
+				const Meta<Elem<def::WordVec, dim> > &meta) {
+    return internal::_LowerThanEMD_v0<dim>(e1, e2, meta);
+  }
+
   template <typename ElemType, typename MetaType>
   inline real_t LowerThanEMD_v1(const ElemType &e1, const ElemType &e2, const MetaType &meta,
 				real_t* cache_mat) {
@@ -206,6 +262,7 @@ namespace d2 {
 				real_t* cache_mat) {
     return internal::_LowerThanEMD_v1<dim>(e1, e2, meta, cache_mat);
   }
+
 
 
 }

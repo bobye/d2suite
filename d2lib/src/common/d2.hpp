@@ -31,7 +31,6 @@ namespace d2 {
     struct Histogram;
   }
 
-
   /*!
    * An element type has two parameters to specify, one is the
    * type of ground metric space, and the other is the dimension
@@ -39,6 +38,7 @@ namespace d2 {
    */
   template <typename D2Type, size_t dim>
   struct Elem;
+
 
   /*!
    * A Meta class is for storing the meta data associated with
@@ -66,7 +66,7 @@ namespace d2 {
   inline void pdist2 (const typename D2Type::type *s1, const size_t n1,
 		      const typename D2Type::type *s2, const size_t n2,
 		      const Meta<Elem<D2Type, dim> > &meta,
-		      real_t* mat);
+		      __OUT__ real_t* mat);
 
 
   /*!
@@ -74,8 +74,17 @@ namespace d2 {
    */
   template <typename ElemType, typename MetaType>
   inline real_t EMD (const ElemType &e1, const ElemType &e2, const MetaType &meta,
-		     real_t* cache_mat = NULL,
-		     real_t* cache_primal = NULL, real_t* cache_dual = NULL);
+		     __IN__ real_t* cache_mat = NULL,
+		     __OUT__ real_t* cache_primal = NULL, 
+		     __OUT__ real_t* cache_dual = NULL);
+  
+
+  /*!
+   * compute lower bound of EMD 
+   * version 0: extremely cheap, non-iterative
+   */
+  template <typename ElemType, typename MetaType>
+  inline real_t LowerThanEMD_v0(const ElemType &e1, const ElemType &e2, const MetaType &meta);
 
   /*!
    * compute lower bound of EMD 
@@ -83,7 +92,7 @@ namespace d2 {
    */
   template <typename ElemType, typename MetaType>
   inline real_t LowerThanEMD_v1(const ElemType &e1, const ElemType &e2, const MetaType &meta,
-				real_t* cache_mat = NULL);
+				__IN__ real_t* cache_mat = NULL);
 
 
 

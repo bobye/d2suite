@@ -18,7 +18,9 @@ int main(int argc, char** argv) {
 	    << ": "  << EMD(block0[i1], block0[i2], block0.meta);
 
   std::cerr << "and its lower bound"
-	    << ": "  << LowerThanEMD_v1(block0[i1], block0[i2], block0.meta) << std::endl;
+	    << ": "  << LowerThanEMD_v0(block0[i1], block0[i2], block0.meta)
+	    << " and "  << LowerThanEMD_v1(block0[i1], block0[i2], block0.meta) 
+	    << std::endl;
 
 
   auto & block1 = data.get_block<1>();
@@ -26,7 +28,9 @@ int main(int argc, char** argv) {
 	    << ": "  << EMD(block1[i1], block1[i2], block1.meta);
 
   std::cerr << "and its lower bound"
-	    << ": "  << LowerThanEMD_v1(block1[i1], block1[i2], block1.meta) << std::endl;
+	    << ": "  << LowerThanEMD_v0(block1[i1], block1[i2], block1.meta) 
+	    << " and "  << LowerThanEMD_v1(block1[i1], block1[i2], block1.meta) 
+	    << std::endl;
 
   server::Finalize();
 
