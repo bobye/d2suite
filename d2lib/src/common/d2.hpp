@@ -77,6 +77,15 @@ namespace d2 {
 		     real_t* cache_mat = NULL,
 		     real_t* cache_primal = NULL, real_t* cache_dual = NULL);
 
+  /*!
+   * compute lower bound of EMD 
+   * version 1: fast, non-iterative and simple
+   */
+  template <typename ElemType, typename MetaType>
+  inline real_t LowerThanEMD_v1(const ElemType &e1, const ElemType &e2, const MetaType &meta,
+				real_t* cache_mat = NULL);
+
+
 
   inline void Init(int argc, char*argv[]);
   inline void Finalize();
