@@ -82,8 +82,11 @@ namespace d2 {
     inline ElemType& operator[](const size_t ind) {return vec_[ind];}
     inline const ElemType& operator[](const size_t ind) const {return vec_[ind];}
     
-    size_t & get_size() {return size;}
-    size_t get_size() const {return size;}
+    inline size_t & get_size() {return size;}
+    inline size_t get_size() const {return size;}
+    inline size_t & get_col() {return col;}
+    inline size_t get_col() const {return col;}
+
     int append(std::istream &is);    
     void realign_vec();
     void read_meta(const std::string &filename);

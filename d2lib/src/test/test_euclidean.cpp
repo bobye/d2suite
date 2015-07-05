@@ -32,6 +32,24 @@ int main(int argc, char** argv) {
 	    << " and "  << LowerThanEMD_v1(block1[i1], block1[i2], block1.meta) 
 	    << std::endl;
 
+  std::vector<real_t> emds(data.get_size());
+  std::vector<index_t> ranks(data.get_size());
+  double startTime;
+  startTime = getRealTime();
+  KNearestNeighbors_Linear(2, block0[i1], block0, &emds[0], &ranks[0]);  
+  std::cerr << "phase 0 - nearest neighbors of #" << i1
+	    << " is #" << ranks[1] 
+	    << ": " << emds[ranks[1]] 
+	    << "\t\t" << getRealTime() - startTime << "s"
+	    << std::endl;
+  startTime = getRealTime();
+  KNearestNeighbors_Linear(2, block1[i1], block1, &emds[0], &ranks[0]);
+  std::cerr << "phase 1 - nearest neighbors of #" << i1
+	    << " is #" << ranks[1] 
+	    << ": " << emds[ranks[1]] 
+	    << "\t\t" << getRealTime() - startTime << "s"
+	    << std::endl;
+
   server::Finalize();
 
   return 0;

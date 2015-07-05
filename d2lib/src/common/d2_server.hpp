@@ -4,6 +4,7 @@
 #include "solver.h"
 #include "blas_like.h"
 #include "cblas.h"
+#include <algorithm>
 
 namespace d2 {
 
@@ -236,6 +237,43 @@ namespace d2 {
     return internal::_EMD<dim>(e1, e2, meta, cache_mat, cache_primal, cache_dual);
   }
 
+  template <typename ElemType>
+  void EMD (const ElemType &e, const Block<ElemType> &b,
+	    __OUT__ real_t* emds,
+	    __IN__ real_t* cache_mat,
+	    __OUT__ real_t* cache_primal, 
+	    __OUT__ real_t* cache_dual) {
+    bool cache_mat_is_null = false;
+    if (cache_mat == NULL) {
+      cache_mat_is_null = true;
+      cache_mat = (real_t*) malloc(sizeof(real_t) * e.len * b.get_col());	
+    }
+
+    real_t *mat_ptr = cache_mat;
+    real_t *primal_ptr = cache_primal;
+    real_t *dual_ptr = cache_dual;
+
+    for (size_t i=0; i<b.get_size(); ++i) {      
+      emds[i] = EMD(e, b[i], b.meta, mat_ptr, primal_ptr, dual_ptr);
+      mat_ptr += e.len * b[i].len;
+      if (cache_primal) primal_ptr += e.len * b[i].len;
+      if (cache_dual) dual_ptr += e.len + b[i].len;
+    }
+
+    if (cache_mat_is_null) {
+      free(cache_mat);
+    }
+  }
+
+  template <size_t dim>
+  void EMD (const Elem<def::Euclidean, dim> &e, const Block<Elem<def::WordVec, dim> > &b,
+	    __OUT__ real_t* emds,
+	    __IN__ real_t* cache_mat,
+	    __OUT__ real_t* cache_primal, 
+	    __OUT__ real_t* cache_dual) {
+    // to be implement
+  }
+
 
   template <typename ElemType, typename MetaType>
   inline real_t LowerThanEMD_v0(const ElemType &e1, const ElemType &e2, const MetaType &meta) {
@@ -263,6 +301,18 @@ namespace d2 {
     return internal::_LowerThanEMD_v1<dim>(e1, e2, meta, cache_mat);
   }
 
+
+
+  template <typename ElemType>
+  void KNearestNeighbors_Linear(size_t k,
+				const ElemType &e, const Block<ElemType> &b,
+				__OUT__ real_t* emds_approx,
+				__OUT__ index_t* rank) {
+    EMD(e, b, emds_approx, NULL, NULL, NULL);// compute emds exactly!
+    for (size_t i=0; i<b.get_size(); ++i) rank[i] = i;
+    std::sort(rank, rank + b.get_size(), 
+	      [&](size_t i1, size_t i2) {return emds_approx[i1] < emds_approx[i2];});
+  }
 
 
 }

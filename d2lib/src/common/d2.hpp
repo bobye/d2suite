@@ -70,13 +70,23 @@ namespace d2 {
 
 
   /*!
-   * compute squared EMD between two discrete distributions
+   * compute EMD between two discrete distributions
    */
   template <typename ElemType, typename MetaType>
   inline real_t EMD (const ElemType &e1, const ElemType &e2, const MetaType &meta,
 		     __IN__ real_t* cache_mat = NULL,
 		     __OUT__ real_t* cache_primal = NULL, 
 		     __OUT__ real_t* cache_dual = NULL);
+
+  /*!
+   * compute EMD between a discrete distribution and a block of discrete distributions
+   */
+  template <typename ElemType>
+  void EMD (const ElemType &e, const Block<ElemType> &b,
+	    __OUT__ real_t* emds,
+	    __IN__ real_t* cache_mat = NULL,
+	    __OUT__ real_t* cache_primal = NULL, 
+	    __OUT__ real_t* cache_dual = NULL);
   
 
   /*!
@@ -95,6 +105,14 @@ namespace d2 {
 				__IN__ real_t* cache_mat = NULL);
 
 
+  /*!
+   * simple linear approach without any prefetching or pruning
+   */
+  template <typename ElemType>
+  void KNearestNeighbors_Linear(size_t k,
+				const ElemType &e, const Block<ElemType> &b,
+				__OUT__ real_t* emds_approx,
+				__OUT__ index_t* rank);
 
   inline void Init(int argc, char*argv[]);
   inline void Finalize();
