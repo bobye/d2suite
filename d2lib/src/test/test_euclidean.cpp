@@ -12,7 +12,7 @@ int main(int argc, char** argv) {
 
   server::Init(argc, argv);
   srand(time(NULL));
-  int i1 = rand() % size, i2 = rand() % size;
+  int i1 = rand() % data.get_size(), i2 = rand() % data.get_size();
   auto & block0 = data.get_block<0>();
   std::cerr << "phase 0 - squared EMD between #" << i1 << " and #" << i2 
 	    << ": "  << EMD(block0[i1], block0[i2], block0.meta);
