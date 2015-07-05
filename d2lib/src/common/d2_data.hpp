@@ -109,6 +109,18 @@ namespace d2 {
     SuppType* p_supp;
   };
 
+  template <typename... Ts>
+  struct ElemMultPhase : public internal::_ElemMultiPhaseConstructor<Ts...> {
+    using internal::_ElemMultiPhaseConstructor<Ts...>::_ElemMultiPhaseConstructor;
+    template <size_t k>
+    typename internal::_elem_type_holder<k, Ts...>::type &
+    get_phase() {return internal::_get_phase<k, Ts...>(*this);}
+
+    template <size_t k>
+    const typename internal::_elem_type_holder<k, Ts...>::type &
+    get_phase() const {return internal::_get_phase<k, Ts...>(*this);}
+
+  };
 
   template <typename... Ts>
   class BlockMultiPhase : public internal::_BlockMultiPhaseConstructor<Ts...> {
@@ -136,6 +148,12 @@ namespace d2 {
     template <size_t k>
     const typename internal::_elem_type_holder<k, Ts...>::type & 
     get_elem(int ind) const { return (internal::_get_block<k, Ts...>(*this))[ind];}
+
+    ElemMultPhase<Ts...> * get_multiphase_elem(int ind) {
+      ElemMultPhase<Ts...> * ptr = new ElemMultPhase<Ts...>(0);
+      internal::_copy_elem_from_block<Ts...>(*ptr, *this, ind);
+      return ptr;
+    }
   protected:
     size_t size;
 

@@ -9,10 +9,12 @@ int main(int argc, char** argv) {
   BlockMultiPhase<Elem<def::Euclidean, 3>, Elem<def::Euclidean, 3> > data (size, len);
   data.read("data/test/euclidean_testdata.d2", size);
   //  data.write("");
-
+ 
   server::Init(argc, argv);
   srand(time(NULL));
   int i1 = rand() % data.get_size(), i2 = rand() % data.get_size();
+
+  // test pairwise EMD
   auto & block0 = data.get_block<0>();
   std::cerr << "phase 0 - squared EMD between #" << i1 << " and #" << i2 
 	    << ": "  << EMD(block0[i1], block0[i2], block0.meta);
@@ -32,6 +34,7 @@ int main(int argc, char** argv) {
 	    << " and "  << LowerThanEMD_v1(block1[i1], block1[i2], block1.meta) 
 	    << std::endl;
 
+  // test nearest neighbors
   std::vector<real_t> emds(data.get_size());
   std::vector<index_t> ranks(data.get_size());
   double startTime;
@@ -49,6 +52,13 @@ int main(int argc, char** argv) {
 	    << ": " << emds[ranks[1]] 
 	    << "\t\t" << getRealTime() - startTime << "s"
 	    << std::endl;
+
+  // test multi-phase
+  auto mele = data.get_multiphase_elem(i1);
+  std::cerr << mele->get_phase<0>() << block0[i1]
+	    << mele->get_phase<1>() << block1[i1]
+	    << std::endl;
+  delete mele;
 
   server::Finalize();
 

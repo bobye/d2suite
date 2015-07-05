@@ -39,6 +39,11 @@ namespace d2 {
   template <typename D2Type, size_t dim>
   struct Elem;
 
+  /*!
+   * An multi-phase element type
+   */
+  template <typename... Ts>
+  struct ElemMultPhase;
 
   /*!
    * A Meta class is for storing the meta data associated with

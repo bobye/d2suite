@@ -46,6 +46,18 @@ namespace d2 {
 
 
     template <typename T1=Elem<def::Euclidean, 0>, typename... Ts>
+    struct _ElemMultiPhaseConstructor: public _ElemMultiPhaseConstructor<Ts...> {
+      _ElemMultiPhaseConstructor (const index_t i=0): 
+	ind(i), _ElemMultiPhaseConstructor<Ts...>(i + 1) {}
+      index_t ind;
+      T1 head;
+    };
+    template <>
+    struct _ElemMultiPhaseConstructor<> {
+      _ElemMultiPhaseConstructor (const index_t i) {}
+    };
+
+    template <typename T1=Elem<def::Euclidean, 0>, typename... Ts>
     class _BlockMultiPhaseConstructor: public _BlockMultiPhaseConstructor<Ts...> {
     public:
       _BlockMultiPhaseConstructor (const size_t thesize, 
@@ -75,6 +87,22 @@ namespace d2 {
       typedef T type;
     };
 
+
+    template <size_t k, typename T, typename... Ts>
+    typename std::enable_if<
+      k == 0, typename _elem_type_holder<0, T, Ts... >::type & >::type
+    _get_phase(_ElemMultiPhaseConstructor<T, Ts...>& t) {
+      return t.head;
+    }
+
+    template <size_t k, typename T, typename... Ts>
+    typename std::enable_if<
+      k != 0, typename _elem_type_holder<k, T, Ts...>::type & >::type
+    _get_phase(_ElemMultiPhaseConstructor<T, Ts...>& t) {
+      _ElemMultiPhaseConstructor<Ts...>& base = t;
+      return _get_phase<k - 1>(base);
+    }
+
   
     template <size_t k, typename T, typename... Ts>
     typename std::enable_if<
@@ -89,6 +117,23 @@ namespace d2 {
     _get_block(_BlockMultiPhaseConstructor<T, Ts...>& t) {
       _BlockMultiPhaseConstructor<Ts...>& base = t;
       return _get_block<k - 1>(base);
+    }
+
+
+    template <typename T=Elem<def::Euclidean, 0>, typename... Ts>
+    void _copy_elem_from_block(_ElemMultiPhaseConstructor<T, Ts...>&e,
+			       _BlockMultiPhaseConstructor<T, Ts...>&b,
+			       size_t ind) {
+      _ElemMultiPhaseConstructor<Ts...> & e_base = e;
+      _BlockMultiPhaseConstructor<Ts...> & b_base = b;
+      e.head = b.head[ind];      
+      _copy_elem_from_block<Ts...>(e_base, b_base, ind);
+    }
+
+    template <>
+    void _copy_elem_from_block(_ElemMultiPhaseConstructor<>&e,
+			       _BlockMultiPhaseConstructor<>&b,
+			       size_t ind) {
     }
     
   }
