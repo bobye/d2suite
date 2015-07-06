@@ -124,6 +124,10 @@ namespace d2 {
   template <typename ElemType, typename MetaType>
   inline real_t LowerThanEMD_v0(const ElemType &e1, const ElemType &e2, const MetaType &meta);
 
+  template <typename ElemType1, typename ElemType2>
+  void LowerThanEMD_v0(const ElemType1 &e, const Block<ElemType2> &b,
+		       __OUT__ real_t* emds);
+
   /*!
    * compute lower bound of EMD 
    * version 1: fast, non-iterative and simple
@@ -131,6 +135,11 @@ namespace d2 {
   template <typename ElemType, typename MetaType>
   inline real_t LowerThanEMD_v1(const ElemType &e1, const ElemType &e2, const MetaType &meta,
 				__IN__ real_t* cache_mat = NULL);
+
+  template <typename ElemType1, typename ElemType2>
+  void LowerThanEMD_v1(const ElemType1 &e, const Block<ElemType2> &b,
+		       __OUT__ real_t* emds,
+		       __IN__ real_t* cache_mat);
 
 
   /*!
@@ -148,6 +157,18 @@ namespace d2 {
 				const BlockMultiPhase<Ts...> &b,
 				__OUT__ real_t* emds_approx,
 				__OUT__ index_t* rank);
+
+
+  /*!
+   * prefetching and pruning with lowerbounds
+   */
+  template <typename ElemType1, typename ElemType2>
+  void KNearestNeighbors_Simple(size_t k,
+				const ElemType1 &e, const Block<ElemType2> &b,
+				__OUT__ real_t* emds_approx,
+				__OUT__ index_t* rank,
+				size_t n = 0);
+
 
   inline void Init(int argc, char*argv[]);
   inline void Finalize();

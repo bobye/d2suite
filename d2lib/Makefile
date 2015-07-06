@@ -1,8 +1,8 @@
 include make.inc
 
 CC=gcc
-CXX=g++ -std=c++11
-MPICXX=mpicxx -std=c++11
+CXX=g++ -std=c++0x
+MPICXX=mpicxx -std=c++0x
 
 ARCH_FLAGS=-m64 -D _D2_SINGLE
 CFLAGS=-Wextra -Wall -pedantic-errors -O3 $(ARCH_FLAGS)

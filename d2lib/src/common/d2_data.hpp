@@ -86,6 +86,9 @@ namespace d2 {
     inline size_t get_size() const {return size;}
     inline size_t & get_col() {return col;}
     inline size_t get_col() const {return col;}
+    inline size_t & get_max_len() {return max_len;}
+    inline size_t get_max_len() const {return max_len;}
+
 
     int append(std::istream &is);    
     void realign_vec();

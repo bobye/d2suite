@@ -5,6 +5,7 @@
 #include "blas_like.h"
 #include "cblas.h"
 #include <algorithm>
+#include <queue>
 
 namespace d2 {
 
@@ -246,16 +247,14 @@ namespace d2 {
     bool cache_mat_is_null = false;
     if (cache_mat == NULL) {
       cache_mat_is_null = true;
-      cache_mat = (real_t*) malloc(sizeof(real_t) * e.len * b.get_col());	
+      cache_mat = (real_t*) malloc(sizeof(real_t) * e.len * b.get_max_len());	
     }
 
-    real_t *mat_ptr = cache_mat;
     real_t *primal_ptr = cache_primal;
     real_t *dual_ptr = cache_dual;
 
     for (size_t i=0; i<b.get_size(); ++i) {      
-      emds[i] = EMD(e, b[i], b.meta, mat_ptr, primal_ptr, dual_ptr);
-      mat_ptr += e.len * b[i].len;
+      emds[i] = EMD(e, b[i], b.meta, cache_mat, primal_ptr, dual_ptr);
       if (cache_primal) primal_ptr += e.len * b[i].len;
       if (cache_dual) dual_ptr += e.len + b[i].len;
     }
@@ -336,6 +335,15 @@ namespace d2 {
     return internal::_LowerThanEMD_v0<dim>(e1, e2, meta);
   }
 
+  template <typename ElemType1, typename ElemType2>
+  void LowerThanEMD_v0(const ElemType1 &e, const Block<ElemType2> &b,
+		       __OUT__ real_t* emds) {
+    for (size_t i=0; i<b.get_size(); ++i) {
+      emds[i] = LowerThanEMD_v0(e, b[i], b.meta);
+    }
+  }
+
+
   template <typename ElemType, typename MetaType>
   inline real_t LowerThanEMD_v1(const ElemType &e1, const ElemType &e2, const MetaType &meta,
 				real_t* cache_mat) {
@@ -351,6 +359,25 @@ namespace d2 {
   }
 
 
+  template <typename ElemType1, typename ElemType2>
+  void LowerThanEMD_v1(const ElemType1 &e, const Block<ElemType2> &b,
+		       __OUT__ real_t* emds,
+		       __IN__ real_t* cache_mat) {
+    bool cache_mat_is_null = false;
+    if (cache_mat == NULL) {
+      cache_mat_is_null = true;
+      cache_mat = (real_t*) malloc(sizeof(real_t) * e.len * b.get_col());	
+    }
+    real_t *mat_ptr = cache_mat;
+
+    for (size_t i=0; i<b.get_size(); ++i) {
+      emds[i] = LowerThanEMD_v1(e, b[i], b.meta, mat_ptr);
+      mat_ptr += e.len * b[i].len;      
+    }
+
+    if (cache_mat_is_null) free(cache_mat);
+  }
+
 
   namespace internal {
     template <typename ElemType, typename BlockType, typename DistanceFunction>
@@ -364,6 +391,50 @@ namespace d2 {
       std::sort(rank, rank + b.get_size(), 
 		[&](size_t i1, size_t i2) {return emds_approx[i1] < emds_approx[i2];});
     }
+
+
+    template <typename ElemType, typename BlockType, 
+	      typename DistanceFunction, typename LowerBoundFunction0, typename LowerBoundFunction1>
+    void _KNearestNeighbors_Simple_impl(size_t k,
+					const ElemType &e, const BlockType &b,
+					DistanceFunction & lambda,
+					LowerBoundFunction0 & lower0,
+					LowerBoundFunction1 & lower1,
+					__OUT__ real_t* emds_approx,
+					__OUT__ index_t* rank,
+					size_t n) {
+      auto compare = [&](size_t i1, size_t i2) {return emds_approx[i1] < emds_approx[i2];};
+      for (size_t i=0; i<b.get_size(); ++i) {
+	emds_approx[i] = lower0(e, b[i], b.meta);
+      }
+
+      for (size_t i=0; i<b.get_size(); ++i) rank[i] = i;
+      std::sort(rank, rank + b.get_size(), compare);
+
+      real_t *cache_mat = (real_t*) malloc(sizeof(real_t) * e.len * b.get_max_len());	
+      // compute exact distance for the first k
+      for (size_t i=0; i<k; ++i) {
+	emds_approx[rank[i]] = lambda(e, b[rank[i]], b.meta, cache_mat);
+      }
+
+      std::priority_queue<size_t, 
+			  std::vector<size_t>, 
+			  decltype( compare ) > knn(rank, rank + k, compare);
+
+      size_t idx;
+      for (size_t i=k; i<n; ++i) {
+	idx = rank[i];
+	emds_approx[idx] = std::max(emds_approx[idx], lower1(e, b[idx], b.meta, cache_mat));
+	if (emds_approx[idx] < emds_approx[knn.top()]) {
+	  emds_approx[idx] = lambda(e, b[idx], b.meta, cache_mat);
+	  if (emds_approx[idx] < emds_approx[knn.top()])
+	    knn.pop(); knn.push(idx);
+	}
+      }
+      std::sort(rank, rank + n, compare);
+      free(cache_mat);
+    }
+
   }
 
 
@@ -391,6 +462,20 @@ namespace d2 {
     };
     internal::_KNearestNeighbors_Linear_impl(k, e, b, lambda, emds_approx, rank);
   }
+
+  template <typename ElemType1, typename ElemType2>
+  void KNearestNeighbors_Simple(size_t k,
+				const ElemType1 &e, const Block<ElemType2> &b,
+				__OUT__ real_t* emds_approx,
+				__OUT__ index_t* rank,
+				size_t n) {
+    auto lambda = [](const ElemType1& e1, const ElemType2 &e2, const Meta<ElemType2> &meta, real_t* cache) -> real_t {return EMD(e1, e2, meta, cache);};
+    auto lower0 = [](const ElemType1& e1, const ElemType2& e2, const Meta<ElemType2> &meta) -> real_t {return LowerThanEMD_v0(e1, e2, meta);};
+    auto lower1 = [](const ElemType1& e1, const ElemType2& e2, const Meta<ElemType2> &meta, real_t* cache) -> real_t {return LowerThanEMD_v1(e1, e2, meta, cache);};
+    if (n == 0) n = b.get_size();
+    internal::_KNearestNeighbors_Simple_impl(k, e, b, lambda, lower0, lower1, emds_approx, rank, n);
+  }
+
 
 
 }
