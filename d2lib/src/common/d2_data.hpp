@@ -149,6 +149,7 @@ namespace d2 {
     const typename internal::_elem_type_holder<k, Ts...>::type & 
     get_elem(int ind) const { return (internal::_get_block<k, Ts...>(*this))[ind];}
 
+    // return a multiple phase element by index, meta data are copied
     ElemMultiPhase<Ts...> * get_multiphase_elem(int ind) {
       ElemMultiPhase<Ts...> * ptr = new ElemMultiPhase<Ts...>(0);
       internal::_copy_elem_from_block<Ts...>(*ptr, *this, ind);

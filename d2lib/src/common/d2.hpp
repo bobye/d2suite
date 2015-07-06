@@ -31,8 +31,16 @@ namespace d2 {
     struct Histogram;
   }
 
+  /**********************************************************************/
+  /* Core data structures in template: 
+   *     Elem, ElemMultiPhase, Meta, Block, BlockMultiPhase
+   *
+   * and distributed data structure: 
+   *     DistributedBlockMultiPhase
+   */
+
   /*!
-   * An element type has two parameters to specify, one is the
+   * Elem defines an element type has two parameters to specify, one is the
    * type of ground metric space, and the other is the dimension
    * of the ground metric space. 
    */
@@ -40,7 +48,8 @@ namespace d2 {
   struct Elem;
 
   /*!
-   * An multi-phase element type
+   * ElemMultiPhase defines a multi-phase element type
+   * param @Ts: struct Elem<>
    */
   template <typename... Ts>
   struct ElemMultiPhase;
@@ -59,6 +68,10 @@ namespace d2 {
   template <typename ElemType>
   class Block;
 
+  /*!
+   * BlockMultiPhase defines a block of elements with multiple phases
+   * param @Ts: struct Elem<>
+   */
   template <typename... Ts> // a sequence of Elem types
   class BlockMultiPhase;
 
@@ -66,6 +79,12 @@ namespace d2 {
   template <typename... Ts>
   class DistributedBlockMultiPhase;
 #endif 
+
+  /**********************************************************************/
+  /* Core functions over previous data structures:
+   *     pdist2, EMD, LowerThanEMD, KNearestNeighbors_Linear
+   *
+   */
 
   template <typename D2Type, size_t dim>
   inline void pdist2 (const typename D2Type::type *s1, const size_t n1,
