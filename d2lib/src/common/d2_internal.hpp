@@ -77,6 +77,16 @@ namespace d2 {
 				   const index_t i) {}    
     };
 
+    template <typename T=Elem<def::Euclidean, 0>, typename... Ts>
+    struct tuple_size {
+      static const size_t value = tuple_size<Ts...>::value + 1;
+    };
+
+    template <>
+    struct tuple_size<> {
+      static const size_t value = 0;
+    };
+
     template <size_t k, typename T, typename... Ts>
     struct _elem_type_holder {
       typedef typename _elem_type_holder<k - 1, Ts...>::type type;

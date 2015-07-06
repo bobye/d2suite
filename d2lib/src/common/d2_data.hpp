@@ -110,7 +110,7 @@ namespace d2 {
   };
 
   template <typename... Ts>
-  struct ElemMultPhase : public internal::_ElemMultiPhaseConstructor<Ts...> {
+  struct ElemMultiPhase : public internal::_ElemMultiPhaseConstructor<Ts...> {
     using internal::_ElemMultiPhaseConstructor<Ts...>::_ElemMultiPhaseConstructor;
     template <size_t k>
     typename internal::_elem_type_holder<k, Ts...>::type &
@@ -149,8 +149,8 @@ namespace d2 {
     const typename internal::_elem_type_holder<k, Ts...>::type & 
     get_elem(int ind) const { return (internal::_get_block<k, Ts...>(*this))[ind];}
 
-    ElemMultPhase<Ts...> * get_multiphase_elem(int ind) {
-      ElemMultPhase<Ts...> * ptr = new ElemMultPhase<Ts...>(0);
+    ElemMultiPhase<Ts...> * get_multiphase_elem(int ind) {
+      ElemMultiPhase<Ts...> * ptr = new ElemMultiPhase<Ts...>(0);
       internal::_copy_elem_from_block<Ts...>(*ptr, *this, ind);
       return ptr;
     }

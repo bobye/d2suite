@@ -43,7 +43,7 @@ namespace d2 {
    * An multi-phase element type
    */
   template <typename... Ts>
-  struct ElemMultPhase;
+  struct ElemMultiPhase;
 
   /*!
    * A Meta class is for storing the meta data associated with
@@ -92,6 +92,10 @@ namespace d2 {
 	    __IN__ real_t* cache_mat = NULL,
 	    __OUT__ real_t* cache_primal = NULL, 
 	    __OUT__ real_t* cache_dual = NULL);
+
+  template <typename... Ts>
+  void EMD(const ElemMultiPhase<Ts...> &e, const BlockMultiPhase<Ts...> &b,
+	   __OUT__ real_t* emds);
   
 
   /*!
@@ -116,6 +120,13 @@ namespace d2 {
   template <typename ElemType>
   void KNearestNeighbors_Linear(size_t k,
 				const ElemType &e, const Block<ElemType> &b,
+				__OUT__ real_t* emds_approx,
+				__OUT__ index_t* rank);
+
+  template <typename... Ts>
+  void KNearestNeighbors_Linear(size_t k,
+				const ElemMultiPhase<Ts...> &e,
+				const BlockMultiPhase<Ts...> &b,
 				__OUT__ real_t* emds_approx,
 				__OUT__ index_t* rank);
 

@@ -274,6 +274,55 @@ namespace d2 {
     // to be implement
   }
 
+  namespace internal {
+    template <typename T, typename... Ts>
+    void _EMD_impl(const _ElemMultiPhaseConstructor<T, Ts...> &e, 
+		   const _BlockMultiPhaseConstructor<T, Ts...> &b,
+		   __OUT__ real_t ** emds_arr,
+		   __IN__ real_t** cache_mat_arr) {
+      EMD(e.head, b.head, *emds_arr, *cache_mat_arr, NULL, NULL);      
+      const _ElemMultiPhaseConstructor<Ts...> &e0 = e;
+      const _BlockMultiPhaseConstructor<Ts...> &b0 = b;
+      _EMD_impl<Ts...>(e0, b0, emds_arr + 1, cache_mat_arr + 1);
+    }
+
+    template <>
+    void _EMD_impl(const _ElemMultiPhaseConstructor<> &e, 
+		   const _BlockMultiPhaseConstructor<> &b,
+		   __OUT__ real_t ** emds_arr,
+		   __IN__ real_t** cache_mat_arr) {
+    }
+  }
+
+  template <typename... Ts>
+  void EMD(const ElemMultiPhase<Ts...> &e, 
+	   const BlockMultiPhase<Ts...> &b,
+	   __OUT__ real_t* emds) {
+    static const size_t k = internal::tuple_size<Ts...>::value;
+    // allocate
+    real_t ** cache_mat_arr = (real_t **) malloc(sizeof(real_t *) * k );
+    for (size_t i=0; i<k; ++i) cache_mat_arr[i] = NULL;
+
+    real_t ** emds_arr = (real_t **) malloc(sizeof(real_t *) * k);
+    for (size_t i=0; i<k; ++i) emds_arr[i] = (real_t *) malloc(sizeof(real_t) * b.get_size());
+
+    internal::_EMD_impl(e, b, emds_arr, cache_mat_arr);    
+
+    // sum to one
+    for (size_t j=0; j<b.get_size(); ++j) {
+      emds[j] = 0;
+    }
+    for (size_t i=0; i<k; ++i)
+      for (size_t j=0; j<b.get_size(); ++j) {
+	emds[j] += emds_arr[i][j];
+      }
+
+    // free
+    free(cache_mat_arr);
+
+    for (size_t i=0; i<k; ++i) free(emds_arr[i]);
+    free(emds_arr);
+  }
 
   template <typename ElemType, typename MetaType>
   inline real_t LowerThanEMD_v0(const ElemType &e1, const ElemType &e2, const MetaType &meta) {
@@ -303,15 +352,44 @@ namespace d2 {
 
 
 
+  namespace internal {
+    template <typename ElemType, typename BlockType, typename DistanceFunction>
+    void _KNearestNeighbors_Linear_impl(size_t k,
+				  const ElemType &e, const BlockType &b,
+				  DistanceFunction & lambda,
+				  __OUT__ real_t* emds_approx,
+				  __OUT__ index_t* rank) {
+      lambda(e, b, emds_approx);
+      for (size_t i=0; i<b.get_size(); ++i) rank[i] = i;
+      std::sort(rank, rank + b.get_size(), 
+		[&](size_t i1, size_t i2) {return emds_approx[i1] < emds_approx[i2];});
+    }
+  }
+
+
   template <typename ElemType>
   void KNearestNeighbors_Linear(size_t k,
 				const ElemType &e, const Block<ElemType> &b,
 				__OUT__ real_t* emds_approx,
 				__OUT__ index_t* rank) {
-    EMD(e, b, emds_approx, NULL, NULL, NULL);// compute emds exactly!
-    for (size_t i=0; i<b.get_size(); ++i) rank[i] = i;
-    std::sort(rank, rank + b.get_size(), 
-	      [&](size_t i1, size_t i2) {return emds_approx[i1] < emds_approx[i2];});
+    auto lambda =  [](const ElemType& e, const Block<ElemType> &b, real_t* dist) {
+      EMD(e, b, dist, NULL, NULL, NULL);
+    };
+    internal::_KNearestNeighbors_Linear_impl(k, e, b, lambda, emds_approx, rank);
+  }
+
+  template <typename... Ts>
+  void KNearestNeighbors_Linear(size_t k,
+				const ElemMultiPhase<Ts...> &e,
+				const BlockMultiPhase<Ts...> &b,
+				__OUT__ real_t* emds_approx,
+				__OUT__ index_t* rank) {
+    auto lambda = [](const ElemMultiPhase<Ts...> &e, 
+		     const BlockMultiPhase<Ts...> &b, 
+		     real_t* dist) {
+      EMD(e, b, dist);
+    };
+    internal::_KNearestNeighbors_Linear_impl(k, e, b, lambda, emds_approx, rank);
   }
 
 

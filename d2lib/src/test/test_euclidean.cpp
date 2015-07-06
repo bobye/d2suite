@@ -53,6 +53,15 @@ int main(int argc, char** argv) {
 	    << "\t\t" << getRealTime() - startTime << "s"
 	    << std::endl;
 
+  startTime = getRealTime();
+  KNearestNeighbors_Linear(2, *data.get_multiphase_elem(i1), data, &emds[0], &ranks[0]);
+  std::cerr << "both phase - nearest neighbors of #" << i1
+	    << " is #" << ranks[1] 
+	    << ": " << emds[ranks[1]] 
+	    << "\t\t" << getRealTime() - startTime << "s"
+	    << std::endl;
+  
+
   // test multi-phase
   auto mele = data.get_multiphase_elem(i1);
   std::cerr << mele->get_phase<0>() << block0[i1]
