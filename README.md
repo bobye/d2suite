@@ -18,7 +18,7 @@ Dependencies
 Make sure you have those pre-compiled libraries installed and
 configured in the [d2lib/make.inc](d2lib/make.inc).
 ```bash
-cd d2lib && make && make test
+cd d2suite && make && make test
 ```
 
 ## Introduction
