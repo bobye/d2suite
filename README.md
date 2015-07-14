@@ -1,6 +1,6 @@
 # d2lib
-`d2lib` is a C++ library of discrete distribution (d2) based 
-__large-scale__ data processing framework. It supports the data analysis
+`d2lib` is a C++ library for discrete distribution (d2) based 
+__large-scale__ data processing framework. It supports distributed data analysis
 of distributions at scale, such as nearest neighbors, clustering, and
 some other machine learning capability. `d2lib` uses templates and C++11 features 
 a lot, aiming to maximize its extensibility for different types of data.
@@ -31,10 +31,11 @@ cd d2lib && make && make test
 ### Basic Functions
  - distributed/serial IO 
  - compute distance between a pair of D2: [Wasserstein distance](http://en.wikipedia.org/wiki/Wasserstein_metric) (or EMD).
+ - compute lower/upper bounds of Wasserstein distance
 
 
 ### Learnings
- - nearest neighbors [TBA]
+ - K nearest neighbors [TBA]: serial supports implemented.
  - D2-clustering [TBA]
  - Dirichlet process [TBA]
 
