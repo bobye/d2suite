@@ -97,7 +97,6 @@ namespace d2 {
       typedef T type;
     };
 
-
     template <size_t k, typename T, typename... Ts>
     typename std::enable_if<
       k == 0, typename _elem_type_holder<0, T, Ts... >::type & >::type

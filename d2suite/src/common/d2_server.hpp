@@ -405,58 +405,57 @@ namespace d2 {
 					size_t n) {
       auto compare = [&](size_t i1, size_t i2) {return emds_approx[i1] < emds_approx[i2];};
       for (size_t i=0; i<b.get_size(); ++i) {
-	emds_approx[i] = lower0(e, b[i], b.meta);
+	emds_approx[i] = lower0(e, b, i);
       }
 
       for (size_t i=0; i<b.get_size(); ++i) rank[i] = i;
       std::sort(rank, rank + b.get_size(), compare);
 
-      real_t *cache_mat = (real_t*) malloc(sizeof(real_t) * e.len * b.get_max_len());	
       // compute exact distance for the first k
       for (size_t i=0; i<k; ++i) {
-	emds_approx[rank[i]] = lambda(e, b[rank[i]], b.meta, cache_mat);
+	emds_approx[rank[i]] = lambda(e, b, rank[i]);
       }
 
       std::priority_queue<size_t, 
 			  std::vector<size_t>, 
 			  decltype( compare ) > knn(rank, rank + k, compare);
 
-      size_t idx;
-      for (size_t i=k; i<n; ++i) {
+      size_t idx, i;
+      for (i=k; i<n; ++i) {
 	idx = rank[i];
-	emds_approx[idx] = std::max(emds_approx[idx], lower1(e, b[idx], b.meta, cache_mat));
+	if (emds_approx[idx] >= emds_approx[knn.top()]) break;
+	emds_approx[idx] = std::max(emds_approx[idx], lower1(e, b, idx));
 	if (emds_approx[idx] < emds_approx[knn.top()]) {
-	  emds_approx[idx] = lambda(e, b[idx], b.meta, cache_mat);
+	  emds_approx[idx] = lambda(e, b, idx);
 	  if (emds_approx[idx] < emds_approx[knn.top()])
 	    knn.pop(); knn.push(idx);
 	}
       }
-      std::sort(rank, rank + n, compare);
-      free(cache_mat);
+      std::sort(rank, rank + i + 1, compare);
     }
 
   }
 
 
-  template <typename ElemType>
+  template <typename ElemType1, typename ElemType2>
   void KNearestNeighbors_Linear(size_t k,
-				const ElemType &e, const Block<ElemType> &b,
+				const ElemType1 &e, const Block<ElemType2> &b,
 				__OUT__ real_t* emds_approx,
 				__OUT__ index_t* rank) {
-    auto lambda =  [](const ElemType& e, const Block<ElemType> &b, real_t* dist) {
+    auto lambda =  [](const ElemType1& e, const Block<ElemType2> &b, real_t* dist) {
       EMD(e, b, dist, NULL, NULL, NULL);
     };
     internal::_KNearestNeighbors_Linear_impl(k, e, b, lambda, emds_approx, rank);
   }
 
-  template <typename... Ts>
+  template <typename... Ts1, typename... Ts2>
   void KNearestNeighbors_Linear(size_t k,
-				const ElemMultiPhase<Ts...> &e,
-				const BlockMultiPhase<Ts...> &b,
+				const ElemMultiPhase<Ts1...> &e,
+				const BlockMultiPhase<Ts2...> &b,
 				__OUT__ real_t* emds_approx,
 				__OUT__ index_t* rank) {
-    auto lambda = [](const ElemMultiPhase<Ts...> &e, 
-		     const BlockMultiPhase<Ts...> &b, 
+    auto lambda = [](const ElemMultiPhase<Ts1...> &e, 
+		     const BlockMultiPhase<Ts2...> &b, 
 		     real_t* dist) {
       EMD(e, b, dist);
     };
@@ -469,12 +468,24 @@ namespace d2 {
 				__OUT__ real_t* emds_approx,
 				__OUT__ index_t* rank,
 				size_t n) {
-    auto lambda = [](const ElemType1& e1, const ElemType2 &e2, const Meta<ElemType2> &meta, real_t* cache) -> real_t {return EMD(e1, e2, meta, cache);};
-    auto lower0 = [](const ElemType1& e1, const ElemType2& e2, const Meta<ElemType2> &meta) -> real_t {return LowerThanEMD_v0(e1, e2, meta);};
-    auto lower1 = [](const ElemType1& e1, const ElemType2& e2, const Meta<ElemType2> &meta, real_t* cache) -> real_t {return LowerThanEMD_v1(e1, e2, meta, cache);};
+    real_t *cache_mat = (real_t*) malloc(sizeof(real_t) * e.len * b.get_max_len());	
+    auto lambda = [&](const ElemType1& e, const Block<ElemType2> &b, const int idx) -> real_t {return EMD(e, b[idx], b.meta, cache_mat);};
+    auto lower0 = [ ](const ElemType1& e, const Block<ElemType2> &b, const int idx) -> real_t {return LowerThanEMD_v0(e, b[idx], b.meta);};
+    auto lower1 = [&](const ElemType1& e, const Block<ElemType2> &b, const int idx) -> real_t {return LowerThanEMD_v1(e, b[idx], b.meta, cache_mat);};
     if (n == 0) n = b.get_size();
     internal::_KNearestNeighbors_Simple_impl(k, e, b, lambda, lower0, lower1, emds_approx, rank, n);
+
+    free(cache_mat);
   }
+
+  template <typename... Ts1, typename... Ts2>
+  void KNearestNeighbors_Simple(size_t k,
+				const ElemMultiPhase<Ts1...> &e,
+				const BlockMultiPhase<Ts2...> &b,
+				__OUT__ real_t* emds_approx,
+				__OUT__ index_t* rank) {
+  }
+
 
 
 

@@ -9,6 +9,7 @@
 #include <vector>
 #include <string>
 #include <assert.h>
+#include <tuple> 
 
 namespace d2 {
   /*!
@@ -124,6 +125,7 @@ namespace d2 {
     get_phase() const {return internal::_get_phase<k, Ts...>(*this);}
 
   };
+
 
   template <typename... Ts>
   class BlockMultiPhase : public internal::_BlockMultiPhaseConstructor<Ts...> {

@@ -145,16 +145,17 @@ namespace d2 {
   /*!
    * simple linear approach without any prefetching or pruning
    */
-  template <typename ElemType>
+  template <typename ElemType1, typename ElemType2>
   void KNearestNeighbors_Linear(size_t k,
-				const ElemType &e, const Block<ElemType> &b,
+				const ElemType1 &e, const Block<ElemType2> &b,
 				__OUT__ real_t* emds_approx,
 				__OUT__ index_t* rank);
 
-  template <typename... Ts>
+  template <template<typename...> class D1, template<typename...> class D2,
+	    typename... Ts1, typename... Ts2>
   void KNearestNeighbors_Linear(size_t k,
-				const ElemMultiPhase<Ts...> &e,
-				const BlockMultiPhase<Ts...> &b,
+				const D1<Ts1...> &e,
+				const D2<Ts2...> &b,
 				__OUT__ real_t* emds_approx,
 				__OUT__ index_t* rank);
 
@@ -165,6 +166,14 @@ namespace d2 {
   template <typename ElemType1, typename ElemType2>
   void KNearestNeighbors_Simple(size_t k,
 				const ElemType1 &e, const Block<ElemType2> &b,
+				__OUT__ real_t* emds_approx,
+				__OUT__ index_t* rank,
+				size_t n = 0);
+
+  template <template<typename...> class D1, template<typename...> class D2,
+	    typename... Ts1, typename... Ts2>
+  void KNearestNeighbors_Simple(size_t k,
+				const D1<Ts1...> &e, const D2<Ts2...> &b,
 				__OUT__ real_t* emds_approx,
 				__OUT__ index_t* rank,
 				size_t n = 0);
