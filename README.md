@@ -2,7 +2,7 @@
 `d2suite` is a C++ package for discrete distribution (d2) based 
 __large-scale__ data processing framework. It supports distributed data analysis
 of distributions at scale, such as nearest neighbors, clustering, and
-some other machine learning capability. `d2lib` uses templates and C++11 features 
+some other machine learning capability. `d2suite` uses templates and C++11 features 
 a lot, aiming to maximize its extensibility for different types of data.
 
 `d2suite` also contains a collection of computing tools supporting the analysis 
