@@ -16,22 +16,26 @@ int main(int argc, char** argv) {
 
   // test pairwise EMD
   auto & block0 = data.get_block<0>();
+  auto & block1 = data.get_block<1>();
+  real_t *cache_mat = (real_t*) malloc(sizeof(real_t) * 
+				       std::max(block0.get_max_len() * block0.get_max_len(),
+						block1.get_max_len() * block1.get_max_len()));	
+
   std::cerr << "phase 0 - squared EMD between #" << i1 << " and #" << i2 
-	    << ": "  << EMD(block0[i1], block0[i2], block0.meta);
+	    << ": "  << EMD(block0[i1], block0[i2], block0.meta, cache_mat);
 
   std::cerr << "and its lower bound"
 	    << ": "  << LowerThanEMD_v0(block0[i1], block0[i2], block0.meta)
-	    << " and "  << LowerThanEMD_v1(block0[i1], block0[i2], block0.meta) 
+	    << " and "  << LowerThanEMD_v1(block0[i1], block0[i2], block0.meta, cache_mat) 
 	    << std::endl;
 
 
-  auto & block1 = data.get_block<1>();
   std::cerr << "phase 1 - squared EMD between #" << i1 << " and #" << i2 
-	    << ": "  << EMD(block1[i1], block1[i2], block1.meta);
+	    << ": "  << EMD(block1[i1], block1[i2], block1.meta, cache_mat);
 
   std::cerr << "and its lower bound"
 	    << ": "  << LowerThanEMD_v0(block1[i1], block1[i2], block1.meta) 
-	    << " and "  << LowerThanEMD_v1(block1[i1], block1[i2], block1.meta) 
+	    << " and "  << LowerThanEMD_v1(block1[i1], block1[i2], block1.meta, cache_mat) 
 	    << std::endl;
 
   // test nearest neighbors (linear)
@@ -83,6 +87,15 @@ int main(int argc, char** argv) {
 	    << " is #" << ranks[1] 
 	    << ": " << emds[ranks[1]] 
 	    << "\t\t" <<  totalTime << "s"
+	    << std::endl;
+
+  startTime = getRealTime();
+  KNearestNeighbors_Simple(2, *data.get_multiphase_elem(i1), data, &emds[0], &ranks[0], 0);
+  totalTime = getRealTime() - startTime;
+  std::cerr << "both phase - nearest neighbors of #" << i1
+	    << " is #" << ranks[1] 
+	    << ": " << emds[ranks[1]] 
+	    << "\t\t" << totalTime << "s"
 	    << std::endl;
 
 

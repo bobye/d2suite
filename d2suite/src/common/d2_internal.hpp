@@ -77,6 +77,8 @@ namespace d2 {
 				   const index_t i) {}    
     };
 
+    
+
     template <typename T=Elem<def::Euclidean, 0>, typename... Ts>
     struct tuple_size {
       static const size_t value = tuple_size<Ts...>::value + 1;
@@ -131,19 +133,43 @@ namespace d2 {
 
     template <typename T=Elem<def::Euclidean, 0>, typename... Ts>
     void _copy_elem_from_block(_ElemMultiPhaseConstructor<T, Ts...>&e,
-			       _BlockMultiPhaseConstructor<T, Ts...>&b,
+			       const _BlockMultiPhaseConstructor<T, Ts...>&b,
 			       size_t ind) {
       _ElemMultiPhaseConstructor<Ts...> & e_base = e;
-      _BlockMultiPhaseConstructor<Ts...> & b_base = b;
+      const _BlockMultiPhaseConstructor<Ts...> & b_base = b;
       e.head = b.head[ind];      
       _copy_elem_from_block<Ts...>(e_base, b_base, ind);
     }
 
     template <>
     void _copy_elem_from_block(_ElemMultiPhaseConstructor<>&e,
-			       _BlockMultiPhaseConstructor<>&b,
+			       const _BlockMultiPhaseConstructor<>&b,
 			       size_t ind) {
     }
+
+    template <typename T=Elem<def::Euclidean, 0>, typename... Ts>
+    size_t _get_max_len(const _ElemMultiPhaseConstructor<T, Ts...> &e) {
+      const _ElemMultiPhaseConstructor<Ts...> & e_base = e;
+      return std::max(e.head.len, _get_max_len<Ts...>(e_base));
+    }
+
+    template <>
+    size_t _get_max_len(const _ElemMultiPhaseConstructor<> &e) {
+      return 0;
+    }
+
+    template <typename T=Elem<def::Euclidean, 0>, typename... Ts>
+    size_t _get_max_len(const _BlockMultiPhaseConstructor<T, Ts...> &b) {
+      const _BlockMultiPhaseConstructor<Ts...> & b_base = b;
+      return std::max(b.head.get_max_len(), _get_max_len<Ts...>(b_base));
+    }
+
+    template <>
+    size_t _get_max_len(const _BlockMultiPhaseConstructor<> &b) {
+      return 0;
+    }
+
+    
     
   }
 

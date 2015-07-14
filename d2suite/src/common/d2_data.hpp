@@ -124,6 +124,8 @@ namespace d2 {
     const typename internal::_elem_type_holder<k, Ts...>::type &
     get_phase() const {return internal::_get_phase<k, Ts...>(*this);}
 
+    size_t get_max_len() const {return internal::_get_max_len(*this);}
+
   };
 
 
@@ -160,6 +162,9 @@ namespace d2 {
       internal::_copy_elem_from_block<Ts...>(*ptr, *this, ind);
       return ptr;
     }
+
+    size_t get_max_len() const {return internal::_get_max_len(*this);}
+
   protected:
     size_t size;
 

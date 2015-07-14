@@ -41,26 +41,21 @@ namespace d2 {
 			 real_t* mat) {
       _D2_FUNC(pdist2_sym)(dim, n1, n2, s1, s2, mat, meta.embedding);
     }
-    template <typename D2Type, size_t dim>
-    inline real_t _EMD(const Elem<D2Type, dim> &e1, const Elem<D2Type, dim> &e2, 
-		       const Meta<Elem<D2Type, dim> > &meta, 
+
+    template <typename D2Type1, typename D2Type2, size_t dim>
+    inline real_t _EMD(const Elem<D2Type1, dim> &e1, const Elem<D2Type2, dim> &e2, 
+		       const Meta<Elem<D2Type2, dim> > &meta, 
 		       real_t* cache_mat, real_t* cache_primal, real_t* cache_dual) {
-      bool cache_mat_is_null = false;
+      assert(cache_mat);// cache_mat has to be pre-allocated for speed performance
       real_t val;
-      if (cache_mat == NULL) {
-	cache_mat_is_null = true;
-	cache_mat = (real_t*) malloc(sizeof(real_t) * e1.len * e2.len);
-      }
-      pdist2<D2Type, dim>(e1.supp, e1.len, 
-			  e2.supp, e2.len,
-			  meta,
-			  cache_mat);
+      pdist2(e1.supp, e1.len, 
+	     e2.supp, e2.len,
+	     meta,
+	     cache_mat);
       val = d2_match_by_distmat(e1.len, e2.len, 
 				cache_mat, 
 				e1.w, e2.w,
 				cache_primal, cache_dual, 0);
-      
-      if (cache_mat_is_null) free(cache_mat);
 
       return val;
     }
@@ -108,21 +103,16 @@ namespace d2 {
       return val;
     }
 
-    template <typename D2Type, size_t dim>
-    inline real_t _LowerThanEMD_v1(const Elem<D2Type, dim> &e1, const Elem<D2Type, dim> &e2,
-				   const Meta<Elem<D2Type, dim> > &meta,
+    template <typename D2Type1, typename D2Type2, size_t dim>
+    inline real_t _LowerThanEMD_v1(const Elem<D2Type1, dim> &e1, const Elem<D2Type2, dim> &e2,
+				   const Meta<Elem<D2Type2, dim> > &meta,
 				   real_t* cache_mat) {
-      bool cache_mat_is_null = false;
       real_t val;
-      if (cache_mat == NULL) {
-	cache_mat_is_null = true;
-	cache_mat = (real_t*) malloc(sizeof(real_t) * e1.len * e2.len);	
-      }
-      // cache_mat is column major
-      pdist2<D2Type, dim>(e1.supp, e1.len,
-			  e2.supp, e2.len,
-			  meta,
-			  cache_mat);
+      assert(cache_mat);// cache_mat is column major
+      pdist2(e1.supp, e1.len,
+	     e2.supp, e2.len,
+	     meta,
+	     cache_mat);
       real_t* head=cache_mat;
       real_t min, val1=0, val2=0;
 
@@ -141,75 +131,9 @@ namespace d2 {
 	  min = std::min(min, *head);
 	val2 += min * e1.w[i];
       }
-      if (cache_mat_is_null) free(cache_mat);
 
       return std::max(val1, val2);
     }
-
-
-    template <size_t dim>
-    inline real_t _EMD(const Elem<def::Euclidean, dim> &e1, const Elem<def::WordVec, dim> &e2,
-		       const Meta<Elem<def::WordVec, dim> > &meta,
-		       real_t* cache_mat, real_t* cache_primal, real_t* cache_dual) {
-      bool cache_mat_is_null = false;
-      real_t val;
-      if (cache_mat == NULL) {
-	cache_mat_is_null = true;
-	cache_mat = (real_t*) malloc(sizeof(real_t) * e1.len * e2.len);
-      }
-      _pdist2<dim>(e1.supp, e1.len, 
-		   e2.supp, e2.len,
-		   meta,
-		   cache_mat);
-      val = d2_match_by_distmat(e1.len, e2.len, 
-				cache_mat, 
-				e1.w, e2.w,
-				cache_primal, cache_dual, 0);
-      
-      if (cache_mat_is_null) free(cache_mat);
-
-      return val;
-    }
-
-
-    template <size_t dim>
-    inline real_t _LowerThanEMD_v1(const Elem<def::Euclidean, dim> &e1, 
-				   const Elem<def::WordVec, dim> &e2,
-				   const Meta<Elem<def::WordVec, dim> > &meta,
-				   real_t* cache_mat) {
-      bool cache_mat_is_null = false;
-      real_t val;
-      if (cache_mat == NULL) {
-	cache_mat_is_null = true;
-	cache_mat = (real_t*) malloc(sizeof(real_t) * e1.len * e2.len);	
-      }
-      pdist2<dim>(e1.supp, e1.len,
-		  e2.supp, e2.len,
-		  meta,
-		  cache_mat);
-      real_t* head=cache_mat;
-      real_t min, val1=0, val2=0;
-
-      for (size_t i=0; i<e2.len; ++i) {
-	min=std::numeric_limits<real_t>::max();
-	for (size_t j=0; j<e1.len; ++j, ++head) 
-	  min = std::min(min, *head);
-	val1 += min * e2.w[i];
-      }
-
-      size_t stride = e1.len;
-      for (size_t i=0; i<e1.len; ++i) {
-	min=std::numeric_limits<real_t>::max();
-	head=cache_mat + i;
-	for (size_t j=0; j<e2.len; ++j, head+=stride) 
-	  min = std::min(min, *head);
-	val2 += min * e1.w[i];
-      }
-      if (cache_mat_is_null) free(cache_mat);
-
-      return std::max(val1, val2);
-    }
-
 		
 
   }
@@ -223,23 +147,16 @@ namespace d2 {
   }
 
 
-  template <typename ElemType, typename MetaType>
-  inline real_t EMD (const ElemType &e1, const ElemType &e2, const MetaType &meta,
+  template <typename ElemType1, typename ElemType2, typename MetaType2>
+  inline real_t EMD (const ElemType1 &e1, const ElemType2 &e2, const MetaType2 &meta,
 		     real_t* cache_mat,
 		     real_t* cache_primal, real_t* cache_dual) {
-    return internal::_EMD<typename ElemType::T, ElemType::D>(e1, e2, meta, cache_mat, cache_primal, cache_dual);
+    return internal::_EMD(e1, e2, meta, cache_mat, cache_primal, cache_dual);
   }
 
-  template <size_t dim>
-  inline real_t EMD (const Elem<def::Euclidean, dim> &e1, const Elem<def::WordVec, dim> &e2,
-		     const Meta<Elem<def::WordVec, dim> > &meta, 
-		     real_t* cache_mat,
-		     real_t* cache_primal, real_t* cache_dual) {
-    return internal::_EMD<dim>(e1, e2, meta, cache_mat, cache_primal, cache_dual);
-  }
 
-  template <typename ElemType>
-  void EMD (const ElemType &e, const Block<ElemType> &b,
+  template <typename ElemType1, typename ElemType2>
+  void EMD (const ElemType1 &e, const Block<ElemType2> &b,
 	    __OUT__ real_t* emds,
 	    __IN__ real_t* cache_mat,
 	    __OUT__ real_t* cache_primal, 
@@ -264,17 +181,9 @@ namespace d2 {
     }
   }
 
-  template <size_t dim>
-  void EMD (const Elem<def::Euclidean, dim> &e, const Block<Elem<def::WordVec, dim> > &b,
-	    __OUT__ real_t* emds,
-	    __IN__ real_t* cache_mat,
-	    __OUT__ real_t* cache_primal, 
-	    __OUT__ real_t* cache_dual) {
-    // to be implement
-  }
-
   namespace internal {
     template <typename T, typename... Ts>
+    inline 
     void _EMD_impl(const _ElemMultiPhaseConstructor<T, Ts...> &e, 
 		   const _BlockMultiPhaseConstructor<T, Ts...> &b,
 		   __OUT__ real_t ** emds_arr,
@@ -284,20 +193,82 @@ namespace d2 {
       const _BlockMultiPhaseConstructor<Ts...> &b0 = b;
       _EMD_impl<Ts...>(e0, b0, emds_arr + 1, cache_mat_arr + 1);
     }
-
     template <>
+    inline 
     void _EMD_impl(const _ElemMultiPhaseConstructor<> &e, 
 		   const _BlockMultiPhaseConstructor<> &b,
 		   __OUT__ real_t ** emds_arr,
 		   __IN__ real_t** cache_mat_arr) {
     }
+
+    template <typename T, typename... Ts>
+    inline 
+    real_t _EMD_impl(const _ElemMultiPhaseConstructor<T, Ts...> &e,
+		     const _BlockMultiPhaseConstructor<T, Ts...> &b,
+		     const size_t idx,
+		     __IN__ real_t * cache_mat) {
+      const _ElemMultiPhaseConstructor<Ts...> &e0 = e;
+      const _BlockMultiPhaseConstructor<Ts...> &b0 = b;
+      return EMD(e.head, b.head[idx], b.head.meta, cache_mat) + 
+	_EMD_impl<Ts...>(e0, b0, idx, cache_mat);
+    }    
+    template <>
+    inline 
+    real_t _EMD_impl(const _ElemMultiPhaseConstructor<> &e,
+		     const _BlockMultiPhaseConstructor<> &b,
+		     const size_t idx,
+		     __IN__ real_t * cache_mat) {
+      return 0.f;
+    }
+
+    template <typename T, typename... Ts>
+    inline
+    real_t _LowerThanEMD_v0_impl(const _ElemMultiPhaseConstructor<T, Ts...> &e,
+				 const _BlockMultiPhaseConstructor<T, Ts...> &b,
+				 const size_t idx) {
+      const _ElemMultiPhaseConstructor<Ts...> &e0 = e;
+      const _BlockMultiPhaseConstructor<Ts...> &b0 = b;
+      return _LowerThanEMD_v0(e.head, b.head[idx], b.head.meta) +
+	_LowerThanEMD_v0_impl(e0, b0, idx);
+    }
+    template <>
+    inline 
+    real_t _LowerThanEMD_v0_impl(const _ElemMultiPhaseConstructor<> &e,
+				 const _BlockMultiPhaseConstructor<> &b,
+				 const size_t idx) {
+      return 0.f;
+    }
+
+    template <typename T, typename... Ts>
+    inline
+    real_t _LowerThanEMD_v1_impl(const _ElemMultiPhaseConstructor<T, Ts...> &e,
+				 const _BlockMultiPhaseConstructor<T, Ts...> &b,
+				 const size_t idx,
+				 __IN__ real_t *cache_mat) {
+      const _ElemMultiPhaseConstructor<Ts...> &e0 = e;
+      const _BlockMultiPhaseConstructor<Ts...> &b0 = b;
+      return _LowerThanEMD_v1(e.head, b.head[idx], b.head.meta, cache_mat) +
+	_LowerThanEMD_v1_impl(e0, b0, idx, cache_mat);
+    }
+    template <>
+    inline 
+    real_t _LowerThanEMD_v1_impl(const _ElemMultiPhaseConstructor<> &e,
+				 const _BlockMultiPhaseConstructor<> &b,
+				 const size_t idx,
+				 __IN__ real_t *cache_mat) {
+      return 0.f;
+    }
+
+		   
   }
 
-  template <typename... Ts>
-  void EMD(const ElemMultiPhase<Ts...> &e, 
-	   const BlockMultiPhase<Ts...> &b,
+  template <typename... Ts1, typename... Ts2>
+  void EMD(const ElemMultiPhase<Ts1...> &e, 
+	   const BlockMultiPhase<Ts2...> &b,
 	   __OUT__ real_t* emds) {
-    static const size_t k = internal::tuple_size<Ts...>::value;
+    static const size_t k = internal::tuple_size<Ts1...>::value;
+    static const size_t k2 = internal::tuple_size<Ts2...>::value;
+    assert (k == k2);
     // allocate
     real_t ** cache_mat_arr = (real_t **) malloc(sizeof(real_t *) * k );
     for (size_t i=0; i<k; ++i) cache_mat_arr[i] = NULL;
@@ -323,16 +294,9 @@ namespace d2 {
     free(emds_arr);
   }
 
-  template <typename ElemType, typename MetaType>
-  inline real_t LowerThanEMD_v0(const ElemType &e1, const ElemType &e2, const MetaType &meta) {
-    return internal::_LowerThanEMD_v0<ElemType::D>(e1, e2, meta);
-  }
-
-  template <size_t dim>
-  inline real_t LowerThanEMD_v0(const Elem<def::Euclidean, dim> &e1, 
-				const Elem<def::WordVec, dim> &e2,
-				const Meta<Elem<def::WordVec, dim> > &meta) {
-    return internal::_LowerThanEMD_v0<dim>(e1, e2, meta);
+  template <typename ElemType1, typename ElemType2, typename MetaType2>
+  inline real_t LowerThanEMD_v0(const ElemType1 &e1, const ElemType2 &e2, const MetaType2 &meta) {
+    return internal::_LowerThanEMD_v0(e1, e2, meta);
   }
 
   template <typename ElemType1, typename ElemType2>
@@ -344,19 +308,12 @@ namespace d2 {
   }
 
 
-  template <typename ElemType, typename MetaType>
-  inline real_t LowerThanEMD_v1(const ElemType &e1, const ElemType &e2, const MetaType &meta,
+  template <typename ElemType1, typename ElemType2, typename MetaType2>
+  inline real_t LowerThanEMD_v1(const ElemType1 &e1, const ElemType2 &e2, const MetaType2 &meta,
 				real_t* cache_mat) {
-    return internal::_LowerThanEMD_v1<typename ElemType::T, ElemType::D>(e1, e2, meta, cache_mat);
+    return internal::_LowerThanEMD_v1(e1, e2, meta, cache_mat);
   }
 
-  template <size_t dim>
-  inline real_t LowerThanEMD_v1(const Elem<def::Euclidean, dim> &e1, 
-				const Elem<def::WordVec, dim> &e2,
-				const Meta<Elem<def::WordVec, dim> > &meta,
-				real_t* cache_mat) {
-    return internal::_LowerThanEMD_v1<dim>(e1, e2, meta, cache_mat);
-  }
 
 
   template <typename ElemType1, typename ElemType2>
@@ -447,7 +404,7 @@ namespace d2 {
     };
     internal::_KNearestNeighbors_Linear_impl(k, e, b, lambda, emds_approx, rank);
   }
-
+  
   template <typename... Ts1, typename... Ts2>
   void KNearestNeighbors_Linear(size_t k,
 				const ElemMultiPhase<Ts1...> &e,
@@ -461,7 +418,7 @@ namespace d2 {
     };
     internal::_KNearestNeighbors_Linear_impl(k, e, b, lambda, emds_approx, rank);
   }
-
+  
   template <typename ElemType1, typename ElemType2>
   void KNearestNeighbors_Simple(size_t k,
 				const ElemType1 &e, const Block<ElemType2> &b,
@@ -474,19 +431,25 @@ namespace d2 {
     auto lower1 = [&](const ElemType1& e, const Block<ElemType2> &b, const int idx) -> real_t {return LowerThanEMD_v1(e, b[idx], b.meta, cache_mat);};
     if (n == 0) n = b.get_size();
     internal::_KNearestNeighbors_Simple_impl(k, e, b, lambda, lower0, lower1, emds_approx, rank, n);
-
     free(cache_mat);
   }
+
 
   template <typename... Ts1, typename... Ts2>
   void KNearestNeighbors_Simple(size_t k,
 				const ElemMultiPhase<Ts1...> &e,
 				const BlockMultiPhase<Ts2...> &b,
 				__OUT__ real_t* emds_approx,
-				__OUT__ index_t* rank) {
+				__OUT__ index_t* rank,
+				size_t n) {
+    real_t *cache_mat = (real_t*) malloc(sizeof(real_t) * e.get_max_len() * b.get_max_len());
+    auto lambda = [&](const ElemMultiPhase<Ts1...> &e, const BlockMultiPhase<Ts2...> &b, const int idx) -> real_t {return internal::_EMD_impl(e, b, idx, cache_mat);};
+    auto lower0 = [ ](const ElemMultiPhase<Ts1...> &e, const BlockMultiPhase<Ts2...> &b, const int idx) -> real_t {return internal::_LowerThanEMD_v0_impl(e, b, idx);};
+    auto lower1 = [&](const ElemMultiPhase<Ts1...> &e, const BlockMultiPhase<Ts2...> &b, const int idx) -> real_t {return internal::_LowerThanEMD_v1_impl(e, b, idx, cache_mat);};
+    if (n == 0) n = b.get_size();
+    internal::_KNearestNeighbors_Simple_impl(k, e, b, lambda, lower0, lower1, emds_approx, rank, n);
+    free(cache_mat);
   }
-
-
 
 
 }

@@ -86,18 +86,18 @@ namespace d2 {
    *
    */
 
-  template <typename D2Type, size_t dim>
-  inline void pdist2 (const typename D2Type::type *s1, const size_t n1,
-		      const typename D2Type::type *s2, const size_t n2,
-		      const Meta<Elem<D2Type, dim> > &meta,
+  template <typename D2Type1, typename D2Type2, size_t dim>
+  inline void pdist2 (const typename D2Type1::type *s1, const size_t n1,
+		      const typename D2Type2::type *s2, const size_t n2,
+		      const Meta<Elem<D2Type2, dim> > &meta,
 		      __OUT__ real_t* mat);
 
 
   /*!
    * compute EMD between two discrete distributions
    */
-  template <typename ElemType, typename MetaType>
-  inline real_t EMD (const ElemType &e1, const ElemType &e2, const MetaType &meta,
+  template <typename ElemType1, typename ElemType2, typename MetaType2>
+  inline real_t EMD (const ElemType1 &e1, const ElemType2 &e2, const MetaType2 &meta,
 		     __IN__ real_t* cache_mat = NULL,
 		     __OUT__ real_t* cache_primal = NULL, 
 		     __OUT__ real_t* cache_dual = NULL);
@@ -105,15 +105,16 @@ namespace d2 {
   /*!
    * compute EMD between a discrete distribution and a block of discrete distributions
    */
-  template <typename ElemType>
-  void EMD (const ElemType &e, const Block<ElemType> &b,
+  template <typename ElemType1, typename ElemType2>
+  void EMD (const ElemType1 &e, const Block<ElemType2> &b,
 	    __OUT__ real_t* emds,
 	    __IN__ real_t* cache_mat = NULL,
 	    __OUT__ real_t* cache_primal = NULL, 
 	    __OUT__ real_t* cache_dual = NULL);
 
-  template <typename... Ts>
-  void EMD(const ElemMultiPhase<Ts...> &e, const BlockMultiPhase<Ts...> &b,
+  template <template<typename...> class D1, template<typename... > class D2, 
+	    typename... Ts1, typename... Ts2>
+  void EMD(const D1<Ts1...> &e, const D2<Ts2...> &b,
 	   __OUT__ real_t* emds);
   
 
@@ -121,8 +122,8 @@ namespace d2 {
    * compute lower bound of EMD 
    * version 0: extremely cheap, non-iterative
    */
-  template <typename ElemType, typename MetaType>
-  inline real_t LowerThanEMD_v0(const ElemType &e1, const ElemType &e2, const MetaType &meta);
+  template <typename ElemType1, typename ElemType2, typename MetaType2>
+  inline real_t LowerThanEMD_v0(const ElemType1 &e1, const ElemType2 &e2, const MetaType2 &meta);
 
   template <typename ElemType1, typename ElemType2>
   void LowerThanEMD_v0(const ElemType1 &e, const Block<ElemType2> &b,
@@ -132,8 +133,8 @@ namespace d2 {
    * compute lower bound of EMD 
    * version 1: fast, non-iterative and simple
    */
-  template <typename ElemType, typename MetaType>
-  inline real_t LowerThanEMD_v1(const ElemType &e1, const ElemType &e2, const MetaType &meta,
+  template <typename ElemType1, typename ElemType2, typename MetaType2>
+  inline real_t LowerThanEMD_v1(const ElemType1 &e1, const ElemType2 &e2, const MetaType2 &meta,
 				__IN__ real_t* cache_mat = NULL);
 
   template <typename ElemType1, typename ElemType2>
@@ -173,10 +174,11 @@ namespace d2 {
   template <template<typename...> class D1, template<typename...> class D2,
 	    typename... Ts1, typename... Ts2>
   void KNearestNeighbors_Simple(size_t k,
-				const D1<Ts1...> &e, const D2<Ts2...> &b,
+				const D1<Ts1...> &e, 
+				const D2<Ts2...> &b,
 				__OUT__ real_t* emds_approx,
 				__OUT__ index_t* rank,
-				size_t n = 0);
+				size_t n);
 
 
   inline void Init(int argc, char*argv[]);
