@@ -45,12 +45,12 @@ DEPENDENCY_FILES=\
 	$(patsubst %, %.d, $(EXECUTABLES))
 
 LIB=\
-	lib/libd2lib.a
+	lib/libd2suite.a
 
 
 all: $(EXECUTABLES) $(LIB)
 
-lib/libd2lib.a: $(ALL_OBJECTS)
+lib/libd2suite.a: $(ALL_OBJECTS)
 	ar cr $@ $+
 
 %.o: %.cpp Makefile
