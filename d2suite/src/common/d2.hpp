@@ -29,6 +29,8 @@ namespace d2 {
     struct NGram;
     
     struct Histogram;
+
+    struct SparseHistogram;
   }
 
   /**********************************************************************/

@@ -143,7 +143,7 @@ namespace d2 {
       assert(fs.is_open());
       fs >> d >> obj.meta.size; assert(d == dim);
       if (!obj.meta.embedding) {
-	obj.meta.embedding = new real_t [obj.meta.size * dim];
+	obj.meta.allocate();
       }
       for (size_t i=0; i<obj.meta.size*dim; ++i)
 	fs >> obj.meta.embedding[i];    

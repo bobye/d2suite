@@ -37,6 +37,11 @@ namespace d2 {
       typedef void type;
       static inline size_t step_stride(size_t col, size_t dim) {return 0;}
     };
+
+    struct SparseHistogram {
+      typedef index_t type;
+      static inline size_t step_stride(size_t col, size_t dim) {return col;}
+    };
   }
 
 

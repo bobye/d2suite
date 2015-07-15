@@ -11,37 +11,50 @@ namespace d2 {
     class _Meta {};
 
     template <size_t D>
-    class _Meta<def::WordVec, D> {
+    class _Meta<def::WordVec, D> : public _Meta<def::Euclidean, D> {
     public:
-      _Meta(): size(0), embedding(NULL) {};
+      _Meta(): size(0), embedding(NULL), _is_allocated(false) {};
       size_t size;
       real_t *embedding;
-      ~_Meta() {
-	if (embedding!=NULL) delete [] embedding;
+      void allocate() {
+	embedding = new real_t [size*D];
+	_is_allocated = true;
       }
-    };
-
-    template <size_t D>
-    class _Meta<def::NGram, D> {
-    public:
-      _Meta(): size(0), dist_mat(NULL) {};
-      size_t size;
-      real_t *dist_mat;
-      index_t vocab[255]; // map from char to index
       ~_Meta() {
-	if (dist_mat!=NULL) delete [] dist_mat;
+	if (embedding!=NULL && _is_allocated) delete [] embedding;
       }
+    private:
+      bool _is_allocated;
     };
 
     template <size_t D>
     class _Meta<def::Histogram, D> {
     public:
-      _Meta(): size(0), dist_mat(NULL) {};
+      _Meta(): size(0), dist_mat(NULL), _is_allocated(false) {};
       size_t size;
       real_t *dist_mat;
-      ~_Meta() {
-	if (dist_mat!=NULL) delete [] dist_mat;
+      void allocate() {
+	dist_mat = new real_t [size*size];
+	_is_allocated = true;
       }
+      ~_Meta() {
+	if (dist_mat!=NULL && _is_allocated) delete [] dist_mat;
+      }
+    private:
+      bool _is_allocated;
+    };
+
+    template <size_t D>
+    class _Meta<def::NGram, D>: public _Meta<def::Histogram, D> {
+    public:
+      using _Meta<def::Histogram, D>::_Meta;
+      index_t vocab[255]; // map from char to index
+    };
+
+    template <size_t D>
+    class _Meta<def::SparseHistogram, D> : public _Meta<def::Histogram, D> {
+    public:
+      using _Meta<def::Histogram, D>::_Meta;
     };
 
 
