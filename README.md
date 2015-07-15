@@ -18,15 +18,21 @@ Dependencies
 Make sure you have those pre-compiled libraries installed and
 configured in the [d2lib/make.inc](d2lib/make.inc).
 ```bash
-cd d2suite && make && make test
+cd d2suite && make
+```
+You can run the test cases by first decompressing demo datasets in `data/test` directory,
+then try
+```bash
+make test
 ```
 
 ## Introduction
 ### Data Format Specifications
- - discrete distribution over Euclidean space
- - discrete distribution with finite possible supports in Euclidean space (e.g., bag-of-word-vectors and sparsified histograms)
- - n-gram data with cross-term distance
- - dense histogram
+ - `def::Euclidean`: discrete distribution over Euclidean space
+ - `def::WordVec`: discrete distribution with finite possible supports in Euclidean space (aka, embeddings)
+ - `def::NGram`: n-gram data with cross-term distance
+ - `def::Histogram`: dense histogram with cross-term distance
+ - `def::SparseHistogram`: sparse histogram with cross-term distance
 
 ### Basic Functions
  - distributed/serial IO 
@@ -35,9 +41,8 @@ cd d2suite && make && make test
 
 
 ### Learnings
- - K nearest neighbors [TBA]: serial supports implemented.
+ - K nearest neighbors [ongoing]
  - D2-clustering [TBA]
- - Dirichlet process [TBA]
 
 ## Other Tools
  - document analysis: from bag-of-words to .d2s format [TBA]
