@@ -75,19 +75,29 @@ namespace d2 {
     return os;
   }
 
-  template <size_t dim>
-  std::istream& operator>> (std::istream& is, Elem<def::Histogram, dim> & op) {
+  std::istream& operator>> (std::istream& is, Elem<def::Histogram, 0> & op) {
     for (size_t i=0; i<op.len; ++i) is >> op.w[i];
     return is;
   }
 
-  template <size_t dim>
-  std::ostream& operator<< (std::ostream& os, const Elem<def::Histogram, dim> & op) {
-    os << dim << std::endl << op.len << std::endl;
+  std::ostream& operator<< (std::ostream& os, const Elem<def::Histogram, 0> & op) {
+    os << 0 << std::endl << op.len << std::endl;
     for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
     return os;
   }
 
+  std::istream& operator>> (std::istream& is, Elem<def::SparseHistogram, 0> & op) {
+    for (size_t i=0; i<op.len; ++i) is >> op.w[i];
+    for (size_t i=0; i<op.len; ++i) is >> op.supp[i];
+    return is;
+  }
+
+  std::ostream& operator<< (std::ostream& os, const Elem<def::SparseHistogram, 0> & op) {
+    os << 0 << std::endl << op.len << std::endl;
+    for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
+    for (size_t i=0; i<op.len; ++i) os << op.supp[i] << " "; os << std::endl;
+    return os;
+  }
 
 
   /* append one d2 */
@@ -128,38 +138,10 @@ namespace d2 {
     }
   }
 
-  namespace internal {
-
-    template <size_t dim>
-    void _read_meta(const std::string &filename, 
-		    Block<Elem<def::Euclidean, dim> > & obj) {}
-
-    template <size_t dim>
-    void _read_meta(const std::string &filename,
-		    Block<Elem<def::WordVec, dim> > & obj) {
-      std::ifstream fs;
-      size_t d;
-      fs.open(filename, std::ifstream::in);
-      assert(fs.is_open());
-      fs >> d >> obj.meta.size; assert(d == dim);
-      if (!obj.meta.embedding) {
-	obj.meta.allocate();
-      }
-      for (size_t i=0; i<obj.meta.size*dim; ++i)
-	fs >> obj.meta.embedding[i];    
-      fs.close();
-    }
-
-  }
-
-  template <typename ElemType>
-  void Block<ElemType>::read_meta(const std::string &filename) {
-    internal::_read_meta<ElemType::D>(filename, *this);
-  }
 
   template <typename ElemType>
   void Block<ElemType>::read(const std::string &filename, const size_t size) {
-    read_meta(filename);
+    meta.read(filename);
     read_main(filename, size);
   }
 
@@ -185,7 +167,7 @@ namespace d2 {
 
     template<typename T1=Elem<def::Euclidean, 0>, typename... Ts>
     void _read_meta(const std::string &filename, _BlockMultiPhaseConstructor<T1, Ts...> &t) {
-      (t.head).read_meta(filename + ".meta" + std::to_string(t.ind));
+      t.head.meta.read(filename + ".meta" + std::to_string(t.ind));
       _BlockMultiPhaseConstructor<Ts...> & base = t;
       _read_meta<Ts...>(filename, base);
     } 

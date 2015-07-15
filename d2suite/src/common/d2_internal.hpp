@@ -3,12 +3,17 @@
 
 
 #include "d2.hpp"
+#include <assert.h>
+#include <fstream>
 
 namespace d2 {
   namespace internal {
 
     template <typename D2Type, size_t D>
-    class _Meta {};
+    class _Meta {
+    public:
+      void read(const std::string &filename) {};
+    };
 
     template <size_t D>
     class _Meta<def::WordVec, D> : public _Meta<def::Euclidean, D> {
@@ -19,6 +24,19 @@ namespace d2 {
       void allocate() {
 	embedding = new real_t [size*D];
 	_is_allocated = true;
+      }
+      void read(const std::string &filename) {
+	std::ifstream fs;
+	size_t d;
+	fs.open(filename, std::ifstream::in);
+	assert(fs.is_open());
+	fs >> size; 
+	if (!embedding) {
+	  allocate();
+	}
+	for (size_t i=0; i<size*D; ++i)
+	  fs >> embedding[i];    
+	fs.close();
       }
       ~_Meta() {
 	if (embedding!=NULL && _is_allocated) delete [] embedding;
@@ -36,6 +54,19 @@ namespace d2 {
       void allocate() {
 	dist_mat = new real_t [size*size];
 	_is_allocated = true;
+      }
+      void read(const std::string &filename) {
+	std::ifstream fs;
+	size_t d;
+	fs.open(filename, std::ifstream::in);
+	assert(fs.is_open());
+	fs >> d >> size; assert(d == 0);
+	if (!dist_mat) {
+	  allocate();
+	}
+	for (size_t i=0; i<size*size; ++i)
+	  fs >> dist_mat[i];    
+	fs.close();
       }
       ~_Meta() {
 	if (dist_mat!=NULL && _is_allocated) delete [] dist_mat;

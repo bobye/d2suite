@@ -48,6 +48,7 @@ namespace d2 {
 
   template <typename D2Type, size_t dim>
   struct Elem {
+  public:
     typedef D2Type T;
     static const size_t D = dim;
     /* this defines the length of supports */
@@ -98,7 +99,6 @@ namespace d2 {
 
     int append(std::istream &is);    
     void realign_vec();
-    void read_meta(const std::string &filename);
     void read_main(const std::string &filename, const size_t size);
     void read(const std::string &filename, const size_t size);
 
