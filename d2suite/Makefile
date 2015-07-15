@@ -9,7 +9,7 @@ CFLAGS=-Wextra -Wall -pedantic-errors -O3 $(ARCH_FLAGS)
 LDFLAGS=$(ARCH_FLAGS)
 DEFINES=
 INCLUDES=-I$(RABIT)/include -I$(MOSEK)/h
-LIBRARIES=-L./lib -ld2lib -L$(RABIT)/lib -lrabit -L$(MOSEK)/bin -Wl,-rpath,$(MOSEK)/bin -lmosek64 -lpthread $(BLAS_LIB)
+LIBRARIES=-L./lib -ld2suite -L$(RABIT)/lib -lrabit -L$(MOSEK)/bin -Wl,-rpath,$(MOSEK)/bin -lmosek64 -lpthread $(BLAS_LIB)
 
 OS=$(shell uname)
 
