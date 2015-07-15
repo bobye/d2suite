@@ -202,6 +202,7 @@ void _spdist2(const size_t d, const size_t n, const size_t m,
   size_t i, j, ki, kj, k;
   assert(d>0 && n>0 && m>0);
 
+  for (i=0; i<m*n; ++i) C[i] = 0;
   for (i=0; i<m; ++i)
     for (j=0; j<n; ++j)
       for (k=0, kj=j*d, ki=i*d; k<d; ++k, ++kj, ++ki) 
