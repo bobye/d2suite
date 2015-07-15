@@ -197,46 +197,48 @@ void _dvmul(size_t n, double *a, double *b, double *c) {
     *c = (*a) * (*b);
 }
 
-void _dpdist2(const size_t d, const size_t n, const size_t m, const double * A, const double * B, double *C) {
-  size_t i, j; size_t k;
+void _dpdist2(const size_t d, const size_t n, const size_t m, 
+	      const double * A, const double * B, double *C) {
+  size_t i, j, ki, kj, k;
   assert(d>0 && n>0 && m>0);
-  cblas_dgemm(CblasColMajor, CblasTrans, CblasNoTrans, n, m, d, -2, 
-	      A, d, B, d, 0, C, n);
 
   for (i=0; i<m; ++i)
     for (j=0; j<n; ++j)
-      for (k=0; k<d; ++k)
-	C[i*n + j] += A[j*d + k] * A[j*d + k] + B[i*d + k] * B[i*d + k];
+      for (k=0, kj=j*d, ki=i*d; k<d; ++k, ++kj, ++ki) 
+	C[i*n + j] += (A[kj] -  B[ki]) * (A[kj] -  B[ki]);
 }
 
-void _dpdist2_sym(const size_t d, const size_t n, const size_t m, const double *A, const int *Bi, double *C, const double *vocab) {
-  size_t i, j; size_t k;
+void _dpdist2_sym(const size_t d, const size_t n, const size_t m, 
+		  const double *A, const index_t *Bi, double *C, const double *vocab) {
+  size_t i, j, ki, kj, k;
   for (i=0; i<m*n; ++i) C[i] = 0;
   for (i=0; i<m; ++i)
-    for (j=0; j<n; ++j) {
-      double diff;
-      for (k=0; k<d; ++k) 
-	if (Bi[i] < 0) {
-	  C[i*n +j] += A[j*d+k]*A[j*d+k];
-	}	  
-	else {
-	  diff = A[j*d + k] - vocab[Bi[i]*d + k];
-	  C[i*n+j] += diff * diff;
-	}
-    }
+    for (j=0; j<n; ++j)
+      for (k=0, kj=j*d, ki=Bi[i]*d; k<d; ++k, ++kj, ++ki)
+	  C[i*n + j] += (A[kj] - vocab[ki]) * (A[kj] - vocab[ki]);
 }
 
-void _dpdist_symbolic(const size_t d, const size_t n, const size_t m, const int * A, const int * B, double *C, 
+void _dpdist2_submat(const size_t m, const int *Bi, double *C,
+		     const size_t vocab_size, const double *dist_mat) {
+  size_t i, j;
+  assert(m>0);
+
+  for (i=0; i<m; ++i)
+    for (j=0; j<vocab_size; ++j)
+      C[i*vocab_size + j] = dist_mat[Bi[i]*vocab_size + j];
+}
+
+void _dpdist_symbolic(const size_t d, const size_t n, const size_t m, 
+		      const index_t * A, const index_t * B, double *C, 
 		      const size_t vocab_size, const double* dist_mat) {
-  size_t i,j; size_t k;
+  size_t i,j, k;
   assert(d>0 && n>0 && m>0);
  
   for (i=0; i<m*n; ++i) C[i] = 0;
   for (i=0; i<m; ++i)
     for (j=0; j<n; ++j) 
-      for (k=0; k<d; ++k) {
+      for (k=0; k<d; ++k)
 	C[i*n+j] += dist_mat[A[j*d + k]*vocab_size + B[i*d + k]];
-      }
 }
 
 // inplace a -> exp(a)
