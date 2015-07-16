@@ -16,11 +16,11 @@ Dependencies
  - [mosek](https://www.mosek.com): fast LP/QP solvers, academic license available.
 
 Make sure you have those pre-compiled libraries installed and
-configured in the [d2lib/make.inc](d2lib/make.inc).
+configured in the [d2suite/make.inc](d2suite/make.inc).
 ```bash
 cd d2suite && make
 ```
-You can run the test cases by first decompressing demo datasets in `data/test` directory,
+You can run the test cases by first decompressing demo datasets in `d2suite/data/test` directory,
 then try
 ```bash
 make test
