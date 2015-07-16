@@ -6,7 +6,7 @@ some other machine learning capability. `d2suite` uses templates and C++11 featu
 a lot, aiming to maximize its extensibility for different types of data.
 
 `d2suite` also contains a collection of computing tools supporting the analysis 
-of typical d2 data, such as images, sequences, documents.
+of typical d2 data, such as images, sequences, documents. Contributions are welcomed.
 
 *[under construction]*
 
@@ -27,6 +27,7 @@ make test
 ```
 
 ## Introduction
+Checkout the main [API](d2suite/src/common/d2.hpp) and [tests](d2suite/src/test) for a quick start.
 ### Data Format Specifications
  - `def::Euclidean`: discrete distribution over Euclidean space
  - `def::WordVec`: discrete distribution with finite possible supports in Euclidean space (aka, embeddings)
