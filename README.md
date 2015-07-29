@@ -44,6 +44,7 @@ Checkout the main [API](d2suite/src/common/d2.hpp) and [tests](d2suite/src/test)
 ### Learnings
  - K nearest neighbors [ongoing]
  - D2-clustering [TBA]
+ - Latent Support Measure Machine (NIPS 2014) [TBA]
 
 ## Other Tools
  - document analysis: from bag-of-words to .d2s format [TBA]
