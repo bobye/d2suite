@@ -44,9 +44,10 @@ extern "C" {
    */
   void _dpdist2(const size_t d, const size_t n, const size_t m, const double * A, const double * B, double *C);
   void _dpdist2_sym(const size_t d, const size_t n, const size_t m, const double *A, const index_t *Bi, double *C, const double *vocab);
+  void _dpdist2_sym2(const size_t d, const size_t n, const size_t m, const index_t *Ai, const index_t *Bi, double *C, const double *vocab);
   void _dpdist2_submat(const size_t m, const int *Bi, double *C, const size_t vocab_size, const double *dist_mat);
   void _dpdist_symbolic(const size_t d, const size_t n, const size_t m, const index_t * A, const index_t * B, double *C, const size_t vocab_size, const double* dist_mat);
-
+  
 
   // assertation
   void _sgzero(size_t n, float *a); //assert (a>0)
@@ -83,6 +84,7 @@ extern "C" {
    */
   void _spdist2(const size_t d, const size_t n, const size_t m, const float * A, const float * B, float *C);
   void _spdist2_sym(const size_t d, const size_t n, const size_t m, const float *A, const index_t *Bi, float *C, const float *vocab);
+  void _spdist2_sym2(const size_t d, const size_t n, const size_t m, const index_t *Ai, const index_t *Bi, float *C, const float *vocab);
   void _spdist2_submat(const size_t m, const size_t *Bi, float *C, const size_t vocab_size, const float *dist_mat);
   void _spdist_symbolic(const size_t d, const size_t n, const size_t m, const index_t * A, const index_t * B, float *C, const size_t vocab_size, const float* dist_mat);
   

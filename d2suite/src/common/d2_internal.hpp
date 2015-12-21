@@ -30,7 +30,8 @@ namespace d2 {
 	size_t d;
 	fs.open(filename, std::ifstream::in);
 	assert(fs.is_open());
-	fs >> size; 
+	fs >> d; assert(d == D);
+	fs >> size;  
 	if (!embedding) {
 	  allocate();
 	}

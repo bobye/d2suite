@@ -164,10 +164,10 @@ namespace d2 {
 
 
   /*!
-   * prefetching and pruning with lowerbounds
+   * prefetching and pruning with lowerbounds (return the actual number of EMD computed)
    */
   template <typename ElemType1, typename ElemType2>
-  void KNearestNeighbors_Simple(size_t k,
+  size_t KNearestNeighbors_Simple(size_t k,
 				const ElemType1 &e, const Block<ElemType2> &b,
 				__OUT__ real_t* emds_approx,
 				__OUT__ index_t* rank,
@@ -175,7 +175,7 @@ namespace d2 {
 
   template <template<typename...> class D1, template<typename...> class D2,
 	    typename... Ts1, typename... Ts2>
-  void KNearestNeighbors_Simple(size_t k,
+  size_t KNearestNeighbors_Simple(size_t k,
 				const D1<Ts1...> &e, 
 				const D2<Ts2...> &b,
 				__OUT__ real_t* emds_approx,

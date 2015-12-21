@@ -219,6 +219,16 @@ void _dpdist2_sym(const size_t d, const size_t n, const size_t m,
 	  C[i*n + j] += (A[kj] - vocab[ki]) * (A[kj] - vocab[ki]);
 }
 
+void _dpdist2_sym2(const size_t d, const size_t n, const size_t m, 
+		   const index_t *Ai, const index_t *Bi, double *C, const double *vocab) {
+  size_t i, j, ki, kj, k;
+  for (i=0; i<m*n; ++i) C[i] = 0;
+  for (i=0; i<m; ++i)
+    for (j=0; j<n; ++j)
+      for (k=0, kj=Ai[j]*d, ki=Bi[i]*d; k<d; ++k, ++kj, ++ki)
+	  C[i*n + j] += (vocab[kj] - vocab[ki]) * (vocab[kj] - vocab[ki]);
+}
+
 void _dpdist2_submat(const size_t m, const int *Bi, double *C,
 		     const size_t vocab_size, const double *dist_mat) {
   size_t i, j;

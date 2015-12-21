@@ -6,6 +6,7 @@
 #include "cblas.h"
 #include <algorithm>
 #include <queue>
+#include <cmath>
 
 namespace d2 {
 
@@ -40,6 +41,14 @@ namespace d2 {
 			 const Meta<Elem<def::WordVec, dim> > &meta,
 			 real_t* mat) {
       _D2_FUNC(pdist2_sym)(dim, n1, n2, s1, s2, mat, meta.embedding);
+    }
+    template <size_t dim>
+    inline void _pdist2( const def::WordVec::type *s1, const size_t n1,
+			 const def::WordVec::type *s2, const size_t n2,
+			 const Meta<Elem<def::WordVec, dim> > &meta,
+			 real_t* mat) {
+      _D2_FUNC(pdist2_sym2)(dim, n1, n2, s1, s2, mat, meta.embedding);
+      for (size_t i=0; i<n1*n2; ++i) mat[i] = sqrt(mat[i]); // ad-hoc modification!
     }
 
     template <typename D2Type1, typename D2Type2, size_t dim>
@@ -80,8 +89,7 @@ namespace d2 {
 
       for (size_t i=0; i<dim; ++i) {
 	d = (c1[i] - c2[i]);
-	d = d*d;
-	val += d;
+	val += d * d;
       }
       
       return val;
@@ -92,15 +100,22 @@ namespace d2 {
 				   const Elem<def::WordVec, dim> &e2,
 				   const Meta<Elem<def::WordVec, dim> > &meta) {
       real_t c1[dim], c2[dim], val=0, d;
-      // implement incomplete !
-
       for (size_t i=0; i<dim; ++i) {
-	d = (c1[i] - c2[i]);
-	d = d*d;
-	val += d;
+	c1[i] = c2[i] = 0;
+	for (index_t j=0; j<e1.len; ++j) {
+	  c1[i]+=e1.w[j] * meta.embedding[e1.supp[j]*dim+i];
+	}
+	for (index_t j=0; j<e2.len; ++j) {
+	  c2[i]+=e2.w[j] * meta.embedding[e2.supp[j]*dim+i];	
+	}
       }
 
-      return val;
+      for (size_t i=0; i<dim; ++i) {
+	d = (c1[i] - c2[i]); 
+	val += d * d;
+      }
+
+      return sqrt(val); // ad-hoc modification
     }
 
     template <typename D2Type1, typename D2Type2, size_t dim>
@@ -352,7 +367,7 @@ namespace d2 {
 
     template <typename ElemType, typename BlockType, 
 	      typename DistanceFunction, typename LowerBoundFunction0, typename LowerBoundFunction1>
-    void _KNearestNeighbors_Simple_impl(size_t k,
+    size_t _KNearestNeighbors_Simple_impl(size_t k,
 					const ElemType &e, const BlockType &b,
 					DistanceFunction & lambda,
 					LowerBoundFunction0 & lower0,
@@ -361,13 +376,14 @@ namespace d2 {
 					__OUT__ index_t* rank,
 					size_t n) {
       auto compare = [&](size_t i1, size_t i2) {return emds_approx[i1] < emds_approx[i2];};
+
       for (size_t i=0; i<b.get_size(); ++i) {
 	emds_approx[i] = lower0(e, b, i);
       }
 
       for (size_t i=0; i<b.get_size(); ++i) rank[i] = i;
       std::sort(rank, rank + b.get_size(), compare);
-
+      
       // compute exact distance for the first k
       for (size_t i=0; i<k; ++i) {
 	emds_approx[rank[i]] = lambda(e, b, rank[i]);
@@ -377,18 +393,20 @@ namespace d2 {
 			  std::vector<size_t>, 
 			  decltype( compare ) > knn(rank, rank + k, compare);
 
-      size_t idx, i;
+      size_t idx, i, count=k;
       for (i=k; i<n; ++i) {
 	idx = rank[i];
 	if (emds_approx[idx] >= emds_approx[knn.top()]) break;
 	emds_approx[idx] = std::max(emds_approx[idx], lower1(e, b, idx));
 	if (emds_approx[idx] < emds_approx[knn.top()]) {
+	  count ++;
 	  emds_approx[idx] = lambda(e, b, idx);
 	  if (emds_approx[idx] < emds_approx[knn.top()])
 	    knn.pop(); knn.push(idx);
 	}
       }
       std::sort(rank, rank + i + 1, compare);
+      return count; // how many EMD computed.
     }
 
   }
@@ -420,23 +438,24 @@ namespace d2 {
   }
   
   template <typename ElemType1, typename ElemType2>
-  void KNearestNeighbors_Simple(size_t k,
+  size_t KNearestNeighbors_Simple(size_t k,
 				const ElemType1 &e, const Block<ElemType2> &b,
 				__OUT__ real_t* emds_approx,
 				__OUT__ index_t* rank,
 				size_t n) {
     real_t *cache_mat = (real_t*) malloc(sizeof(real_t) * e.len * b.get_max_len());	
     auto lambda = [&](const ElemType1& e, const Block<ElemType2> &b, const int idx) -> real_t {return EMD(e, b[idx], b.meta, cache_mat);};
-    auto lower0 = [ ](const ElemType1& e, const Block<ElemType2> &b, const int idx) -> real_t {return LowerThanEMD_v0(e, b[idx], b.meta);};
+    auto lower0 = [&](const ElemType1& e, const Block<ElemType2> &b, const int idx) -> real_t {return LowerThanEMD_v0(e, b[idx], b.meta);};
     auto lower1 = [&](const ElemType1& e, const Block<ElemType2> &b, const int idx) -> real_t {return LowerThanEMD_v1(e, b[idx], b.meta, cache_mat);};
     if (n == 0) n = b.get_size();
-    internal::_KNearestNeighbors_Simple_impl(k, e, b, lambda, lower0, lower1, emds_approx, rank, n);
+    size_t count = internal::_KNearestNeighbors_Simple_impl(k, e, b, lambda, lower0, lower1, emds_approx, rank, n);
     free(cache_mat);
+    return count;
   }
 
 
   template <typename... Ts1, typename... Ts2>
-  void KNearestNeighbors_Simple(size_t k,
+  size_t KNearestNeighbors_Simple(size_t k,
 				const ElemMultiPhase<Ts1...> &e,
 				const BlockMultiPhase<Ts2...> &b,
 				__OUT__ real_t* emds_approx,
@@ -444,11 +463,12 @@ namespace d2 {
 				size_t n) {
     real_t *cache_mat = (real_t*) malloc(sizeof(real_t) * e.get_max_len() * b.get_max_len());
     auto lambda = [&](const ElemMultiPhase<Ts1...> &e, const BlockMultiPhase<Ts2...> &b, const int idx) -> real_t {return internal::_EMD_impl(e, b, idx, cache_mat);};
-    auto lower0 = [ ](const ElemMultiPhase<Ts1...> &e, const BlockMultiPhase<Ts2...> &b, const int idx) -> real_t {return internal::_LowerThanEMD_v0_impl(e, b, idx);};
+    auto lower0 = [&](const ElemMultiPhase<Ts1...> &e, const BlockMultiPhase<Ts2...> &b, const int idx) -> real_t {return internal::_LowerThanEMD_v0_impl(e, b, idx);};
     auto lower1 = [&](const ElemMultiPhase<Ts1...> &e, const BlockMultiPhase<Ts2...> &b, const int idx) -> real_t {return internal::_LowerThanEMD_v1_impl(e, b, idx, cache_mat);};
     if (n == 0) n = b.get_size();
-    internal::_KNearestNeighbors_Simple_impl(k, e, b, lambda, lower0, lower1, emds_approx, rank, n);
+    size_t count = internal::_KNearestNeighbors_Simple_impl(k, e, b, lambda, lower0, lower1, emds_approx, rank, n);
     free(cache_mat);
+    return count;
   }
 
 

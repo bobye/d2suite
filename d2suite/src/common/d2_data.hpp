@@ -177,7 +177,7 @@ namespace d2 {
 
 #ifdef RABIT_RABIT_H_
   template <typename ElemType>
-  class DistributedBlock : Block<ElemType> {
+  class DistributedBlock : public Block<ElemType> {
     DistributedBlock(const size_t thesize, const size_t thelen):
       Block<ElemType>((thesize-1) / rabit::GetWorldSize() + 1, thelen) {};
     size_t global_size;
@@ -187,7 +187,7 @@ namespace d2 {
   };
 
   template <typename... Ts>
-  class DistributedBlockMultiPhase : BlockMultiPhase<Ts...> {
+  class DistributedBlockMultiPhase : public BlockMultiPhase<Ts...> {
   public:
     DistributedBlockMultiPhase(const size_t thesize, const size_t* thelen):
       BlockMultiPhase<Ts...>((thesize-1) / rabit::GetWorldSize() + 1, thelen, 0) {};
