@@ -73,16 +73,38 @@ namespace d2 {
   public:
     Block(const size_t thesize, 
 	  const size_t thelen): 
-      len(thelen), col(0), max_len(0), size(0) {
+      len(thelen), col(0), max_len(0), size(0), isShared(false) {
       // allocate block memory
       p_w = (real_t*) malloc(sizeof(real_t) * thesize * thelen);
       p_supp = (SuppType *) malloc(sizeof(SuppType) * ElemType::T::step_stride(thesize * thelen, ElemType::D));
       assert(p_w && p_supp);
       max_col = thesize*thelen;
     };
+    Block(Block<ElemType> &that, index_t start, size_t thesize) {
+      assert(that.get_size() > start + thesize);
+      size = thesize;
+      col = 0;
+      max_col = -1;
+      len = that.len;
+      max_len = 0;
+      isShared = true;
+      p_w = that[start].w;
+      p_supp = that[start].supp;
+      for (int i=start; i< size+start; ++i) {
+	col += that[i].len;
+	if (max_len < that[i].len) max_len = that[i].len;
+      }
+      vec_.resize(thesize);
+      for (int i=0; i< size; ++i) {
+	vec_[i].len = that[i+start].len;
+      }
+      realign_vec();
+    };
     ~Block() {
-      if (p_w != NULL) free(p_w); 
-      if (p_supp != NULL) free(p_supp); 
+      if (!isShared) {
+	if (p_w != NULL) free(p_w); 
+	if (p_supp != NULL) free(p_supp);
+      }
     }
     
     /* get specific d2 in the block */
@@ -107,11 +129,17 @@ namespace d2 {
 
     MetaType meta;
 
+    Block<ElemType> & get_subblock(index_t start, size_t thesize) {
+      auto ptr=new Block<ElemType>(*this, start, thesize);
+      return *ptr;
+    }
+
   protected:
     std::vector< ElemType > vec_;    
     size_t size;
     size_t len, max_len;
     size_t col, max_col;
+    bool isShared;
 
     /* actual binary data */
     real_t *p_w;
