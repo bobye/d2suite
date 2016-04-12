@@ -141,7 +141,7 @@ namespace d2 {
 
   template <typename ElemType>
   void Block<ElemType>::read(const std::string &filename, const size_t size) {
-    meta.read(filename);
+    meta.read(filename + ".meta0");
     read_main(filename, size);
   }
 
