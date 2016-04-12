@@ -7,9 +7,11 @@
 #include "blas_util.h"
 #include <stdio.h>
 #include <assert.h>
+#include <stdint.h>
 
 #define _D2_MALLOC_SCALAR(n) (float*) malloc((n)*sizeof(float))
 #define _D2_FREE(x) free(x)
+
 
 void _sgzero(size_t n, float *a) {
   size_t i;
@@ -19,6 +21,48 @@ void _sgzero(size_t n, float *a) {
 void _sadd(size_t n, float *a, float b) {
   size_t i;
   for (i=0; i<n; ++i) a[i] += b;
+}
+
+// b = cmax(a)
+void _scmax(size_t m, size_t n, float *a, float *b) {
+  size_t i,j;
+  float *pa = a, *pb = b;
+  for (i=0; i<n; ++i, ++pb) {
+    *pb =FLT_MIN;
+    for (j=0; j<m; ++j, ++pa)
+      *pb = MAX(*pb, *pa);
+  }
+}
+
+// b = cmin(a)
+void _scmin(size_t m, size_t n, float *a, float *b) {
+  size_t i,j;
+  float *pa = a, *pb = b;
+  for (i=0; i<n; ++i, ++pb) {
+    *pb =FLT_MAX;
+    for (j=0; j<m; ++j, ++pa)
+      *pb = MIN(*pb, *pa);
+  }
+}
+
+// b = rmax(a)
+void _srmax(size_t m, size_t n, float *a, float *b) {
+  size_t i,j;
+  float *pa =a, *pb;
+  for (j=0; j<m; ++j) b[j] = FLT_MIN;
+  for (i=0; i<n; ++i)
+    for (j=0, pb =b; j<m; ++j, ++pa, ++pb)
+      *pb = MAX(*pb, *pa);
+}
+
+// b = rmin(a)
+void _srmin(size_t m, size_t n, float *a, float *b) {
+  size_t i,j;
+  float *pa =a, *pb;
+  for (j=0; j<m; ++j) b[j] = FLT_MAX;
+  for (i=0; i<n; ++i)
+    for (j=0, pb =b; j<m; ++j, ++pa, ++pb)
+      *pb = MIN(*pb, *pa);
 }
 
 // a(:,*) = a(:,*) .+ b

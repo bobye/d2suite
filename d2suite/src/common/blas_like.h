@@ -25,6 +25,8 @@ extern "C" {
   void _dcsum2(size_t m, size_t n, double *a, double *b); // b(*) += sum(a(:,*))
   void _dcnorm(size_t m, size_t n, double *a, double *sa); // replace a(:,*) -> a(:,*) / sum(a(:,*))
   void _dccenter(size_t m, size_t n, double *a, double *sa); // replace a(:,*) -> a(:,*) - mean(a(:,*))
+  void _dcmax(size_t m, size_t n, double *a, double *b);
+  void _dcmin(size_t m, size_t n, double *a, double *b);
   // row-wise op
   void _dgrmv(size_t m, size_t n, double *a, double *b); // a(*,:) = a(*,:) .+ b
   void _dgrms(size_t m, size_t n, double *a, double *b); // a = a * diag(b) 
@@ -33,6 +35,9 @@ extern "C" {
   void _drsum2(size_t m, size_t n, double *a, double *b); // b(*) += sum(a(*,:))
   void _drnorm(size_t m, size_t n, double *a, double *sa); // inplace a(*,:) = a(*,:) / sum(a(*,:))
   void _drcenter(size_t m, size_t n, double *a, double *sa); // replace a(*,:) -> a(*,:) - mean(a(*,:))
+  void _drmax(size_t m, size_t n, double *a, double *b);
+  void _drmin(size_t m, size_t n, double *a, double *b);
+
 
 
   /* compute squared Euclidean distance matrix
@@ -65,6 +70,8 @@ extern "C" {
   void _scsum2(size_t m, size_t n, float *a, float *b); // b(*) += sum(a(:,*))
   void _scnorm(size_t m, size_t n, float *a, float *sa); // replace a(:,*) -> a(:,*) / sum(a(:,*))
   void _sccenter(size_t m, size_t n, float *a, float *sa); // replace a(:,*) -> a(:,*) - mean(a(:,*))
+  void _scmax(size_t m, size_t n, float *a, float *b);
+  void _scmin(size_t m, size_t n, float *a, float *b);
   // row-wise op
   void _sgrmv(size_t m, size_t n, float *a, float *b); // a(*,:) = a(*,:) .+ b
   void _sgrms(size_t m, size_t n, float *a, float *b); // a = a * diag(b) 
@@ -73,6 +80,8 @@ extern "C" {
   void _srsum2(size_t m, size_t n, float *a, float *b); // b(*) += sum(a(*,:))
   void _srnorm(size_t m, size_t n, float *a, float *sa); // inplace a(*,:) = a(*,:) / sum(a(*,:))
   void _srcenter(size_t m, size_t n, float *a, float *sa); // replace a(*,:) -> a(*,:) - mean(a(*,:))
+  void _srmax(size_t m, size_t n, float *a, float *b);
+  void _srmin(size_t m, size_t n, float *a, float *b);
 
 
   /* compute squared Euclidean distance matrix
