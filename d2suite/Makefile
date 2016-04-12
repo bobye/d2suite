@@ -93,7 +93,7 @@ clean:
 test: $(TESTS) all
 
 %.test: %
-	$< > /dev/null
+	$<
 
 %.rabit_test: %.rabit
 	../rabit/tracker/rabit_demo.py -n 4 $<

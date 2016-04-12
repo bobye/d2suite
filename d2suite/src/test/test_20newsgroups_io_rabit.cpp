@@ -27,7 +27,7 @@ int main(int argc, char** argv) {
   int i=0; // select the first entry from query queue
     auto & block0 = data_query.get_block<0>();
     auto & block1 = data_retrieve.get_block<0>();
-    std::cout << "number of EMDs: " << KNearestNeighbors_Simple(2, block0[i], block1, &emds[0], &ranks[0]) << std::endl;
+    std::cout << getLogHeader()  << "number of EMDs: " << KNearestNeighbors_Simple(2, block0[i], block1, &emds[0], &ranks[0]) << std::endl;
     //  }
   double totalTime = getRealTime() - startTime;
 

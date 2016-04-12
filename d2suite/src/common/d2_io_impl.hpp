@@ -39,7 +39,8 @@ namespace d2 {
   template <size_t dim>
   std::istream& operator>> (std::istream& is, Elem<def::WordVec, dim> & op) {
     for (size_t i=0; i<op.len; ++i) is >> op.w[i];
-    for (size_t i=0; i<op.len; ++i) is >> op.supp[i];
+    for (size_t i=0; i<op.len; ++i) {is >> op.supp[i];
+      if (op.supp[i]>0) op.supp[i]--;}
     return is;
   }
 
@@ -47,7 +48,7 @@ namespace d2 {
   std::ostream& operator<< (std::ostream& os, const Elem<def::WordVec, dim> & op) {
     os << dim << std::endl << op.len << std::endl;
     for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
-    for (size_t i=0; i<op.len; ++i) os << op.supp[i] << " "; os << std::endl;
+    for (size_t i=0; i<op.len; ++i) os << op.supp[i]+1 << " "; os << std::endl;
     return os;
   }
 
@@ -88,14 +89,14 @@ namespace d2 {
 
   std::istream& operator>> (std::istream& is, Elem<def::SparseHistogram, 0> & op) {
     for (size_t i=0; i<op.len; ++i) is >> op.w[i];
-    for (size_t i=0; i<op.len; ++i) is >> op.supp[i];
+    for (size_t i=0; i<op.len; ++i) {is >> op.supp[i]; op.supp[i]--;}
     return is;
   }
 
   std::ostream& operator<< (std::ostream& os, const Elem<def::SparseHistogram, 0> & op) {
     os << 0 << std::endl << op.len << std::endl;
     for (size_t i=0; i<op.len; ++i) os << op.w[i] << " "; os << std::endl;
-    for (size_t i=0; i<op.len; ++i) os << op.supp[i] << " "; os << std::endl;
+    for (size_t i=0; i<op.len; ++i) os << op.supp[i]+1 << " "; os << std::endl;
     return os;
   }
 

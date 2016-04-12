@@ -38,10 +38,10 @@ namespace d2 {
 
 #ifdef RABIT_RABIT_H_
   inline const std::string getLogHeader() 
-  {return std::string("@d2lib(") + std::to_string(rabit::GetRank()) + ")";}
+  {return std::string("@d2suite(") + std::to_string(rabit::GetRank()) + ")";}
 #else
   inline const std::string getLogHeader() 
-  {return std::string("@d2lib");}
+  {return std::string("@d2suite");}
 #endif
 
 }
