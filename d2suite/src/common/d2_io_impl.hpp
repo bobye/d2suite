@@ -107,7 +107,7 @@ namespace d2 {
     int dim;
     is >> dim >> theone.len; 
     if (is.fail() || is.eof()) return 1;
-    assert(dim == ElemType::D);
+    assert(dim == ElemType::D || 0 == ElemType::D);
     if (theone.len + col > max_col) {
       std::cerr << getLogHeader() << " warning: memory insufficient, reallocate!" << std::endl;
       max_col *=2;
