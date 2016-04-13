@@ -50,6 +50,15 @@ namespace d2 {
       _D2_FUNC(pdist2_sym2)(dim, n1, n2, s1, s2, mat, meta.embedding);
       for (size_t i=0; i<n1*n2; ++i) mat[i] = sqrt(mat[i]); // ad-hoc modification!
     }
+    template <size_t dim>
+    inline void _pdist2( const def::Histogram::type *s1, const size_t n1,
+			 const def::SparseHistogram::type *s2, const size_t n2,
+			 const Meta<Elem<def::SparseHistogram, dim> > &meta,
+			 real_t* mat) {
+      for (size_t j=0, k=0; j<n2; ++j) 
+	for (size_t i=0, l=0; i<n1; ++i, ++k, l+=n1)
+	  mat[k]=meta.dist_mat[l+s2[j]];
+    }
 
     template <typename D2Type1, typename D2Type2, size_t dim>
     inline real_t _EMD(const Elem<D2Type1, dim> &e1, const Elem<D2Type2, dim> &e2, 
@@ -160,7 +169,7 @@ namespace d2 {
 		      real_t* mat) {
     internal::_pdist2(s1, n1, s2, n2, meta, mat);
   }
-
+  
 
   template <typename ElemType1, typename ElemType2, typename MetaType2>
   inline real_t EMD (const ElemType1 &e1, const ElemType2 &e2, const MetaType2 &meta,

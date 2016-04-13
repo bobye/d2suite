@@ -34,7 +34,7 @@ namespace d2 {
     };
 
     struct Histogram {
-      typedef void type;
+      typedef char type;
       static inline size_t step_stride(size_t col, size_t dim) {return 0;}
     };
 
@@ -80,8 +80,8 @@ namespace d2 {
       assert(p_w && p_supp);
       max_col = thesize*thelen;
     };
-    Block(Block<ElemType> &that, index_t start, size_t thesize) {
-      assert(that.get_size() > start + thesize);
+    Block(const Block<ElemType> &that, index_t start, size_t thesize) {
+      assert(that.get_size() >= start + thesize);
       size = thesize;
       col = 0;
       max_col = -1;
@@ -117,7 +117,19 @@ namespace d2 {
     inline size_t get_col() const {return col;}
     inline size_t & get_max_len() {return max_len;}
     inline size_t get_max_len() const {return max_len;}
-
+    inline real_t* &get_weight_ptr() {return p_w;}
+    inline real_t* get_weight_ptr() const {return p_w;}
+    inline SuppType* &get_support_ptr() {return p_supp;}
+    inline SuppType* get_support_ptr() const {return p_supp;}
+    inline void initialize(const size_t thesize, const size_t thelen) {
+      len = thelen;
+      size = thesize;
+      col = thesize * thelen;
+      max_len = thesize;
+      vec_.resize(thesize);
+      for (size_t i=0; i<thesize; ++i) vec_[i].len = thelen;
+      realign_vec();
+    }
 
     int append(std::istream &is);    
     void realign_vec();
