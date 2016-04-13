@@ -19,7 +19,9 @@ namespace d2 {
   // specifications
   template <size_t dim>
   std::istream& operator>> (std::istream& is, Elem<def::Euclidean, dim> & op) {
-    for (size_t i=0; i<op.len; ++i) is >> op.w[i];
+    real_t sum = 0.;
+    for (size_t i=0; i<op.len; ++i) {is >> op.w[i]; sum += op.w[i];}
+    for (size_t i=0; i<op.len; ++i) op.w[i] /= sum;
     for (size_t i=0; i<op.len * dim; ++i) is >> op.supp[i];
     return is;
   }
@@ -38,7 +40,9 @@ namespace d2 {
 
   template <size_t dim>
   std::istream& operator>> (std::istream& is, Elem<def::WordVec, dim> & op) {
-    for (size_t i=0; i<op.len; ++i) is >> op.w[i];
+    real_t sum = 0.;
+    for (size_t i=0; i<op.len; ++i) {is >> op.w[i]; sum += op.w[i];}
+    for (size_t i=0; i<op.len; ++i) op.w[i] /= sum;
     for (size_t i=0; i<op.len; ++i) {is >> op.supp[i];
       if (op.supp[i]>0) op.supp[i]--;}
     return is;
@@ -55,7 +59,9 @@ namespace d2 {
   template <size_t dim>
   std::istream& operator>> (std::istream& is, Elem<def::NGram, dim> & op) {
     int c;
-    for (size_t i=0; i<op.len; ++i) is >> op.w[i];
+    real_t sum = 0.;
+    for (size_t i=0; i<op.len; ++i) {is >> op.w[i]; sum += op.w[i];}
+    for (size_t i=0; i<op.len; ++i) op.w[i] /= sum;
     for (size_t i=0; i<op.len; ++i) {      
       while ((c =is.peek()) == ' ' || c == '\n') is.ignore();
       is.get(op.supp + i*dim, ' ');
@@ -77,7 +83,9 @@ namespace d2 {
   }
 
   std::istream& operator>> (std::istream& is, Elem<def::Histogram, 0> & op) {
-    for (size_t i=0; i<op.len; ++i) is >> op.w[i];
+    real_t sum = 0.;
+    for (size_t i=0; i<op.len; ++i) {is >> op.w[i]; sum += op.w[i];}
+    for (size_t i=0; i<op.len; ++i) op.w[i] /= sum;
     return is;
   }
 
@@ -88,7 +96,9 @@ namespace d2 {
   }
 
   std::istream& operator>> (std::istream& is, Elem<def::SparseHistogram, 0> & op) {
-    for (size_t i=0; i<op.len; ++i) is >> op.w[i];
+    real_t sum = 0.;
+    for (size_t i=0; i<op.len; ++i) {is >> op.w[i]; sum += op.w[i];}
+    for (size_t i=0; i<op.len; ++i) op.w[i] /= sum;
     for (size_t i=0; i<op.len; ++i) {is >> op.supp[i]; op.supp[i]--;}
     return is;
   }
