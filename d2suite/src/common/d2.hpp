@@ -196,5 +196,6 @@ namespace d2 {
 #endif
 
 #include "d2_server.hpp"
+#include "d2_sa.hpp"
 
 #endif /* _D2_H_ */
