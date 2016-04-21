@@ -61,7 +61,7 @@ double d2_match_by_distmat(const int n, const int m, const SCALAR *C, const SCAL
 			   __OUT__ SCALAR *x, __OUT__ SCALAR *lambda, size_t index) {
   
   const MSKint32t numvar = n * m,
-                  numcon = n + m - 1;
+                  numcon = n + m;
   MSKtask_t    *p_task;
   MSKrescodee r = MSK_RES_OK;
   MSKint32t    i,j;
@@ -102,10 +102,10 @@ double d2_match_by_distmat(const int n, const int m, const SCALAR *C, const SCAL
 			0.0,      /* Numerical value of lower bound.*/
                         +MSK_INFINITY);     /* Numerical value of upper bound.*/
 
-    i = (j >= (m-1)*n) ? 1 : 2;
+    //i = (j >= (m-1)*n) ? 1 : 2;
     r = MSK_putacol(*p_task, 
 		    j,           /* Index of variable.*/
-		    i,           /* Number of non-zeros in column j.*/
+		    2,           /* Number of non-zeros in column j.*/
 		    asub+j*2,
 		    ones);
   }
@@ -134,7 +134,7 @@ double d2_match_by_distmat(const int n, const int m, const SCALAR *C, const SCAL
 			MSK_BK_FX,
 			wX[i],
 			wX[i]);
-  for (i=0; i<m-1 && r==MSK_RES_OK; ++i)
+  for (i=0; i<m && r==MSK_RES_OK; ++i)
     r = MSK_putconbound(*p_task,
 			i+n,
 			MSK_BK_FX,

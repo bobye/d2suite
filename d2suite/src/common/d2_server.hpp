@@ -66,10 +66,10 @@ namespace d2 {
 		       real_t* cache_mat, real_t* cache_primal, real_t* cache_dual) {
       assert(cache_mat);// cache_mat has to be pre-allocated for speed performance
       real_t val;
-      pdist2(e1.supp, e1.len, 
-	     e2.supp, e2.len,
-	     meta,
-	     cache_mat);
+      _pdist2(e1.supp, e1.len, 
+	      e2.supp, e2.len,
+	      meta,
+	      cache_mat);
       val = d2_match_by_distmat(e1.len, e2.len, 
 				cache_mat, 
 				e1.w, e2.w,
