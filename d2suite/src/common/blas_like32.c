@@ -76,6 +76,15 @@ void _sgcmv(size_t m, size_t n, float *a, float *b) {
       *pa += *pb;
 }
 
+// a(:,*) = -a(:,*) .+ b
+void _sgcmv2(size_t m, size_t n, float *a, float *b) {
+  size_t i,j;
+  float *pa, *pb;
+  for (i=0,pa=a; i<n; ++i)
+    for (j=0,pb=b; j<m; ++j, ++pa, ++pb)
+      *pa = -*pa + *pb;
+}
+
 // a(*,:) = a(*,:) .+ b
 void _sgrmv(size_t m, size_t n, float *a, float *b) {
   size_t i,j;

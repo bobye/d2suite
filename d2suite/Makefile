@@ -1,7 +1,7 @@
 include make.inc
 
-CC=gcc -mllvm -force-vector-width=8
-CXX=g++ -std=c++0x -mllvm -force-vector-width=8
+CC=gcc
+CXX=g++ -std=c++0x
 MPICXX=mpicxx -std=c++0x
 
 ARCH_FLAGS=-m64 -D _D2_DOUBLE 

@@ -74,6 +74,15 @@ void _dgcmv(size_t m, size_t n, double *a, double *b) {
       *pa += *pb;
 }
 
+// a(:,*) = -a(:,*) .+ b
+void _dgcmv2(size_t m, size_t n, double *a, double *b) {
+  size_t i,j;
+  double *pa, *pb;
+  for (i=0,pa=a; i<n; ++i)
+    for (j=0,pb=b; j<m; ++j, ++pa, ++pb)
+      *pa = -*pa + *pb;
+}
+
 // a(*,:) = a(*,:) .+ b
 void _dgrmv(size_t m, size_t n, double *a, double *b) {
   size_t i,j;

@@ -19,6 +19,7 @@ extern "C" {
 
   // column-wise op
   void _dgcmv(size_t m, size_t n, double *a, double *b); // a(:,*) = a(:,*) .+ b
+  void _dgcmv2(size_t m, size_t n, double *a, double *b); // a(:,*) = -a(:,*) .+ b
   void _dgcms(size_t m, size_t n, double *a, double *b); // a = diag(b) * a
   void _dicms(size_t m, size_t n, double *a, double *b); // a = diag(1./b) * a
   void _dcsum(size_t m, size_t n, double *a, double *b); // b(*) = sum(a(:,*))
@@ -64,6 +65,7 @@ extern "C" {
 
   // column-wise op
   void _sgcmv(size_t m, size_t n, float *a, float *b); // a(:,*) = a(:,*) .+ b
+  void _sgcmv2(size_t m, size_t n, float *a, float *b); // a(:,*) = -a(:,*) .+ b
   void _sgcms(size_t m, size_t n, float *a, float *b); // a = diag(b) * a
   void _sicms(size_t m, size_t n, float *a, float *b); // a = diag(1./b) * a
   void _scsum(size_t m, size_t n, float *a, float *b); // b(*) = sum(a(:,*))

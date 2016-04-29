@@ -89,20 +89,16 @@ namespace d2 {
 	const size_t m2=b[i].len;
 	const size_t mat_size=m1*m2;
 
-#pragma clang loop vectorize_width(8) interleave_count(8)
-	for (size_t j=0; j< mat_size; ++j) Mtmp[j] = M[j];
+	memcpy(Mtmp, M, sizeof(real_t)*mat_size);
 	_D2_FUNC(grmv)(m1, m2, Mtmp, dual2);
 	_D2_FUNC(rmin)(m1, m2, Mtmp, U);
-	//      std::generate(dual1, dual1+m1, gen);
 	for (size_t j=0; j < m1; ++j, ++dual1, ++U, ++w1) {
 	  *dual1 = *U - rng(rnd_gen) / (*w1 + eps);
 	}
 	// calculate L and sample dual2
-#pragma clang loop vectorize_width(8) interleave_count(8)
-	for (size_t j=0; j< mat_size; ++j) Mtmp[j] = - M[j];
-	_D2_FUNC(gcmv)(m1, m2, Mtmp, dual1 - m1);
+	memcpy(Mtmp, M, sizeof(real_t)*mat_size);
+	_D2_FUNC(gcmv2)(m1, m2, Mtmp, dual1 - m1);
 	_D2_FUNC(cmax)(m1, m2, Mtmp, L);
-	//	std::generate(dual2, dual2+m1, gen);
 	for (size_t j=0; j < m2; ++j, ++dual2, ++L, ++w2) {
 	  *dual2 = *L + rng(rnd_gen) / (*w2 + eps);
 	}
