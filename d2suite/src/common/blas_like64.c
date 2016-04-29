@@ -24,43 +24,45 @@ void _dadd(size_t n, double *a, double b) {
 // b = cmax(a)
 void _dcmax(size_t m, size_t n, double *a, double *b) {
   size_t i,j;
-  double *pa = a, *pb = b;
-  for (i=0; i<n; ++i, ++pb) {
-    *pb =DBL_MIN;
-    for (j=0; j<m; ++j, ++pa)
-      *pb = MAX(*pb, *pa);
+  double *pa = a;
+  for (j=0; j<n; ++j) b[j] = DBL_MIN;
+  for (i=0; i<m; ++i, ++pa) {
+    for (j=0; j<n; ++j)
+      b[j] = MAX(b[j], pa[j*m]);
   }
 }
 
 // b = cmin(a)
 void _dcmin(size_t m, size_t n, double *a, double *b) {
   size_t i,j;
-  double *pa = a, *pb = b;
-  for (i=0; i<n; ++i, ++pb) {
-    *pb =DBL_MAX;
-    for (j=0; j<m; ++j, ++pa)
-      *pb = MIN(*pb, *pa);
+  double *pa = a;
+  for (j=0; j<n; ++j) b[j] = DBL_MAX;
+  for (i=0; i<m; ++i, ++pa) {
+    for (j=0; j<n; ++j)
+      b[j] = MIN(b[j], pa[j*m]);
   }
 }
 
 // b = rmax(a)
 void _drmax(size_t m, size_t n, double *a, double *b) {
   size_t i,j;
-  double *pa =a, *pb;
+  double *pa =a;
   for (j=0; j<m; ++j) b[j] = DBL_MIN;
-  for (i=0; i<n; ++i)
-    for (j=0, pb =b; j<m; ++j, ++pa, ++pb)
-      *pb = MAX(*pb, *pa);
+  for (i=0; i<n; ++i, pa += m) {
+    for (j=0; j<m; ++j)
+      b[j] = MAX(b[j], pa[j]);
+  }
 }
 
 // b = rmin(a)
 void _drmin(size_t m, size_t n, double *a, double *b) {
   size_t i,j;
-  double *pa =a, *pb;
+  double *pa =a;
   for (j=0; j<m; ++j) b[j] = DBL_MAX;
-  for (i=0; i<n; ++i)
-    for (j=0, pb =b; j<m; ++j, ++pa, ++pb)
-      *pb = MIN(*pb, *pa);
+  for (i=0; i<n; ++i, pa += m) {
+    for (j=0; j<m; ++j)
+      b[j] = MIN(b[j], pa[j]);
+  }
 }
 
 // a(:,*) = a(:,*) .+ b

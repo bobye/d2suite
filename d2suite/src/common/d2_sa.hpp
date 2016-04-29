@@ -31,7 +31,7 @@ namespace d2 {
 			 const bool hasPrimal = false) {
     assert(a.get_size() == b.get_size());
     size_t mat_size = 0;
-    for (index_t i=0; i<a.get_size(); ++i) mat_size += a[i].len * b[i].len;
+    for (size_t i=0; i<a.get_size(); ++i) mat_size += a[i].len * b[i].len;
     sac._m = (real_t*) malloc(sizeof(real_t) * mat_size);
     sac._mtmp = (real_t*) malloc(sizeof(real_t) * mat_size);
     if (hasPrimal) {
@@ -41,8 +41,8 @@ namespace d2 {
     }
     sac._dual1 = (real_t*) malloc(a.get_col() * sizeof(real_t));
     sac._dual2 = (real_t*) malloc(b.get_col() * sizeof(real_t));
-    for (index_t i=0; i<a.get_col(); ++i) sac._dual1[i] = 0;
-    for (index_t i=0; i<b.get_col(); ++i) sac._dual2[i] = 0;    
+    for (size_t i=0; i<a.get_col(); ++i) sac._dual1[i] = 0;
+    for (size_t i=0; i<b.get_col(); ++i) sac._dual2[i] = 0;    
     sac._U = (real_t*) malloc(sizeof(real_t) * a.get_col());
     sac._L = (real_t*) malloc(sizeof(real_t) * b.get_col());
   }
@@ -72,7 +72,8 @@ namespace d2 {
     //    std::random_device rd;
     std::exponential_distribution<real_t> rng (1./T);
     std::mt19937 rnd_gen (1);
-    
+    //    auto gen = std::bind(rng, rnd_gen);
+
     for (int iter=0; iter < niter; ++iter) {
       real_t *dual1 = sac._dual1;
       real_t *dual2 = sac._dual2;
@@ -82,45 +83,48 @@ namespace d2 {
       real_t *Mtmp = sac._mtmp;
       real_t *w1 = a.get_weight_ptr();
       real_t *w2 = b.get_weight_ptr();
-      for (index_t i=0; i < b.get_size(); ++i) {
+      for (size_t i=0; i < b.get_size(); ++i) {
 	// calculate U and sample dual1
-	size_t m1=a[i].len;
-	size_t m2=b[i].len;
-	size_t mat_size=m1*m2;
+	const size_t m1=a[i].len;
+	const size_t m2=b[i].len;
+	const size_t mat_size=m1*m2;
 
-
-	for (index_t j=0; j< mat_size; ++j) Mtmp[j] = M[j];
+#pragma clang loop vectorize_width(8) interleave_count(8)
+	for (size_t j=0; j< mat_size; ++j) Mtmp[j] = M[j];
 	_D2_FUNC(grmv)(m1, m2, Mtmp, dual2);
 	_D2_FUNC(rmin)(m1, m2, Mtmp, U);
-	for (index_t j=0; j < m1; ++j, ++dual1, ++U, ++w1) {
+	//      std::generate(dual1, dual1+m1, gen);
+	for (size_t j=0; j < m1; ++j, ++dual1, ++U, ++w1) {
 	  *dual1 = *U - rng(rnd_gen) / (*w1 + eps);
 	}
 	// calculate L and sample dual2
-	for (index_t j=0; j< mat_size; ++j) Mtmp[j] = - M[j];
+#pragma clang loop vectorize_width(8) interleave_count(8)
+	for (size_t j=0; j< mat_size; ++j) Mtmp[j] = - M[j];
 	_D2_FUNC(gcmv)(m1, m2, Mtmp, dual1 - m1);
 	_D2_FUNC(cmax)(m1, m2, Mtmp, L);
-	for (index_t j=0; j < m2; ++j, ++dual2, ++L, ++w2) {
+	//	std::generate(dual2, dual2+m1, gen);
+	for (size_t j=0; j < m2; ++j, ++dual2, ++L, ++w2) {
 	  *dual2 = *L + rng(rnd_gen) / (*w2 + eps);
 	}
 	M = M + mat_size;
 	Mtmp = Mtmp + mat_size;
       }
     }
-
+    
     /*
     {
       real_t *dual1 = sac._dual1;
       real_t *dual2 = sac._dual2;
       real_t *U = sac._U;
       real_t *L = sac._L;
-      for (index_t i=0; i < b.get_size(); ++i) {
+      for (size_t i=0; i < b.get_size(); ++i) {
 	size_t m1=a[i].len;
 	size_t m2=b[i].len;
 	real_t baseline = -1000. + _D2_CBLAS_FUNC(asum)(m2, dual2, 1) / m2;
-	for (index_t j=0; j < m1; ++j) dual1[j] = dual1[j] - baseline;
-	for (index_t j=0; j < m1; ++j) U[j] = U[j] - baseline;
-	for (index_t j=0; j < m2; ++j) dual2[j] = dual2[j] - baseline;
-	for (index_t j=0; j < m2; ++j) L[j] = L[j] - baseline;      
+	for (size_t j=0; j < m1; ++j) dual1[j] = dual1[j] - baseline;
+	for (size_t j=0; j < m1; ++j) U[j] = U[j] - baseline;
+	for (size_t j=0; j < m2; ++j) dual2[j] = dual2[j] - baseline;
+	for (size_t j=0; j < m2; ++j) L[j] = L[j] - baseline;      
 	dual1 = dual1 + m1;
 	dual2 = dual2 + m2;
 	U = U + m1;
@@ -128,6 +132,9 @@ namespace d2 {
       }
     }
     */
+
+    real_t cw=0.;
+    real_t cost= 0.;
     if (sac._primal) {
       real_t *primal=sac._primal;
       real_t *U = sac._U;
@@ -136,41 +143,71 @@ namespace d2 {
       real_t *Mtmp = sac._mtmp;
       real_t *w1 = a.get_weight_ptr();
       real_t *w2 = b.get_weight_ptr();
-      for (index_t i=0; i < b.get_size(); ++i) {
+      for (size_t i=0; i < b.get_size(); ++i) {
 	// calculate U and sample dual1
 	size_t m1=a[i].len;
 	size_t m2=b[i].len;
-	size_t mat_size=m1*m2;
-	for (index_t j=0; j< mat_size; ++j) primal[j]=0;
+	const size_t mat_size=m1*m2;
+	for (size_t j=0; j< mat_size; ++j) primal[j]=0;
 
-	for (index_t j=0; j< mat_size; ++j) Mtmp[j] = M[j];
+	for (size_t j=0; j< mat_size; ++j) Mtmp[j] = M[j];
 	_D2_FUNC(grmv)(m1, m2, Mtmp, L);
-	for (index_t j=0; j<m1; ++j, ++w1) {
-	  index_t midx = j;
+	for (size_t j=0; j<m1; ++j) {
+	  size_t midx = j;
 	  real_t u = Mtmp[midx];
-	  index_t idx = midx+m1;
-	  for (index_t k=1; k<m2; ++k, idx+=m1)
+	  size_t idx = midx+m1;
+	  for (size_t k=1; k<m2; ++k, idx+=m1)
 	    if (Mtmp[idx] < u) { u = Mtmp[idx]; midx = idx; }
-	  primal[midx] += 0.5 * *w1;
+	  primal[midx] += 0.5 * w1[j];
+	  cw += 0.5 * w1[j] / w2[midx/m1]; 
 	}
 	// calculate L and sample dual2
-	for (index_t j=0; j< mat_size; ++j) Mtmp[j] = - M[j];
+	for (size_t j=0; j< mat_size; ++j) Mtmp[j] = - M[j];
 	_D2_FUNC(gcmv)(m1, m2, Mtmp, U);
-	for (index_t j=0; j<m2; ++j, ++w2) {
-	  index_t midx = j*m1;
+	for (size_t j=0; j<m2; ++j) {
+	  size_t midx = j*m1;
 	  real_t l = Mtmp[midx];
-	  index_t idx = midx+1;
-	  for (index_t k=1; k<m1; ++k, ++idx)
+	  size_t idx = midx+1;
+	  for (size_t k=1; k<m1; ++k, ++idx)
 	    if (Mtmp[idx] > l) { l = Mtmp[idx]; midx = idx; }
-	  primal[midx] += 0.5 * *w2;
+	  primal[midx] += 0.5 * w2[j];
+	  cw += 0.5 * w2[j] / w1[midx%m1];
 	}
 	primal = primal + mat_size;
 	M = M + mat_size;
 	Mtmp = Mtmp + mat_size;
 	U = U + m1;
 	L = L + m2;
-      }           
-    }    
+	w1 = w1 + m1;
+	w2 = w2 + m2;
+      }
+    }
+
+    if (sac._primal) {
+      real_t *primal=sac._primal;
+      real_t *U = sac._U;
+      real_t *L = sac._L;
+      real_t *M = sac._m;
+      real_t *w1 = a.get_weight_ptr();
+      real_t *w2 = b.get_weight_ptr();
+      for (size_t i=0; i < b.get_size(); ++i) {
+	size_t m1=a[i].len;
+	size_t m2=b[i].len;
+	const size_t mat_size=m1*m2;
+
+	for (size_t k=0; k< m2; ++k)
+	  for (size_t j=0; j< m1; ++j)
+	    cost += (M[j+k*m1] + L[k] - U[j])*primal[j+k*m1];
+	w1 = w1 + m1;
+	w2 = w2 + m2;
+	U = U + m1;	
+	L = L + m2;
+	M = M + mat_size;
+	primal = primal + mat_size;
+      }
+      std::cout << " " << - cost / cw << " ";
+    }
+    
   }
 
   template <typename ElemType1, typename ElemType2>
@@ -191,7 +228,7 @@ namespace d2 {
     mixture_data.initialize(data.get_size(), m);
 
     SACache sac, sac_b;
-    allocate_sa_cache(mixture_data, data, sac, true);
+    allocate_sa_cache(mixture_data, data, sac, false);
     
     std::vector< Block<ElemType1> * > mbatch;
     std::vector< const Block<ElemType2> * > dbatch;
@@ -277,7 +314,7 @@ namespace d2 {
 	  _D2_FUNC(cnorm)(K, batch_size, thisbeta, gd);
 	  _D2_FUNC(cnorm)(K, batch_size, thisbetaz, gd);
 	}
-	for (index_t j=0; j<batch_size; ++j) {
+	for (size_t j=0; j<batch_size; ++j) {
 	  size_t mat_size=(*mbatch[i])[j].len * (*dbatch[i])[j].len;
 	  sac_b._m    += mat_size;
 	  sac_b._mtmp += mat_size;
@@ -298,11 +335,11 @@ namespace d2 {
 	//	cache_dual = (real_t*) malloc(sizeof(real_t)*(m+data.get_max_len()));
 	real_t *dual1=sac._dual1;
 	real_t *dual2=sac._dual2;
-	for (index_t i=0; i<n; ++i) {    
+	for (size_t i=0; i<n; ++i) {    
 	  emds[i]=EMD(mixture_data[i], data[i], data.meta, cache_mat);
 	  /*
-	  for (index_t j=0; j<m; ++j) dual1[j] = cache_dual[j];
-	  for (index_t j=m; j<m+data[i].len; ++j) dual2[j] = -cache_dual[j];
+	  for (size_t j=0; j<m; ++j) dual1[j] = cache_dual[j];
+	  for (size_t j=m; j<m+data[i].len; ++j) dual2[j] = -cache_dual[j];
 	  dual1 += m;
 	  dual2 += data[i].len;
 	  */
@@ -311,6 +348,7 @@ namespace d2 {
 	std::cout << obj << std::endl;
 	free(cache_mat);
 	free(emds);
+	model.write("data/mnist/mixture_5_" + std::to_string(iter+1) + ".txt");
 	//free(cache_dual);
 	/*
 	if (obj_old < 0 || obj <= obj_old) {
@@ -325,10 +363,11 @@ namespace d2 {
       if (sac._primal) {
 	primal_obj = _D2_CBLAS_FUNC(dot)(m*data.get_col(), sac._m, 1, sac._primal, 1);
       } else {
-	primal_obj = 0.;
+	primal_obj = _D2_CBLAS_FUNC(dot)(n*m, sac._U, 1, mixture_data.get_weight_ptr(), 1) - _D2_CBLAS_FUNC(dot)(data.get_col(), sac._L, 1, data.get_weight_ptr(), 1);
       }
 
-      T*=1-1./sqrt(2*m); if (T < 0.001) T=0.001;
+      if (dual_obj < 0.1*primal_obj)
+	T*=1-1./sqrt(2*m); //if (T < 0.001) T=0.001;
       //gamma *= sqrt(1.+iter) / sqrt(2.+iter);
       std::cout << getLogHeader() << "\t" << primal_obj / n
 		<< "\t\t" << dual_obj / n
@@ -337,14 +376,14 @@ namespace d2 {
       
     }
 
-    for (index_t i=0; i*batch_size < n; ++i) {
+    for (size_t i=0; i*batch_size < n; ++i) {
       delete mbatch[i];
       delete dbatch[i];
     }
 
     /*
-    for (index_t i=0, k=0; i<n; ++i) {
-      for (index_t j=0; j<K; ++j, ++k) {
+    for (size_t i=0, k=0; i<n; ++i) {
+      for (size_t j=0; j<K; ++j, ++k) {
 	std::cout << " " << beta[k];
       }
       std::cout << std::endl;

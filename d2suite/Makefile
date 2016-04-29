@@ -1,10 +1,10 @@
 include make.inc
 
-CC=gcc
-CXX=g++ -std=c++0x
+CC=gcc -mllvm -force-vector-width=8
+CXX=g++ -std=c++0x -mllvm -force-vector-width=8
 MPICXX=mpicxx -std=c++0x
 
-ARCH_FLAGS=-m64 -D _D2_DOUBLE
+ARCH_FLAGS=-m64 -D _D2_DOUBLE 
 CFLAGS=-Wextra -Wall -pedantic-errors -O3 $(ARCH_FLAGS)
 LDFLAGS=$(ARCH_FLAGS)
 DEFINES=

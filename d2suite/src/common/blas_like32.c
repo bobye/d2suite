@@ -26,43 +26,45 @@ void _sadd(size_t n, float *a, float b) {
 // b = cmax(a)
 void _scmax(size_t m, size_t n, float *a, float *b) {
   size_t i,j;
-  float *pa = a, *pb = b;
-  for (i=0; i<n; ++i, ++pb) {
-    *pb =FLT_MIN;
-    for (j=0; j<m; ++j, ++pa)
-      *pb = MAX(*pb, *pa);
+  float *pa = a;
+  for (j=0; j<n; ++j) b[j] = DBL_MIN;
+  for (i=0; i<m; ++i, ++pa) {
+    for (j=0; j<n; ++j)
+      b[j] = MAX(b[j], pa[j*m]);
   }
 }
 
 // b = cmin(a)
 void _scmin(size_t m, size_t n, float *a, float *b) {
   size_t i,j;
-  float *pa = a, *pb = b;
-  for (i=0; i<n; ++i, ++pb) {
-    *pb =FLT_MAX;
-    for (j=0; j<m; ++j, ++pa)
-      *pb = MIN(*pb, *pa);
+  float *pa = a;
+  for (j=0; j<n; ++j) b[j] = DBL_MAX;
+  for (i=0; i<m; ++i, ++pa) {
+    for (j=0; j<n; ++j)
+      b[j] = MIN(b[j], pa[j*m]);
   }
 }
 
 // b = rmax(a)
 void _srmax(size_t m, size_t n, float *a, float *b) {
   size_t i,j;
-  float *pa =a, *pb;
-  for (j=0; j<m; ++j) b[j] = FLT_MIN;
-  for (i=0; i<n; ++i)
-    for (j=0, pb =b; j<m; ++j, ++pa, ++pb)
-      *pb = MAX(*pb, *pa);
+  float *pa =a;
+  for (j=0; j<m; ++j) b[j] = DBL_MIN;
+  for (i=0; i<n; ++i, pa += m) {
+    for (j=0; j<m; ++j)
+      b[j] = MAX(b[j], pa[j]);
+  }
 }
 
 // b = rmin(a)
 void _srmin(size_t m, size_t n, float *a, float *b) {
   size_t i,j;
-  float *pa =a, *pb;
-  for (j=0; j<m; ++j) b[j] = FLT_MAX;
-  for (i=0; i<n; ++i)
-    for (j=0, pb =b; j<m; ++j, ++pa, ++pb)
-      *pb = MIN(*pb, *pa);
+  float *pa =a;
+  for (j=0; j<m; ++j) b[j] = DBL_MAX;
+  for (i=0; i<n; ++i, pa += m) {
+    for (j=0; j<m; ++j)
+      b[j] = MIN(b[j], pa[j]);
+  }
 }
 
 // a(:,*) = a(:,*) .+ b

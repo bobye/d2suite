@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
   }
 
 
-  WM3_SA(wm3, data, 40, .01, 0.9, 0.1);
+  WM3_SA(wm3, data, 40, .01, 0.9, 0.2, 20);
   wm3.write("data/mnist/mixture_5.txt");
  
   server::Finalize();
