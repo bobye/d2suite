@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
   data.read(filename, size);
 
 
-  size_t k = 25;
+  size_t k = 40;
   Block<Elem<def::Histogram, 0> > wm3 (k, 784);
   for (size_t i=0; i<k; ++i) {
     std::string uniform_sample = "0 784 ";
@@ -28,8 +28,8 @@ int main(int argc, char** argv) {
   }
 
 
-  WM3_SA(wm3, data, 1000, .01, 0.9, 0.2, 20);
-  wm3.write("data/mnist/mixture_5.txt");
+  WM3_SA(wm3, data, 1000, .01, 0.9, 0.5, 20);
+  wm3.write("data/mnist/mixture_5_" + std::to_string(k) + ".txt");
  
   server::Finalize();
   return 0;

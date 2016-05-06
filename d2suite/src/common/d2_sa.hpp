@@ -110,9 +110,9 @@ namespace d2 {
     assert(sigma>0 && sigma<=1 && T>0);
     assert(a.get_size() == b.get_size());
 
-    //    std::random_device rd;
+    std::random_device rd;
     std::exponential_distribution<real_t> rng (1./T);
-    std::mt19937 rnd_gen (1);
+    std::mt19937 rnd_gen (rd());
     //    auto gen = std::bind(rng, rnd_gen);
 
     for (int iter=0; iter < niter; ++iter) {
@@ -157,7 +157,7 @@ namespace d2 {
       for (size_t i=0; i < b.get_size(); ++i) {
 	size_t m1=a[i].len;
 	size_t m2=b[i].len;
-	real_t baseline = -1000. + _D2_CBLAS_FUNC(asum)(m2, dual2, 1) / m2;
+	real_t baseline =  _D2_CBLAS_FUNC(asum)(m2, dual2, 1) / m2;
 	for (size_t j=0; j < m1; ++j) dual1[j] = dual1[j] - baseline;
 	for (size_t j=0; j < m1; ++j) U[j] = U[j] - baseline;
 	for (size_t j=0; j < m2; ++j) dual2[j] = dual2[j] - baseline;
@@ -304,13 +304,15 @@ namespace d2 {
     size_t K=model.get_size();
     size_t m=model[0].len;
     size_t n=data.get_size();
+    bool isGradUse = false;
+    
     const size_t tau = 5, E=20;
-    real_t T=initT, A=0., B=0., D=0.;
+    real_t T=initT, A=0., B=0., D=0., bound;
     Block<ElemType1> mixture_data(n, m);
     mixture_data.initialize(data.get_size(), m);
 
     SACache sac, sac_b;
-    allocate_sa_cache(mixture_data, data, sac, false);
+    allocate_sa_cache(mixture_data, data, sac, true);
     
     std::vector< Block<ElemType1> * > mbatch;
     std::vector< const Block<ElemType2> * > dbatch;
@@ -327,7 +329,7 @@ namespace d2 {
 
     real_t obj_old=0, obj=0, primal_obj, dual_obj, max_obj;
     real_t *gd, *md;
-    gd = (real_t*) malloc(sizeof(real_t)*std::max(m,batch_size)*K);
+    gd = (real_t*) malloc(sizeof(real_t)*std::max(std::max(m,batch_size)*K,n));
     md = (real_t*) malloc(sizeof(real_t)*m*K);
     for (size_t i=0; i<m*K; ++i) md[i] = 0.;
 
@@ -341,18 +343,19 @@ namespace d2 {
     internal::_pdist2(mixture_data.get_support_ptr(), m, data.get_support_ptr(), data.get_col(), data.meta, sac._m);
     real_t mC = _D2_CBLAS_FUNC(asum)(data.get_col() * K, sac._m, 1) / (data.get_col() * K);
     
-    for (size_t iter=0, accelerator=1; iter < max_epoch; ++iter, ++accelerator) {  
+    for (size_t iter=0, accelerator=1; iter < max_epoch; ++iter) {  
       sac_b = sac;
       real_t r = 3;
       real_t lambda = r/(r+accelerator);
 
       if (accelerator == 20) {
 	for (size_t i=0; i<K*n; ++i) betaz[i] = beta[i];
-	accelerator=1;
+	accelerator=0;
       }
-
-      _D2_CBLAS_FUNC(scal)(K*n, (1-lambda), beta, 1);
-      _D2_CBLAS_FUNC(axpy)(K*n, lambda, betaz, 1, beta, 1);
+      if (isGradUse) {	  
+	_D2_CBLAS_FUNC(scal)(K*n, (1-lambda), beta, 1);
+	_D2_CBLAS_FUNC(axpy)(K*n, lambda, betaz, 1, beta, 1);
+      }
       
       for (size_t i=0; i*batch_size < n; ++i) {	
 	real_t *thisbeta = beta + i*batch_size*K;
@@ -365,13 +368,14 @@ namespace d2 {
 			     0.0,
 			     mbatch[i]->get_weight_ptr(), m);    
 	real_t batchA, batchB, batchD;
-	//	if (iter % E == 0)
-	//	  EMD_SA(*mbatch[i], *dbatch[i], T, sigma, tau, sac_b, batchA, batchB, batchD, true);
-	//	else
-	EMD_SA(*mbatch[i], *dbatch[i], T, sigma, tau, sac_b, batchA, batchB, batchD);	  
+	//	if (iter  == 0 || (iter+1) % E == 0 )
+	EMD_SA(*mbatch[i], *dbatch[i], T, sigma, tau, sac_b, batchA, batchB, batchD);
+	  //	else
+	  //	  EMD_SA(*mbatch[i], *dbatch[i], T, sigma, tau, sac_b, batchA, batchB, batchD, false);	  
 	A+=batchA; B+=batchB; D+=batchD;
 
-	if (iter > 0 && dual_obj > 0.) {
+	if (iter > 0) {
+	  if (i==0) {++accelerator; isGradUse = true;}	  
 	  _D2_CBLAS_FUNC(gemm)(CblasColMajor, CblasNoTrans, CblasTrans,
 			       m, K, batch_size, 
 			       1.0,
@@ -379,7 +383,7 @@ namespace d2 {
 			       thisbeta, K,
 			       0.0,
 			       gd, m);
-	  _D2_CBLAS_FUNC(scal)(m*K, 0.95, md, 1);
+	  _D2_CBLAS_FUNC(scal)(m*K, 0.1, md, 1);
 	  _D2_CBLAS_FUNC(axpy)(m*K, - gamma / mC, gd, 1, md, 1);
 
 	  real_t *w=model.get_weight_ptr();
@@ -399,7 +403,10 @@ namespace d2 {
 	  }
 	  _D2_FUNC(cnorm)(K, batch_size, thisbeta, gd);
 	  _D2_FUNC(cnorm)(K, batch_size, thisbetaz, gd);
+	} else {
+	  if (i==0) {isGradUse = false;}
 	}
+	
 	for (size_t j=0; j<batch_size; ++j) {
 	  size_t mat_size=(*mbatch[i])[j].len * (*dbatch[i])[j].len;
 	  sac_b._m    += mat_size;
@@ -414,55 +421,48 @@ namespace d2 {
       }
       
       if (iter % E == 0) {
-	real_t *emds, *cache_mat, *cache_dual;
+	real_t *emds, *cache_mat;
 	emds = (real_t*) malloc(sizeof(real_t)*n);
 	cache_mat = (real_t*) malloc(sizeof(real_t)*m*data.get_max_len());
-	//	cache_dual = (real_t*) malloc(sizeof(real_t)*(m+data.get_max_len()));
-	real_t *dual1=sac._dual1;
-	real_t *dual2=sac._dual2;
+	_D2_CBLAS_FUNC(gemm)(CblasColMajor, CblasNoTrans, CblasNoTrans,
+			     m, n, K,
+			     1.0,
+			     model.get_weight_ptr(), m,
+			     beta, K,
+			     0.0,
+			     mixture_data.get_weight_ptr(), m);    
 	for (size_t i=0; i<n; ++i) {    
 	  emds[i]=EMD(mixture_data[i], data[i], data.meta, cache_mat);
-	  /*
-	  for (size_t j=0; j<m; ++j) dual1[j] = cache_dual[j];
-	  for (size_t j=m; j<m+data[i].len; ++j) dual2[j] = -cache_dual[j];
-	  dual1 += m;
-	  dual2 += data[i].len;
-	  */
 	}
 	obj_old=obj;
-	obj = _D2_CBLAS_FUNC(asum)(n, emds, 1) / n;
-	std::cout << obj << std::endl;
+	obj = _D2_CBLAS_FUNC(asum)(n, emds, 1);
+	std::cout << obj / n << std::endl;
 	free(cache_mat);
-	free(emds);
-	model.write("data/mnist/mixture_5_" + std::to_string(iter) + ".txt");
-	//free(cache_dual);
-	/*
-	if (obj_old < 0 || obj <= obj_old) {
-	  obj_old = obj;
-	} else {
-	  break;
-	}
-	*/
+	free(emds);	
+	model.write("data/mnist/mixture_5_" + std::to_string(K) + "_" + std::to_string(iter) + ".txt");
       }
+      
 
       dual_obj = _D2_CBLAS_FUNC(dot)(n*m, sac._dual1, 1, mixture_data.get_weight_ptr(), 1) - _D2_CBLAS_FUNC(dot)(data.get_col(), sac._dual2, 1, data.get_weight_ptr(), 1);
       primal_obj = _D2_CBLAS_FUNC(dot)(n*m, sac._U, 1, mixture_data.get_weight_ptr(), 1) - _D2_CBLAS_FUNC(dot)(data.get_col(), sac._L, 1, data.get_weight_ptr(), 1);
 
 
-      if (dual_obj < 0.1*primal_obj)
-	T*=1-1./sqrt(2*m); //if (T < 0.001) T=0.001;
+      if (dual_obj < 0.1 * primal_obj)
+	T*=1-1./sqrt(data.get_col()/n + m); //if (T < 0.001) T=0.001;
+      
 
       /*
-      if (iter%E==0) 
-	T= (obj*n - primal_obj)/ (tau * (E-iter%E+1) * B) + A/B;
-      A=0.;B=0.;
+      T= std::min(T, bound);
       */
+      //      A=0.;B=0.;
+
 
       //gamma *= sqrt(1.+iter) / sqrt(2.+iter);
       std::cout << getLogHeader() << "\t" << iter
+		<< "\t" << accelerator
 		<< "\t" << primal_obj / n
 		<< "\t\t" << dual_obj / n
-		<< "\t\t" << T
+		<< "\t\t" << T //<< "\t" << bound 
 		<< "\t\t" << (primal_obj - dual_obj)/n << std::endl;
       
     }
