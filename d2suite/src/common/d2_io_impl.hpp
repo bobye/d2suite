@@ -110,7 +110,14 @@ namespace d2 {
     return os;
   }
 
-
+  template<size_t length>
+  std::ostream& operator<<= (std::ostream& os, const Elem<def::SparseHistogram, 0> &op) {
+    real_t w[length]={0};
+    for (size_t i=0; i<op.len; ++i) w[op.supp[i]] = op.w[i];
+    os << 0 << std::endl << length << std::endl;
+    for (size_t i=0; i<length; ++i) os << w[i] << " "; os << std::endl;
+    return os;
+  }
   /* append one d2 */
   template <typename ElemType>
   int Block<ElemType>::append(std::istream &is) {

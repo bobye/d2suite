@@ -368,10 +368,10 @@ namespace d2 {
 			     0.0,
 			     mbatch[i]->get_weight_ptr(), m);    
 	real_t batchA, batchB, batchD;
-	//	if (iter  == 0 || (iter+1) % E == 0 )
-	EMD_SA(*mbatch[i], *dbatch[i], T, sigma, tau, sac_b, batchA, batchB, batchD);
-	  //	else
-	  //	  EMD_SA(*mbatch[i], *dbatch[i], T, sigma, tau, sac_b, batchA, batchB, batchD, false);	  
+	if (iter  == 0 || (iter+1) % E == 0 )
+	  EMD_SA(*mbatch[i], *dbatch[i], T, sigma, tau, sac_b, batchA, batchB, batchD, true);
+	else
+	  EMD_SA(*mbatch[i], *dbatch[i], T, sigma, tau, sac_b, batchA, batchB, batchD, false);	  
 	A+=batchA; B+=batchB; D+=batchD;
 
 	if (iter > 0) {
@@ -436,7 +436,7 @@ namespace d2 {
 	}
 	obj_old=obj;
 	obj = _D2_CBLAS_FUNC(asum)(n, emds, 1);
-	std::cout << obj / n << std::endl;
+	std::cout << "@obj\t" << obj / n << std::endl;
 	free(cache_mat);
 	free(emds);	
 	model.write("data/mnist/mixture_5_" + std::to_string(K) + "_" + std::to_string(iter) + ".txt");
@@ -451,10 +451,11 @@ namespace d2 {
 	T*=1-1./sqrt(data.get_col()/n + m); //if (T < 0.001) T=0.001;
       
 
-      /*
-      T= std::min(T, bound);
-      */
-      //      A=0.;B=0.;
+      if (iter  == 0 || (iter+1) % E == 0 ) {
+	bound = (obj - primal_obj +  tau * A) / (data.get_col() + m*n + tau * B);
+	T= std::min(T, bound);
+      }
+      A=0.;B=0.;
 
 
       //gamma *= sqrt(1.+iter) / sqrt(2.+iter);
@@ -462,7 +463,7 @@ namespace d2 {
 		<< "\t" << accelerator
 		<< "\t" << primal_obj / n
 		<< "\t\t" << dual_obj / n
-		<< "\t\t" << T //<< "\t" << bound 
+		<< "\t\t" << T << "\t" << bound 
 		<< "\t\t" << (primal_obj - dual_obj)/n << std::endl;
       
     }
