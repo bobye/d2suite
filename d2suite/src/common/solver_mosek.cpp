@@ -117,6 +117,7 @@ double d2_match_by_distmat(const int n, const int m, const SCALAR *C, const SCAL
   /* Disable presolve: may lead to minor improvement */
   // r = MSK_putintparam(task, MSK_IPAR_PRESOLVE_USE, MSK_PRESOLVE_MODE_OFF);
   /* set network flow problem */
+  // if (n <=  128 || m <= 128)
   r = MSK_putintparam(*p_task, MSK_IPAR_OPTIMIZER,  MSK_OPTIMIZER_NETWORK_PRIMAL_SIMPLEX);
   /* disable multi-threads */
   r = MSK_putintparam(*p_task, MSK_IPAR_NUM_THREADS, 1);

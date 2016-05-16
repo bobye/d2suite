@@ -99,7 +99,7 @@ namespace d2 {
 
   
   template <typename ElemType1, typename ElemType2>
-  void EMD_SA (const Block<ElemType1> &a, const Block<ElemType2> &b,
+  int EMD_SA (const Block<ElemType1> &a, const Block<ElemType2> &b,
 	       real_t &T, const real_t sigma,
 	       const size_t niter,
 	       const SACache &sac,
@@ -115,6 +115,10 @@ namespace d2 {
     std::mt19937 rnd_gen (rd());
     //    auto gen = std::bind(rng, rnd_gen);
 
+    real_t upper_bound_old, upper_bound=0;
+    int iterations=0;
+    
+    do {
     for (int iter=0; iter < niter; ++iter) {
       real_t *dual1 = sac._dual1;
       real_t *dual2 = sac._dual2;
@@ -147,7 +151,11 @@ namespace d2 {
 	Mtmp = Mtmp + mat_size;
       }
     }
-    
+    upper_bound_old = upper_bound;
+    upper_bound = _D2_CBLAS_FUNC(dot)(a.get_col(), a.get_weight_ptr(), 1, sac._U, 1)
+      - _D2_CBLAS_FUNC(dot)(b.get_col(), b.get_weight_ptr(), 1, sac._L, 1);
+    iterations += niter;
+    } while (upper_bound - upper_bound_old > 0.001 * upper_bound);    
     /*
     {
       real_t *dual1 = sac._dual1;
@@ -217,7 +225,7 @@ namespace d2 {
     }
     A=cost; B=phi; D=div;
 
-    /*    
+    /*
     if (sac._primal) {
       real_t *primal=sac._primal;
       real_t *U = sac._U;
@@ -264,6 +272,7 @@ namespace d2 {
       }
     }
     */
+
     /*
     if (sac._primal) {
       real_t *primal=sac._primal;
@@ -290,7 +299,7 @@ namespace d2 {
       std::cout << " " << - cost / cw << " ";
     }
     */
-    
+    return iterations;
   }
 
   template <typename ElemType1, typename ElemType2>
@@ -322,16 +331,20 @@ namespace d2 {
     }
     // one epoch
     std::cout << getLogHeader() << " logging: start epoch." << std::endl;
-    std::cout << getLogHeader() << "\tapprox primal"
+    std::cout << getLogHeader()
+	      << "\titer"
+	      << "\tNesterov"
+	      << "\tapprox_primal"
+	      << "\tdual_bound"
 	      << "\tdual" 
 	      << "\t\tt"
 	      << "\tgap" << std::endl;
 
-    real_t obj_old=0, obj=0, primal_obj, dual_obj, max_obj;
-    real_t *gd, *md;
+    real_t obj_old=0, obj=0, primal_obj, db_obj, dual_obj, max_obj;
+    real_t *gd; //, *md;
     gd = (real_t*) malloc(sizeof(real_t)*std::max(std::max(m,batch_size)*K,n));
-    md = (real_t*) malloc(sizeof(real_t)*m*K);
-    for (size_t i=0; i<m*K; ++i) md[i] = 0.;
+    //    md = (real_t*) malloc(sizeof(real_t)*m*K);
+    //    for (size_t i=0; i<m*K; ++i) md[i] = 0.;
 
     // initialize membership vectors uniformly
     real_t *beta = (real_t*) malloc(sizeof(real_t) * K * n);
@@ -341,8 +354,9 @@ namespace d2 {
     for (size_t i=0; i<K*n; ++i) betaz[i] = beta[i];
     
     internal::_pdist2(mixture_data.get_support_ptr(), m, data.get_support_ptr(), data.get_col(), data.meta, sac._m);
-    real_t mC = _D2_CBLAS_FUNC(asum)(data.get_col() * K, sac._m, 1) / (data.get_col() * K);
-    
+    real_t mC = _D2_CBLAS_FUNC(asum)(data.get_col() * m, sac._m, 1) / (data.get_col() * m);
+
+    int avg_iterations = 0;
     for (size_t iter=0, accelerator=1; iter < max_epoch; ++iter) {  
       sac_b = sac;
       real_t r = 3;
@@ -369,13 +383,13 @@ namespace d2 {
 			     mbatch[i]->get_weight_ptr(), m);    
 	real_t batchA, batchB, batchD;
 	if (iter  == 0 || (iter+1) % E == 0 )
-	  EMD_SA(*mbatch[i], *dbatch[i], T, sigma, tau, sac_b, batchA, batchB, batchD, true);
+	  avg_iterations += EMD_SA(*mbatch[i], *dbatch[i], T, sigma, tau, sac_b, batchA, batchB, batchD, true);
 	else
-	  EMD_SA(*mbatch[i], *dbatch[i], T, sigma, tau, sac_b, batchA, batchB, batchD, false);	  
+	  avg_iterations += EMD_SA(*mbatch[i], *dbatch[i], T, sigma, tau, sac_b, batchA, batchB, batchD, false);	  
 	A+=batchA; B+=batchB; D+=batchD;
 
 	if (iter > 0) {
-	  if (i==0) {++accelerator; isGradUse = true;}	  
+	  if (i==0) {++accelerator; isGradUse = true;}
 	  _D2_CBLAS_FUNC(gemm)(CblasColMajor, CblasNoTrans, CblasTrans,
 			       m, K, batch_size, 
 			       1.0,
@@ -383,11 +397,13 @@ namespace d2 {
 			       thisbeta, K,
 			       0.0,
 			       gd, m);
+	  /*
 	  _D2_CBLAS_FUNC(scal)(m*K, 0.1, md, 1);
 	  _D2_CBLAS_FUNC(axpy)(m*K, - gamma / mC, gd, 1, md, 1);
-
+	  */
 	  real_t *w=model.get_weight_ptr();
-	  for (size_t j=0; j<m*K; ++j) { w[j] = w[j] * exp(md[j]) + eps; }
+	  _D2_CBLAS_FUNC(scal)(m*K, -gamma/mC, gd, 1);
+	  for (size_t j=0; j<m*K; ++j) {w[j] = w[j] * exp(gd[j]) + eps;}
 	  _D2_FUNC(cnorm)(m, K, w, gd);
 
 	  _D2_CBLAS_FUNC(gemm)(CblasColMajor, CblasTrans, CblasNoTrans,
@@ -439,32 +455,33 @@ namespace d2 {
 	std::cout << "@obj\t" << obj / n << std::endl;
 	free(cache_mat);
 	free(emds);	
-	model.write("data/mnist/mixture_5_" + std::to_string(K) + "_" + std::to_string(iter) + ".txt");
+	//model.write("data/orl/mixture_" + std::to_string(K) + "_" + std::to_string(iter) + ".txt");
       }
       
 
       dual_obj = _D2_CBLAS_FUNC(dot)(n*m, sac._dual1, 1, mixture_data.get_weight_ptr(), 1) - _D2_CBLAS_FUNC(dot)(data.get_col(), sac._dual2, 1, data.get_weight_ptr(), 1);
-      primal_obj = _D2_CBLAS_FUNC(dot)(n*m, sac._U, 1, mixture_data.get_weight_ptr(), 1) - _D2_CBLAS_FUNC(dot)(data.get_col(), sac._L, 1, data.get_weight_ptr(), 1);
+      db_obj = _D2_CBLAS_FUNC(dot)(n*m, sac._U, 1, mixture_data.get_weight_ptr(), 1) - _D2_CBLAS_FUNC(dot)(data.get_col(), sac._L, 1, data.get_weight_ptr(), 1);
+      //primal_obj = _D2_CBLAS_FUNC(dot)(m*data.get_col(), sac._primal, 1, sac._m, 1);
 
-
-      if (dual_obj < 0.1 * primal_obj)
+      if (dual_obj < 0.1 * db_obj && db_obj > 0.5 * obj)
 	T*=1-1./sqrt(data.get_col()/n + m); //if (T < 0.001) T=0.001;
       
 
       if (iter  == 0 || (iter+1) % E == 0 ) {
-	bound = (obj - primal_obj +  tau * A) / (data.get_col() + m*n + tau * B);
+	avg_iterations /= batch_size;
+	bound = (obj - db_obj + avg_iterations * A) / (data.get_col() + m*n + avg_iterations * B);
 	T= std::min(T, bound);
       }
       A=0.;B=0.;
 
 
-      //gamma *= sqrt(1.+iter) / sqrt(2.+iter);
       std::cout << getLogHeader() << "\t" << iter
 		<< "\t" << accelerator
 		<< "\t" << primal_obj / n
-		<< "\t\t" << dual_obj / n
-		<< "\t\t" << T << "\t" << bound 
-		<< "\t\t" << (primal_obj - dual_obj)/n << std::endl;
+		<< "\t" << db_obj / n
+		<< "\t" << dual_obj / n
+		<< "\t" << T << "\t" << bound 
+		<< "\t" << (primal_obj - dual_obj)/n << std::endl;
       
     }
 
@@ -483,9 +500,9 @@ namespace d2 {
     */
     free(beta);
     free(gd);
-    free(md);
+    //    free(md);
     deallocate_sa_cache(sac);
-    mixture_data.write("data/mnist/estimate_5.d2s");
+    //mixture_data.write("data/orl/estimate.d2s");
   }
   
 }

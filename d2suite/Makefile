@@ -23,7 +23,8 @@ CPP_SOURCE_FILES=\
 CPP_SOURCE_WITH_MAIN=\
 	src/test/test_euclidean.cpp\
 	src/test/test_20newsgroups_io.cpp\
-	src/test/test_mnist.cpp
+	src/test/test_mnist.cpp\
+	src/test/test_orl.cpp
 
 RABIT_SOURCE_WITH_MAIN=\
 	src/test/test_20newsgroups_io_rabit.cpp

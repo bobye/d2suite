@@ -60,6 +60,18 @@ namespace d2 {
 	  mat[k]=meta.dist_mat[l+s2[j]];
     }
 
+    template <size_t dim>
+    inline void _pdist2( const def::Histogram::type *s1, const size_t n1,
+			 const def::Histogram::type *s2, const size_t n2,
+			 const Meta<Elem<def::Histogram, dim> > &meta,
+			 real_t* mat) {
+      assert(n1 == meta.size);
+      size_t mat_size = meta.size*meta.size;
+      for (size_t i=0; i<n2/meta.size; ++i) {
+	std::memcpy(mat+i*mat_size, meta.dist_mat, mat_size*sizeof(real_t));
+      }
+    }
+
     template <typename D2Type1, typename D2Type2, size_t dim>
     inline real_t _EMD(const Elem<D2Type1, dim> &e1, const Elem<D2Type2, dim> &e2, 
 		       const Meta<Elem<D2Type2, dim> > &meta, 
