@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
   }
 
 
-  WM3_SA(wm3, data, 1000, .1, 0.9, 0.5, 20);
+  WM3_SA(wm3, data, 1000, .1, 0.9, 2., 20);
   wm3.write("data/mnist/mixture_5_" + std::to_string(k) + ".txt");
 
   std::ofstream f; f.open("data/mnist/real_5.d2s");
