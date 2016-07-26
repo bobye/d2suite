@@ -393,7 +393,7 @@ namespace d2 {
 	  _D2_CBLAS_FUNC(gemm)(CblasColMajor, CblasNoTrans, CblasTrans,
 			       m, K, batch_size, 
 			       1.0,
-			       sac_b._dual1, m,
+			       sac_b._U, m,
 			       thisbeta, K,
 			       0.0,
 			       gd, m);
@@ -410,7 +410,7 @@ namespace d2 {
 			       K, batch_size, m,
 			       - gamma /mC,
 			       model.get_weight_ptr(), m,
-			       sac_b._dual1, m,
+			       sac_b._U, m,
 			       0.0,
 			       gd, K);
 	  for (size_t j=0; j<K*batch_size; ++j) {
@@ -463,7 +463,8 @@ namespace d2 {
       db_obj = _D2_CBLAS_FUNC(dot)(n*m, sac._U, 1, mixture_data.get_weight_ptr(), 1) - _D2_CBLAS_FUNC(dot)(data.get_col(), sac._L, 1, data.get_weight_ptr(), 1);
       //primal_obj = _D2_CBLAS_FUNC(dot)(m*data.get_col(), sac._primal, 1, sac._m, 1);
 
-      if (dual_obj < 0.1 * db_obj && db_obj > 0.5 * obj)
+      //if (dual_obj < 0.1 * db_obj && db_obj > 0.5 * obj)
+      if (db_obj > 0.9 * obj)	
 	T*=1-1./sqrt(data.get_col()/n + m); //if (T < 0.001) T=0.001;
       
 
