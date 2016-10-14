@@ -1,4 +1,4 @@
-#include <rabit.h>
+#include <rabit/rabit.h>
 #include "../common/d2.hpp"
 
 /* parallel program, read 20newsgroups dataset from multiple parts */

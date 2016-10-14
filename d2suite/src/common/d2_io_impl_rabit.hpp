@@ -1,7 +1,7 @@
 #ifndef _D2_IO_IMPL_RABIT_H_
 #define _D2_IO_IMPL_RABIT_H_
 
-#include <rabit.h>
+#include <rabit/rabit.h>
 
 
 namespace d2 {
