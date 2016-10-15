@@ -1,4 +1,5 @@
 #include "../common/d2.hpp"
+#include "../learn/wm3.hpp"
 #include <string>
 #include <sstream>
 #include <time.h>
