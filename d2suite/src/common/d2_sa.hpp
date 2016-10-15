@@ -97,17 +97,25 @@ namespace d2 {
     return sum;
   }
 
-  
+
+  /*
+   * INPUT/OUTPUT:
+   * a, b  -- a block of distributions
+   * T     -- temperature
+   * niter -- iterations of minimal loop block
+   * sac   -- simulated annealing cache
+   * A, B, C, hasProposal -- basic relevant statistics to be tracked
+   */
   template <typename ElemType1, typename ElemType2>
   int EMD_SA (const Block<ElemType1> &a, const Block<ElemType2> &b,
-	       real_t &T, const real_t sigma,
-	       const size_t niter,
-	       const SACache &sac,
-	       real_t &A, real_t &B, real_t &D, bool hasProposal = false) {
+	      const real_t &T,
+	      const size_t niter,
+	      const SACache &sac,
+	      real_t &A, real_t &B, real_t &D, bool hasProposal = false) {
     assert(sac._m && sac._mtmp);
     assert(sac._dual1 && sac._dual2);
     assert(sac._U && sac._L);
-    assert(sigma>0 && sigma<=1 && T>0);
+    assert(T>0);
     assert(a.get_size() == b.get_size());
 
     std::random_device rd;
@@ -156,27 +164,6 @@ namespace d2 {
       - _D2_CBLAS_FUNC(dot)(b.get_col(), b.get_weight_ptr(), 1, sac._L, 1);
     iterations += niter;
     } while (upper_bound - upper_bound_old > 0.001 * upper_bound);    
-    /*
-    {
-      real_t *dual1 = sac._dual1;
-      real_t *dual2 = sac._dual2;
-      real_t *U = sac._U;
-      real_t *L = sac._L;
-      for (size_t i=0; i < b.get_size(); ++i) {
-	size_t m1=a[i].len;
-	size_t m2=b[i].len;
-	real_t baseline =  _D2_CBLAS_FUNC(asum)(m2, dual2, 1) / m2;
-	for (size_t j=0; j < m1; ++j) dual1[j] = dual1[j] - baseline;
-	for (size_t j=0; j < m1; ++j) U[j] = U[j] - baseline;
-	for (size_t j=0; j < m2; ++j) dual2[j] = dual2[j] - baseline;
-	for (size_t j=0; j < m2; ++j) L[j] = L[j] - baseline;      
-	dual1 = dual1 + m1;
-	dual2 = dual2 + m2;
-	U = U + m1;
-	L = L + m2;
-      }
-    }
-    */
     
     real_t cost= 0.;
     real_t div = 0.;
@@ -225,80 +212,6 @@ namespace d2 {
     }
     A=cost; B=phi; D=div;
 
-    /*
-    if (sac._primal) {
-      real_t *primal=sac._primal;
-      real_t *U = sac._U;
-      real_t *L = sac._L;
-      real_t *M = sac._m;
-      real_t *Mtmp = sac._mtmp;
-      real_t *w1 = a.get_weight_ptr();
-      real_t *w2 = b.get_weight_ptr();
-      for (size_t i=0; i < b.get_size(); ++i) {
-	// calculate U and sample dual1
-	size_t m1=a[i].len;
-	size_t m2=b[i].len;
-	const size_t mat_size=m1*m2;
-	for (size_t j=0; j< mat_size; ++j) primal[j]=0;
-
-	memcpy(Mtmp, M, sizeof(real_t)*mat_size);
-	_D2_FUNC(grmv)(m1, m2, Mtmp, L);
-	for (size_t j=0; j<m1; ++j) {
-	  size_t midx = j;
-	  real_t u = Mtmp[midx];
-	  size_t idx = midx+m1;
-	  for (size_t k=1; k<m2; ++k, idx+=m1)
-	    if (Mtmp[idx] < u) { u = Mtmp[idx]; midx = idx; }
-	  primal[midx] += 0.5 * w1[j];
-	}
-	// calculate L and sample dual2
-	memcpy(Mtmp, M, sizeof(real_t)*mat_size);
-	_D2_FUNC(gcmv2)(m1, m2, Mtmp, U);
-	for (size_t j=0; j<m2; ++j) {
-	  size_t midx = j*m1;
-	  real_t l = Mtmp[midx];
-	  size_t idx = midx+1;
-	  for (size_t k=1; k<m1; ++k, ++idx)
-	    if (Mtmp[idx] > l) { l = Mtmp[idx]; midx = idx; }
-	  primal[midx] += 0.5 * w2[j];
-	}
-	primal = primal + mat_size;
-	M = M + mat_size;
-	Mtmp = Mtmp + mat_size;
-	U = U + m1;
-	L = L + m2;
-	w1 = w1 + m1;
-	w2 = w2 + m2;
-      }
-    }
-    */
-
-    /*
-    if (sac._primal) {
-      real_t *primal=sac._primal;
-      real_t *U = sac._U;
-      real_t *L = sac._L;
-      real_t *M = sac._m;
-      real_t *w1 = a.get_weight_ptr();
-      real_t *w2 = b.get_weight_ptr();
-      for (size_t i=0; i < b.get_size(); ++i) {
-	size_t m1=a[i].len;
-	size_t m2=b[i].len;
-	const size_t mat_size=m1*m2;
-
-	for (size_t k=0; k< m2; ++k)
-	  for (size_t j=0; j< m1; ++j)
-	    cost += (M[j+k*m1] + L[k] - U[j])*primal[j+k*m1];
-	w1 = w1 + m1;
-	w2 = w2 + m2;
-	U = U + m1;	
-	L = L + m2;
-	M = M + mat_size;
-	primal = primal + mat_size;
-      }
-      std::cout << " " << - cost / cw << " ";
-    }
-    */
     return iterations;
   }
 
@@ -383,9 +296,9 @@ namespace d2 {
 			     mbatch[i]->get_weight_ptr(), m);    
 	real_t batchA, batchB, batchD;
 	if (iter  == 0 || (iter+1) % E == 0 )
-	  avg_iterations += EMD_SA(*mbatch[i], *dbatch[i], T, sigma, tau, sac_b, batchA, batchB, batchD, true);
+	  avg_iterations += EMD_SA(*mbatch[i], *dbatch[i], T, tau, sac_b, batchA, batchB, batchD, true);
 	else
-	  avg_iterations += EMD_SA(*mbatch[i], *dbatch[i], T, sigma, tau, sac_b, batchA, batchB, batchD, false);	  
+	  avg_iterations += EMD_SA(*mbatch[i], *dbatch[i], T, tau, sac_b, batchA, batchB, batchD, false);	  
 	A+=batchA; B+=batchB; D+=batchD;
 
 	if (iter > 0) {
