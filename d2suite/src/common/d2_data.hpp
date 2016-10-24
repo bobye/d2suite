@@ -240,10 +240,15 @@ namespace d2 {
   public:
     DistributedBlock(const size_t thesize, const size_t thelen):
       Block<ElemType>((thesize-1) / rabit::GetWorldSize() + 1, thelen) {};
-    size_t global_size;
-
+    
     void read_main(const std::string &filename, const size_t size);
     void read(const std::string &filename, const size_t size);
+
+    size_t & get_global_size() {return global_size;}
+    size_t get_global_size() const {return global_size;}
+    
+  protected:
+    size_t global_size;
     
   };
 
@@ -252,10 +257,15 @@ namespace d2 {
   public:
     DistributedBlockMultiPhase(const size_t thesize, const size_t* thelen):
       BlockMultiPhase<Ts...>((thesize-1) / rabit::GetWorldSize() + 1, thelen, 0) {};
-    size_t global_size;
     
     void read_main(const std::string &filename, const size_t size);
     void read(const std::string &filename, const size_t size);
+
+    size_t & get_global_size() {return global_size;}
+    size_t get_global_size() const {return global_size;}
+    
+  protected:
+    size_t global_size;
 
   };
 #endif
