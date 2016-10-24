@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
     data.split_write(filename, n_process);
   }
   
-  {float x=0; Broadcast(&x, sizeof(float), 0);} // barrier
+  Barrier();
   
 
   DistributedBlock<Elem<def::SparseHistogram, 0> > data(size, len);
@@ -45,8 +45,9 @@ int main(int argc, char** argv) {
   wm3.sync(0);
   
   WM3_SA(wm3, data, 1000, .1, 0.9, 2., 20 / GetWorldSize());
-  /*
 
+  Barrier();
+  
   if (GetRank() == 0) {
     wm3.write("data/mnist/mixture_5_" + std::to_string(k) + ".txt");
     std::ofstream f; f.open("data/mnist/real_5.d2s");
@@ -54,7 +55,7 @@ int main(int argc, char** argv) {
       operator<<= <784> (f, data[i]);
     f.close();
   }
-  */
+
   server::Finalize();
   return 0;
 }

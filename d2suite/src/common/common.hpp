@@ -44,6 +44,13 @@ namespace d2 {
   {return std::string("@d2suite");}
 #endif
 
+
 }
+
+#ifdef RABIT_RABIT_H_
+namespace rabit {
+  inline void Barrier(){ static float a = 1; rabit::Broadcast(&a, sizeof(float), 0); }
+}
+#endif
 
 #endif /* _COMMON_H_ */
