@@ -9,7 +9,7 @@ CFLAGS=-Wextra -Wall -pedantic-errors -O3 $(ARCH_FLAGS)
 LDFLAGS=$(ARCH_FLAGS)
 DEFINES=
 INCLUDES=-I$(RABIT)/include -I$(MOSEK)/h
-LIBRARIES=-L./lib -ld2suite $(RABIT)/lib/librabit.a -L$(MOSEK)/bin -Wl,-rpath,$(MOSEK)/bin -lmosek64 -lpthread $(BLAS_LIB)
+LIBRARIES=-L./lib -ld2suite $(RABIT)/lib/librabit_mpi.a -L$(MOSEK)/bin -Wl,-rpath,$(MOSEK)/bin -lmosek64 -lpthread $(BLAS_LIB)
 
 OS=$(shell uname)
 
@@ -63,12 +63,12 @@ lib/libd2suite.a: $(ALL_OBJECTS)
 
 ifeq ($(OS), Darwin)
 %.rabit: %_rabit.cpp Makefile $(LIB)
-	$(CXX) -MM -MT $@ -MF $(patsubst %_rabit.cpp,%.rabit.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
-	$(CXX) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
+	$(MPICXX) -MM -MT $@ -MF $(patsubst %_rabit.cpp,%.rabit.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
+	$(MPICXX) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
 	install_name_tool -change @loader_path/libmosek64.$(MOSEK_VERSION).dylib $(MOSEK)/bin/libmosek64.$(MOSEK_VERSION).dylib $@
 else
-	$(CXX) -MM -MT $@ -MF $(patsubst %_rabit.cpp,%.rabit.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
-	$(CXX) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
+	$(MPICXX) -MM -MT $@ -MF $(patsubst %_rabit.cpp,%.rabit.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
+	$(MPICXX) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
 endif
 
 ifeq ($(OS), Darwin)
@@ -97,4 +97,4 @@ test: $(TESTS) all
 	$<
 
 %.rabit_test: %.rabit
-	python ../dmlc-core/tracker/dmlc-submit --cluster local --num-workers 4 $<
+	python ../dmlc-core/tracker/dmlc-submit --cluster mpi --num-workers 4 $<
