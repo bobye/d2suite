@@ -3,21 +3,20 @@
 
 #include <rabit/rabit.h>
 
-
 namespace d2 {
-
-
+  
   template<typename ElemType>
   void DistributedBlock<ElemType>::read_main(const std::string &filename, const size_t size) {
     using namespace rabit;
-    this->read_main(filename + ".part" + std::to_string(GetRank()), size);
+    static_cast<Block<ElemType>* >
+      (this)->read_main(filename + ".part" + std::to_string(GetRank()), size);
     global_size = this->size;
     Allreduce<op::Sum>(&global_size, 1);
   }
 
   template<typename ElemType>
   void DistributedBlock<ElemType>::read(const std::string &filename, const size_t size) {
-    this->read_meta(filename);
+    this->meta.read(filename + ".meta0");
     this->read_main(filename, (size - 1) / rabit::GetWorldSize() + 1);
   }
 

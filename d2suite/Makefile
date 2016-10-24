@@ -23,11 +23,11 @@ CPP_SOURCE_FILES=\
 CPP_SOURCE_WITH_MAIN=\
 	src/test/test_euclidean.cpp\
 	src/test/test_20newsgroups_io.cpp\
-	src/test/test_mnist.cpp\
 	src/test/test_orl.cpp
 
 RABIT_SOURCE_WITH_MAIN=\
-	src/test/test_20newsgroups_io_rabit.cpp
+	src/test/test_20newsgroups_io_rabit.cpp\
+	src/test/test_mnist_rabit.cpp
 
 
 ALL_OBJECTS=\
@@ -97,4 +97,4 @@ test: $(TESTS) all
 	$<
 
 %.rabit_test: %.rabit
-	../rabit/tracker/rabit_demo.py -n 4 $<
+	python ../dmlc-core/tracker/dmlc-submit --cluster local --num-workers 4 $<

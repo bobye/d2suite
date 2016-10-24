@@ -139,6 +139,25 @@ namespace d2 {
     void write(const std::string &filename) const;
     void split_write(const std::string &filename, const size_t num_copies) const;
 
+#ifdef RABIT_RABIT_H_
+    void sync(const index_t rank) {
+      rabit::Broadcast(&size, sizeof(size_t), rank);      
+      rabit::Broadcast(&len, sizeof(size_t), rank);
+      rabit::Broadcast(&col, sizeof(size_t), rank);
+      rabit::Broadcast(&max_len, sizeof(size_t), rank);
+      rabit::Broadcast(&max_col, sizeof(size_t), rank);
+      rabit::Broadcast(&isShared, sizeof(bool), rank);
+      rabit::Broadcast(p_w, sizeof(real_t) * size * len, rank);
+      if (ElemType::D > 0) {
+	rabit::Broadcast(p_supp, sizeof(SuppType) * ElemType::T::step_stride(size * len, ElemType::D), rank);
+      }
+      size_t size_of_vec_ = vec_.size();
+      rabit::Broadcast(&size_of_vec_, sizeof(size_t), rank);
+      if (rabit::GetRank() != rank) vec_.resize(size_of_vec_);
+      rabit::Broadcast(&vec_[0], sizeof(ElemType) * size_of_vec_, rank);
+    }
+#endif
+    
     MetaType meta;
 
     Block<ElemType> & get_subblock(index_t start, size_t thesize) {
@@ -218,12 +237,14 @@ namespace d2 {
 #ifdef RABIT_RABIT_H_
   template <typename ElemType>
   class DistributedBlock : public Block<ElemType> {
+  public:
     DistributedBlock(const size_t thesize, const size_t thelen):
       Block<ElemType>((thesize-1) / rabit::GetWorldSize() + 1, thelen) {};
     size_t global_size;
 
     void read_main(const std::string &filename, const size_t size);
-    void read(const std::string &filename, const size_t size);    
+    void read(const std::string &filename, const size_t size);
+    
   };
 
   template <typename... Ts>
