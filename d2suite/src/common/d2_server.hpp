@@ -79,7 +79,7 @@ namespace d2 {
 			 const Meta<Elem<def::Euclidean, dim> > &meta,
 			 real_t *mat) {
       for (size_t j=0; j<n2; ++j)
-	s2[j]->evals(s1, label, n1, &mat[j*n1]);
+	s2[j].evals(s1, label, n1, &mat[j*n1]);
     }
 
     template <typename FuncType, size_t dim>
@@ -90,7 +90,7 @@ namespace d2 {
 			 real_t *mat) {
       for (size_t j=0, k=0; j<n2; ++j)
 	for (size_t i=0; i<n1; ++i, ++k) {
-	  mat[k] = s2[j]->eval(&meta.embedding[s1[i]*dim], label[i]);
+	  mat[k] = s2[j].eval(&meta.embedding[s1[i]*dim], label[i]);
 	}      
     }
 

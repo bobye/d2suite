@@ -45,7 +45,7 @@ namespace d2 {
 
     template <typename FuncType> // FuncType is a class which as eval() member function
     struct Function {
-      typedef FuncType* type;
+      typedef FuncType type;
       static inline size_t step_stride(size_t col, size_t dim) {return col;}
     };
   }
