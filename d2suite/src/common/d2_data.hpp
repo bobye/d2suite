@@ -42,6 +42,12 @@ namespace d2 {
       typedef index_t type;
       static inline size_t step_stride(size_t col, size_t dim) {return col;}
     };
+
+    template <typename FuncType> // FuncType is a class which as eval() member function
+    struct Function {
+      typedef FuncType* type;
+      static inline size_t step_stride(size_t col, size_t dim) {return col;}
+    };
   }
 
 
@@ -57,9 +63,9 @@ namespace d2 {
     real_t* w;
     /* this defines the support arrays */
     typename D2Type::type* supp;
+    /* this defined the label array of supports (optional) */
+    real_t* label;
   };
-
-
 
   template <typename ElemType>
   class Meta : public internal::_Meta<typename ElemType::T, ElemType::D> {
@@ -76,8 +82,9 @@ namespace d2 {
       len(thelen), col(0), max_len(0), size(0), isShared(false) {
       // allocate block memory
       p_w = (real_t*) malloc(sizeof(real_t) * thesize * thelen);
+      p_label = (real_t*) malloc(sizeof(real_t) * thesize * thelen);      
       p_supp = (SuppType *) malloc(sizeof(SuppType) * ElemType::T::step_stride(thesize * thelen, ElemType::D));
-      assert(p_w && p_supp);
+      assert(p_w && p_label && p_supp);
       max_col = thesize*thelen;
     };
     Block(const Block<ElemType> &that, index_t start, size_t thesize) {
@@ -89,6 +96,7 @@ namespace d2 {
       max_len = 0;
       isShared = true;
       p_w = that[start].w;
+      p_label = that[start].label;
       p_supp = that[start].supp;
       for (int i=start; i< size+start; ++i) {
 	col += that[i].len;
@@ -103,6 +111,7 @@ namespace d2 {
     ~Block() {
       if (!isShared) {
 	if (p_w != NULL) free(p_w); 
+	if (p_label != NULL) free(p_label); 
 	if (p_supp != NULL) free(p_supp);
       }
     }
@@ -119,6 +128,8 @@ namespace d2 {
     inline size_t get_max_len() const {return max_len;}
     inline real_t* &get_weight_ptr() {return p_w;}
     inline real_t* get_weight_ptr() const {return p_w;}
+    inline real_t* &get_label_ptr() {return p_label;}
+    inline real_t* get_label_ptr() const {return p_label;}
     inline SuppType* &get_support_ptr() {return p_supp;}
     inline SuppType* get_support_ptr() const {return p_supp;}
     inline void initialize(const size_t thesize, const size_t thelen) {
@@ -135,7 +146,8 @@ namespace d2 {
     void realign_vec();
     void read_main(const std::string &filename, const size_t size);
     void read(const std::string &filename, const size_t size);
-
+    void read_label(const std::string &filename);
+      
     void write(const std::string &filename) const;
     void split_write(const std::string &filename, const size_t num_copies) const;
 
@@ -148,6 +160,7 @@ namespace d2 {
       rabit::Broadcast(&max_col, sizeof(size_t), rank);
       rabit::Broadcast(&isShared, sizeof(bool), rank);
       rabit::Broadcast(p_w, sizeof(real_t) * size * len, rank);
+      rabit::Broadcast(p_label, sizeof(real_t) * size * len, rank);
       if (ElemType::D > 0) {
 	rabit::Broadcast(p_supp, sizeof(SuppType) * ElemType::T::step_stride(size * len, ElemType::D), rank);
       }
@@ -173,8 +186,8 @@ namespace d2 {
     bool isShared;
 
     /* actual binary data */
-    real_t *p_w;
-    SuppType* p_supp;
+    real_t *p_w, *p_label;
+    SuppType* p_supp;    
   };
 
   template <typename... Ts>

@@ -130,10 +130,12 @@ namespace d2 {
       std::cerr << getLogHeader() << " warning: memory insufficient, reallocate!" << std::endl;
       max_col *=2;
       p_w = (real_t*) realloc(p_w, sizeof(real_t)*max_col);
+      p_label = (real_t*) realloc(p_label, sizeof(real_t)*max_col);
       p_supp = (SuppType*) realloc(p_supp, sizeof(SuppType)*ElemType::T::step_stride(max_col, ElemType::D));
     }
     if (theone.len > max_len) max_len = theone.len;
     theone.w = p_w + col;
+    theone.label = p_label + col;
     theone.supp = p_supp + ElemType::T::step_stride(col,ElemType::D);
     is >> theone;
     vec_.push_back(theone);
@@ -148,10 +150,12 @@ namespace d2 {
   void Block<ElemType>::realign_vec() {
     assert(size > 0);
     vec_[0].w = p_w;
+    vec_[0].label = p_label;
     vec_[0].supp = p_supp;
 
     for (size_t i=1; i<size; ++i) {
       vec_[i].w = vec_[i-1].w + vec_[i-1].len;
+      vec_[i].label = vec_[i-1].label + vec_[i-1].len;
       vec_[i].supp = vec_[i-1].supp + ElemType::T::step_stride(vec_[i-1].len, ElemType::D);
     }
   }
@@ -163,6 +167,18 @@ namespace d2 {
     read_main(filename, size);
   }
 
+  template <typename ElemType>
+  void Block<ElemType>::read_label(const std::string &filename) {
+    std::ifstream fs;
+    fs.open(filename, std::ifstream::in);
+    assert(fs.is_open());
+    for (size_t i=0; i<size; ++i) {
+      real_t label;
+      fs >> label;
+      for (size_t j=0; j<vec_[i].len; ++j)
+	vec_[i].label[j] = label;
+    }
+  }
 
   namespace internal {
     template<typename T1=Elem<def::Euclidean, 0>, typename... Ts>

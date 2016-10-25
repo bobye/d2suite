@@ -23,7 +23,8 @@ CPP_SOURCE_FILES=\
 CPP_SOURCE_WITH_MAIN=\
 	src/test/test_euclidean.cpp\
 	src/test/test_20newsgroups_io.cpp\
-	src/test/test_orl.cpp
+	src/test/test_orl.cpp\
+	src/test/test_lr.cpp
 
 RABIT_SOURCE_WITH_MAIN=\
 	src/test/test_20newsgroups_io_rabit.cpp\
@@ -63,11 +64,11 @@ lib/libd2suite.a: $(ALL_OBJECTS)
 
 ifeq ($(OS), Darwin)
 %.rabit: %_rabit.cpp Makefile $(LIB)
-	$(MPICXX) -MM -MT $@ -MF $(patsubst %_rabit.cpp,%.rabit.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
+	$(CXX) -MM -MT $@ -MF $(patsubst %_rabit.cpp,%.rabit.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
 	$(MPICXX) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
 	install_name_tool -change @loader_path/libmosek64.$(MOSEK_VERSION).dylib $(MOSEK)/bin/libmosek64.$(MOSEK_VERSION).dylib $@
 else
-	$(MPICXX) -MM -MT $@ -MF $(patsubst %_rabit.cpp,%.rabit.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
+	$(CXX) -MM -MT $@ -MF $(patsubst %_rabit.cpp,%.rabit.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
 	$(MPICXX) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
 endif
 
