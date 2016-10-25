@@ -75,7 +75,7 @@ namespace d2 {
     template <typename FuncType, size_t dim>
     inline void _pdist2( const def::Euclidean::type *s1, const real_t *label,
 			 const size_t n1,
-			 const typename def::Function<FuncType>::type *s2, const size_t n2,
+			 const FuncType *s2, const size_t n2,
 			 const Meta<Elem<def::Euclidean, dim> > &meta,
 			 real_t *mat) {
       for (size_t j=0; j<n2; ++j)
@@ -85,7 +85,7 @@ namespace d2 {
     template <typename FuncType, size_t dim>
     inline void _pdist2( const def::WordVec::type *s1, const real_t *label,
 			 const size_t n1,
-			 const typename def::Function<FuncType>::type *s2, const size_t n2,
+			 const FuncType *s2, const size_t n2,
 			 const Meta<Elem<def::WordVec, dim> > &meta,
 			 real_t *mat) {
       for (size_t j=0, k=0; j<n2; ++j)

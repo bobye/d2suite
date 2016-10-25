@@ -15,13 +15,13 @@ namespace d2 {
     void fit(const real_t *X, const real_t *y, const real_t *sample_weight, size_t n) {
       // to do
     }
-    real_t predict(const real_t *X) {
+    real_t predict(const real_t *X) const {
       // to do
     }
-    void predicts(const real_t *X, const size_t n, real_t *y) {
+    void predicts(const real_t *X, const size_t n, real_t *y) const {
       // to do
     }
-    real_t eval(const real_t *X, const real_t y) {
+    real_t eval(const real_t *X, const real_t y) const {
       real_t loss;
       real_t v[n_class];
 
@@ -37,13 +37,13 @@ namespace d2 {
       loss = - log(v[(size_t) y] / exp_sum);
       return loss;
     }
-    void evals(const real_t *X, const real_t *y, const size_t n, real_t *loss) {
+    void evals(const real_t *X, const real_t *y, const size_t n, real_t *loss) const {
       real_t *v = new real_t[n*n_class];
       real_t *sv= new real_t[n];
       _D2_CBLAS_FUNC(gemm)(CblasColMajor, CblasNoTrans, CblasNoTrans,
 			   n_class, n, dim,
 			   1.0,
-			   A, n_class,
+			   &A[0], n_class,
 			   X, dim,
 			   0.0,
 			   v, n_class);
@@ -56,7 +56,7 @@ namespace d2 {
       delete [] sv;
     }
   protected:
-    size_t A[n_class*dim], b[n_class];
+    real_t A[n_class*dim], b[n_class];
   };
 }
 
