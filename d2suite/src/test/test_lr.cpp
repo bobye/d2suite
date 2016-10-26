@@ -1,34 +1,39 @@
-#include "../common/d2.hpp"
 #include "../learn/logistic_regression.hpp"
-#include "../learn/marriage_learner.hpp"
+#include <random>
+#define N 1000
+#define D 10
+using namespace d2;
 
-#define dim 100
-int main(int argc, char** argv) {
-  using namespace d2;
+void sample_naive_data(real_t *X, real_t *y) {
+  for (size_t i=0; i<N; ++i) {
+    y[i] = rand() % 2;
+    if (y[i]) {
+      for (size_t j=0; j<D; ++j)
+	X[i*D+j]=(real_t) rand() / (real_t) RAND_MAX;
+    } else {
+      for (size_t j=0; j<D; ++j)
+	X[i*D+j]=(real_t) rand() / (real_t) RAND_MAX - 1.;
+    }
+  }  
+}
 
-  size_t len = 100, size=200;
-  
-  Block<Elem<def::WordVec, dim> > data (size, len);
-  std::string prefix_name("data/20newsgroups/20newsgroups_clean/20newsgroups");
-  data.read(prefix_name + ".d2s", size);
-  data.read_label(prefix_name + ".label");
+real_t accuracy(real_t *y_pred, real_t *y_true, size_t n) {
+  size_t k=0;
+  for (size_t i=0; i<n; ++i)
+    if (y_pred[i] == y_true[i]) ++k;
+  return (real_t) k / (real_t) n;
+}
 
-
-  // create and initialize the LR marriage learner 
-  Elem<def::Function<Logistic_Regression<dim, 20> >, dim> marriage_learner;
-  size_t num_of_classifers = 10;
-  marriage_learner.len = num_of_classifers;
-  marriage_learner.w = new real_t[num_of_classifers];
-  marriage_learner.supp = new Logistic_Regression<dim, 20>[num_of_classifers];
-  for (size_t i=0; i<marriage_learner.len; ++i) {
-    marriage_learner.w[i] = 1. / num_of_classifers;
-    marriage_learner.supp[i].init();
-  }
-
-
-  ML_BADMM(data, marriage_learner, 20);
-
-  delete [] marriage_learner.w;
-  delete [] marriage_learner.supp;
+int main() {
+  real_t *X = new real_t[D*N];
+  real_t *y = new real_t[N];
+  real_t *y_pred = new real_t[N];
+  sample_naive_data(X, y);
+  auto classifier = new Logistic_Regression<D, 2>();
+  classifier->init();
+  classifier->fit(X, y, NULL, N);
+  sample_naive_data(X, y);
+  classifier->predict(X, N, y_pred);
+  printf("accuracy: %.3f\n", accuracy(y_pred, y, N) );  
   return 0;
 }

@@ -5,3 +5,6 @@
 [submodule "rabit"]
 	path = rabit
 	url = https://github.com/dmlc/rabit.git
+[submodule "d2suite/src/liblbfgs"]
+	path = d2suite/src/liblbfgs
+	url = https://github.com/chokkan/liblbfgs.git

@@ -8,8 +8,12 @@ ARCH_FLAGS=-m64 -D _D2_DOUBLE
 CFLAGS=-Wextra -Wall -pedantic-errors -O3 $(ARCH_FLAGS)
 LDFLAGS=$(ARCH_FLAGS)
 DEFINES=
-INCLUDES=-I$(RABIT)/include -I$(MOSEK)/h
-LIBRARIES=-L./lib -ld2suite $(RABIT)/lib/librabit_mpi.a -L$(MOSEK)/bin -Wl,-rpath,$(MOSEK)/bin -lmosek64 -lpthread $(BLAS_LIB)
+INCLUDES=-I$(RABIT)/include -I$(MOSEK)/h -I$(LBFGS)/include
+LIBRARIES=\
+	-L./lib -ld2suite\
+	$(RABIT)/lib/librabit_mpi.a\
+	-L$(MOSEK)/bin -Wl,-rpath,$(MOSEK)/bin -lmosek64 -lpthread $(BLAS_LIB)\
+	$(LBFGS)/lib/.libs/liblbfgs.a
 
 OS=$(shell uname)
 
