@@ -89,7 +89,37 @@ namespace d2 {
       using _Meta<def::Histogram, D>::_Meta;
     };
 
+    template <typename ElemType>
+    void get_dense_if_need(const Block<ElemType> &block, real_t **X);
 
+    template <size_t D>
+    void get_dense_if_need(const Block<Elem<def::WordVec, D> >&block, real_t **X) {
+      *X=new real_t[D * block.get_col()];
+      for (size_t i=0; i<block.get_col(); ++i) {
+	real_t* p=(*X) + i*D;
+	real_t* q=&block.meta.embedding[D*block.get_support_ptr()[i]];
+	for (size_t d=0; d<D; ++d)
+	  p[d] = q[d];
+      }	
+    }
+
+    template <size_t D>
+    void get_dense_if_need(const Block<Elem<def::Euclidean, D> >&block, real_t **X) {
+      *X = block.get_support_ptr();
+    }
+
+    template <typename ElemType>
+    void release_dense_if_need(const Block<ElemType> &block, real_t **X);
+
+    template <size_t D>
+    void release_dense_if_need(const Block<Elem<def::WordVec, D> > &block, real_t **X) {
+      delete [] X;
+    }
+
+    template <size_t D>
+    void release_dense_if_need(const Block<Elem<def::Euclidean, D> > &block, real_t **X) {
+    }
+    
     template <typename T1=Elem<def::Euclidean, 0>, typename... Ts>
     struct _ElemMultiPhaseConstructor: public _ElemMultiPhaseConstructor<Ts...> {
       _ElemMultiPhaseConstructor (const index_t i=0): 
