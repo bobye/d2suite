@@ -146,7 +146,7 @@ namespace d2 {
     void realign_vec();
     void read_main(const std::string &filename, const size_t size);
     void read(const std::string &filename, const size_t size);
-    void read_label(const std::string &filename);
+    void read_label(const std::string &filename, const size_t start = 0);
       
     void write(const std::string &filename) const;
     void split_write(const std::string &filename, const size_t num_copies) const;

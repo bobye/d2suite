@@ -168,7 +168,7 @@ namespace d2 {
   }
 
   template <typename ElemType>
-  void Block<ElemType>::read_label(const std::string &filename) {
+  void Block<ElemType>::read_label(const std::string &filename, const size_t start) {
     std::ifstream fs;
     fs.open(filename, std::ifstream::in);
     assert(fs.is_open());
@@ -176,7 +176,7 @@ namespace d2 {
       real_t label;
       fs >> label;
       for (size_t j=0; j<vec_[i].len; ++j)
-	vec_[i].label[j] = label;
+	vec_[i].label[j] = label - start;
     }
   }
 
