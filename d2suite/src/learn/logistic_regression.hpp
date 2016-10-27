@@ -26,11 +26,12 @@ namespace d2 {
 
 
     
-    void fit(const real_t *X, const real_t *y, const real_t *sample_weight, const size_t n) {      
+    int fit(const real_t *X, const real_t *y, const real_t *sample_weight, const size_t n) {      
       this->X = X;
       this->y = y;
       this->sample_weight = sample_weight;
-      this->cache= new real_t [n_class*n + n];
+      sample_size = n;
+      cache= new real_t [n_class*n + n];
       assert(sizeof(lbfgsfloatval_t) == sizeof(real_t));
 
       size_t N = n_class*dim+n_class;
@@ -46,7 +47,8 @@ namespace d2 {
       current_lr = this;
       //int ret = lbfgs(N, x, &fx, evaluate_, progress_, NULL, &param);
       int ret = lbfgs(N, x, &fx, evaluate_, NULL, NULL, &param);
-      printf("L-BFGS optimization terminated with status code = %d\n", ret);
+      // printf("loss: %lf\n", fx);
+      if (ret != 0) printf("L-BFGS optimization terminated with status code = %d\n", ret);
       
       std::memcpy(coeff, x, sizeof(real_t) * N);
       A = coeff;
@@ -55,6 +57,7 @@ namespace d2 {
       lbfgs_free(x);
       current_lr = NULL;
       delete [] cache;
+      return ret;
     }
     void predict(const real_t *X, const size_t n, real_t *y) const {
       real_t *v = new real_t[n*n_class];
@@ -87,16 +90,16 @@ namespace d2 {
       _D2_CBLAS_FUNC(axpy)(n_class, 1.0, b, 1, v, 1);
       _D2_FUNC(exp)(n_class, v);
       real_t exp_sum=_D2_CBLAS_FUNC(asum)(n_class, v, 1);
-      loss = - log(v[(size_t) y] / exp_sum);
+      loss = - log(v[(size_t) y]) + log(exp_sum);
       return loss;
     }
-    void evals(const real_t *X, const real_t *y, const size_t n, real_t *loss) const {
+    void evals(const real_t *X, const real_t *y, const size_t n, real_t *loss, const size_t leading) const {
       real_t *v = new real_t[n*n_class];
       real_t *sv= new real_t[n];
 
       forward_(A, b, X, n, v, sv);
       
-      for (size_t i=0; i<n; ++i)
+      for (size_t i=0; i<n; i+=leading)
 	loss[i] = -log (v[i*n_class + (size_t) y[i]]);
       delete [] v;
       delete [] sv;
@@ -108,10 +111,11 @@ namespace d2 {
     real_t *cache;
     const real_t *X, *y, *sample_weight;
     real_t l2_reg = 0.001;
+    size_t sample_size;
 
-    void forward_(real_t *A, real_t *b,
-		  const real_t *X, const size_t n,
-		  real_t *v, real_t *sv) const {
+    static void forward_(real_t *A, real_t *b,
+			 const real_t *X, const size_t n,
+			 real_t *v, real_t *sv) {
       // forward
       _D2_CBLAS_FUNC(gemm)(CblasColMajor, CblasNoTrans, CblasNoTrans,
 			   n_class, n, dim,
@@ -124,7 +128,8 @@ namespace d2 {
       _D2_FUNC(exp)(n_class * n, v);
       _D2_FUNC(cnorm)(n_class, n, v, sv);
     }
-    real_t gradient_(const size_t n, real_t *grad) const {
+    real_t gradient_(real_t *grad) const {
+      size_t n = sample_size;
       real_t *v = cache;
       real_t *sv= cache + n*n_class;
       real_t *gradA = grad;
@@ -132,16 +137,33 @@ namespace d2 {
       real_t loss = 0.0;
 
       forward_(A, b, X, n, v, sv);
-      
+      real_t sample_wsum;
+      if (sample_weight)
+	sample_wsum=_D2_CBLAS_FUNC(asum)(n, sample_weight, 1);
+      else
+	sample_wsum=n;
+
       // compute the regularized loss
-      for (size_t i=0; i<n; ++i)
-	loss += -log (v[i*n_class + (size_t) y[i]]);
-      loss /= n;
+      if (sample_weight) {
+	for (size_t i=0; i<n; ++i)
+	  loss += -log (v[i*n_class + (size_t) y[i]]) * sample_weight[i];
+      } else {
+	for (size_t i=0; i<n; ++i)
+	  loss += -log (v[i*n_class + (size_t) y[i]]);
+      }
+      loss /= sample_wsum;
+
       for (size_t i=0; i<n_class*dim; ++i)
 	loss += 0.5 * l2_reg * A[i] * A[i];
-      
-      for (size_t i=0; i<n; ++i)
+
+      // compute the regularized gradient
+      for (size_t i=0; i<n; ++i) {
 	v[i*n_class + (size_t) y[i]] -= 1.;
+      }
+
+      if (sample_weight) {
+	_D2_FUNC(grms)(n_class, n, v, sample_weight);
+      }
 
       // backpropagate
       _D2_CBLAS_FUNC(gemm)(CblasColMajor, CblasNoTrans, CblasTrans,
@@ -152,7 +174,7 @@ namespace d2 {
 			   0.0,
 			   gradA, n_class);      
       _D2_FUNC(rsum)(n_class, n, v, gradb);
-      _D2_CBLAS_FUNC(scal)(n_class*dim+n_class, 1./n, grad, 1);
+      _D2_CBLAS_FUNC(scal)(n_class*dim+n_class, 1./sample_wsum, grad, 1);
       _D2_CBLAS_FUNC(axpy)(n_class*dim, l2_reg, A, 1, gradA, 1);
       return loss;
     }
@@ -167,7 +189,7 @@ namespace d2 {
       int i;
       lbfgsfloatval_t fx;
 
-      fx = current_lr->gradient_(n, g);
+      fx = current_lr->gradient_(g);
 	
       return fx;
     }

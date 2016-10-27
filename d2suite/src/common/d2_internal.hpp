@@ -113,7 +113,7 @@ namespace d2 {
 
     template <size_t D>
     void release_dense_if_need(const Block<Elem<def::WordVec, D> > &block, real_t **X) {
-      delete [] X;
+      delete [] (*X);
     }
 
     template <size_t D>
