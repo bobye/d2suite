@@ -13,6 +13,7 @@ namespace d2 {
   template <size_t dim, size_t n_class>
   class Logistic_Regression {
   public:
+    static const size_t NUMBER_OF_CLASSES = n_class;
     void init() {
       std::random_device rd;
       std::uniform_real_distribution<real_t>  unif(-1., 1.);

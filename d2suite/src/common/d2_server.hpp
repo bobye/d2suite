@@ -95,6 +95,25 @@ namespace d2 {
       }      
     }
 
+    template <typename FuncType, size_t dim>
+    inline real_t _EMD(const Elem<def::Function<FuncType>, dim> &e1,
+		       const Elem<def::WordVec, dim> &e2,
+		       const Meta<Elem<def::WordVec, dim> > &meta,
+		       real_t* cache_mat, real_t* cache_primal, real_t* cache_dual) {
+      assert(cache_mat);// cache_mat has to be pre-allocated for speed performance
+      real_t val;
+      _pdist2(e1.supp, e1.len, 
+	      e2.supp, e2.label, e2.len,
+	      meta,
+	      cache_mat);
+      val = d2_match_by_distmat(e1.len, e2.len, 
+				cache_mat, 
+				e1.w, e2.w,
+				cache_primal, cache_dual, 0);
+
+      return val;
+    }
+
     template <typename D2Type1, typename D2Type2, size_t dim>
     inline real_t _EMD(const Elem<D2Type1, dim> &e1, const Elem<D2Type2, dim> &e2, 
 		       const Meta<Elem<D2Type2, dim> > &meta, 

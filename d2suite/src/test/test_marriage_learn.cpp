@@ -26,7 +26,9 @@ int main(int argc, char** argv) {
     marriage_learner.supp[i].init();
   }
 
-  ML_BADMM(data, marriage_learner, 100);
+  server::Init(argc, argv);
+  ML_BADMM(data, marriage_learner, 20);
+  server::Finalize();
 
   delete [] marriage_learner.w;
   delete [] marriage_learner.supp;
