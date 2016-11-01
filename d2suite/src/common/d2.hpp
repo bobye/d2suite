@@ -98,11 +98,13 @@ namespace d2 {
   /*!
    * compute EMD between two discrete distributions
    */
-  template <typename ElemType1, typename ElemType2, typename MetaType2>
-  inline real_t EMD (const ElemType1 &e1, const ElemType2 &e2, const MetaType2 &meta,
-		     __IN__ real_t* cache_mat = NULL,
+  template <typename ElemType1, typename ElemType2>
+  inline real_t EMD (const ElemType1 &e1, const ElemType2 &e2,
+		     const Meta<ElemType2> &meta,
+		     __IN_OUT__ real_t* cache_mat = NULL,
 		     __OUT__ real_t* cache_primal = NULL, 
-		     __OUT__ real_t* cache_dual = NULL);
+		     __OUT__ real_t* cache_dual = NULL,
+		     __IN__ const bool cost_computed= false);
 
   /*!
    * compute EMD between a discrete distribution and a block of discrete distributions
@@ -110,9 +112,10 @@ namespace d2 {
   template <typename ElemType1, typename ElemType2>
   void EMD (const ElemType1 &e, const Block<ElemType2> &b,
 	    __OUT__ real_t* emds,
-	    __IN__ real_t* cache_mat = NULL,
+	    __IN_OUT__ real_t* cache_mat = NULL,
 	    __OUT__ real_t* cache_primal = NULL, 
-	    __OUT__ real_t* cache_dual = NULL);
+	    __OUT__ real_t* cache_dual = NULL,
+	    __IN__ const bool cost_computed = false);
 
   template <template<typename...> class D1, template<typename... > class D2, 
 	    typename... Ts1, typename... Ts2>
@@ -124,8 +127,9 @@ namespace d2 {
    * compute lower bound of EMD 
    * version 0: extremely cheap, non-iterative
    */
-  template <typename ElemType1, typename ElemType2, typename MetaType2>
-  inline real_t LowerThanEMD_v0(const ElemType1 &e1, const ElemType2 &e2, const MetaType2 &meta);
+  template <typename ElemType1, typename ElemType2>
+  inline real_t LowerThanEMD_v0(const ElemType1 &e1, const ElemType2 &e2,
+				const Meta<ElemType2> &meta);
 
   template <typename ElemType1, typename ElemType2>
   void LowerThanEMD_v0(const ElemType1 &e, const Block<ElemType2> &b,
@@ -135,8 +139,9 @@ namespace d2 {
    * compute lower bound of EMD 
    * version 1: fast, non-iterative and simple
    */
-  template <typename ElemType1, typename ElemType2, typename MetaType2>
-  inline real_t LowerThanEMD_v1(const ElemType1 &e1, const ElemType2 &e2, const MetaType2 &meta,
+  template <typename ElemType1, typename ElemType2>
+  inline real_t LowerThanEMD_v1(const ElemType1 &e1, const ElemType2 &e2,
+				const Meta<ElemType2> &meta,
 				__IN__ real_t* cache_mat = NULL);
 
   template <typename ElemType1, typename ElemType2>

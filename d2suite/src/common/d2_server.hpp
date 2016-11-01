@@ -99,13 +99,16 @@ namespace d2 {
     inline real_t _EMD(const Elem<def::Function<FuncType>, dim> &e1,
 		       const Elem<def::WordVec, dim> &e2,
 		       const Meta<Elem<def::WordVec, dim> > &meta,
-		       real_t* cache_mat, real_t* cache_primal, real_t* cache_dual) {
+		       real_t* cache_mat, real_t* cache_primal, real_t* cache_dual,
+		       const bool cost_computed = false) {
       assert(cache_mat);// cache_mat has to be pre-allocated for speed performance
       real_t val;
-      _pdist2(e1.supp, e1.len, 
-	      e2.supp, e2.label, e2.len,
-	      meta,
-	      cache_mat);
+      if (!cost_computed) {
+	_pdist2(e1.supp, e1.len, 
+		e2.supp, e2.label, e2.len,
+		meta,
+		cache_mat);
+      }
       val = d2_match_by_distmat(e1.len, e2.len, 
 				cache_mat, 
 				e1.w, e2.w,
@@ -117,20 +120,23 @@ namespace d2 {
     template <typename D2Type1, typename D2Type2, size_t dim>
     inline real_t _EMD(const Elem<D2Type1, dim> &e1, const Elem<D2Type2, dim> &e2, 
 		       const Meta<Elem<D2Type2, dim> > &meta, 
-		       real_t* cache_mat, real_t* cache_primal, real_t* cache_dual) {
+		       real_t* cache_mat, real_t* cache_primal, real_t* cache_dual,
+		       const bool cost_computed = false) {
       assert(cache_mat);// cache_mat has to be pre-allocated for speed performance
       real_t val;
-      _pdist2(e1.supp, e1.len, 
-	      e2.supp, e2.len,
-	      meta,
-	      cache_mat);
+      if (!cost_computed) {
+	_pdist2(e1.supp, e1.len, 
+		e2.supp, e2.len,
+		meta,
+		cache_mat);
+      }
       val = d2_match_by_distmat(e1.len, e2.len, 
 				cache_mat, 
 				e1.w, e2.w,
 				cache_primal, cache_dual, 0);
 
       return val;
-    }
+    }    
 
 
     template<size_t dim>
@@ -225,31 +231,43 @@ namespace d2 {
   }
   
 
-  template <typename ElemType1, typename ElemType2, typename MetaType2>
-  inline real_t EMD (const ElemType1 &e1, const ElemType2 &e2, const MetaType2 &meta,
-		     real_t* cache_mat,
-		     real_t* cache_primal, real_t* cache_dual) {
-    return internal::_EMD(e1, e2, meta, cache_mat, cache_primal, cache_dual);
+  template <typename ElemType1, typename ElemType2>
+  inline real_t EMD (const ElemType1 &e1, const ElemType2 &e2,
+		     const Meta<ElemType2> &meta,
+		     __IN_OUT__ real_t* cache_mat,
+		     __OUT__ real_t* cache_primal,
+		     __OUT__ real_t* cache_dual,
+		     __IN__ const bool cost_computed) {
+    return internal::_EMD(e1, e2, meta, cache_mat, cache_primal, cache_dual, cost_computed);
   }
 
 
   template <typename ElemType1, typename ElemType2>
   void EMD (const ElemType1 &e, const Block<ElemType2> &b,
 	    __OUT__ real_t* emds,
-	    __IN__ real_t* cache_mat,
+	    __IN_OUT__ real_t* cache_mat,
 	    __OUT__ real_t* cache_primal, 
-	    __OUT__ real_t* cache_dual) {
+	    __OUT__ real_t* cache_dual,
+	    __IN__ const bool cost_computed) {
     bool cache_mat_is_null = false;
     if (cache_mat == NULL) {
+      assert(!cost_computed);
       cache_mat_is_null = true;
       cache_mat = (real_t*) malloc(sizeof(real_t) * e.len * b.get_max_len());	
     }
 
     real_t *primal_ptr = cache_primal;
     real_t *dual_ptr = cache_dual;
+    real_t *cache_ptr = cache_mat;
 
-    for (size_t i=0; i<b.get_size(); ++i) {      
-      emds[i] = EMD(e, b[i], b.meta, cache_mat, primal_ptr, dual_ptr);
+    for (size_t i=0; i<b.get_size(); ++i) {
+      if (emds) {
+	emds[i] = EMD(e, b[i], b.meta, cache_ptr, primal_ptr, dual_ptr, cost_computed);
+      }
+      else {
+	EMD(e, b[i], b.meta, cache_ptr, primal_ptr, dual_ptr, cost_computed);
+      }
+      if (cost_computed) cache_ptr += e.len * b[i].len;
       if (cache_primal) primal_ptr += e.len * b[i].len;
       if (cache_dual) dual_ptr += e.len + b[i].len;
     }
@@ -372,8 +390,9 @@ namespace d2 {
     free(emds_arr);
   }
 
-  template <typename ElemType1, typename ElemType2, typename MetaType2>
-  inline real_t LowerThanEMD_v0(const ElemType1 &e1, const ElemType2 &e2, const MetaType2 &meta) {
+  template <typename ElemType1, typename ElemType2>
+  inline real_t LowerThanEMD_v0(const ElemType1 &e1, const ElemType2 &e2,
+				const Meta<ElemType2> &meta) {
     return internal::_LowerThanEMD_v0(e1, e2, meta);
   }
 
@@ -386,8 +405,9 @@ namespace d2 {
   }
 
 
-  template <typename ElemType1, typename ElemType2, typename MetaType2>
-  inline real_t LowerThanEMD_v1(const ElemType1 &e1, const ElemType2 &e2, const MetaType2 &meta,
+  template <typename ElemType1, typename ElemType2>
+  inline real_t LowerThanEMD_v1(const ElemType1 &e1, const ElemType2 &e2,
+				const Meta<ElemType2> &meta,
 				real_t* cache_mat) {
     return internal::_LowerThanEMD_v1(e1, e2, meta, cache_mat);
   }

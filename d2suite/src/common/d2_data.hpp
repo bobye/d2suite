@@ -146,10 +146,12 @@ namespace d2 {
     void realign_vec();
     void read_main(const std::string &filename, const size_t size);
     void read(const std::string &filename, const size_t size);
+    void read(const std::string &filename, const size_t size, const std::string &filename_meta);
     void read_label(const std::string &filename, const size_t start = 0);
       
     void write(const std::string &filename) const;
     void split_write(const std::string &filename, const size_t num_copies) const;
+    void train_test_split_write(const std::string &filename, const real_t train_ratio = 0.7, const size_t start = 0) const;
 
 #ifdef RABIT_RABIT_H_
     void sync(const index_t rank) {
