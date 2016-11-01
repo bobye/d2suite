@@ -30,11 +30,11 @@ int main(int argc, char** argv) {
 
 
   // create and initialize the LR marriage learner 
-  Elem<def::Function<Logistic_Regression<dim, cls> >, dim> marriage_learner;
+  Elem<def::Function<Logistic_Regression<dim, cls+1> >, dim> marriage_learner;
   size_t num_of_classifers = 2;
   marriage_learner.len = num_of_classifers;
   marriage_learner.w = new real_t[num_of_classifers];
-  marriage_learner.supp = new Logistic_Regression<dim, cls>[num_of_classifers];
+  marriage_learner.supp = new Logistic_Regression<dim, cls+1>[num_of_classifers];
   for (size_t i=0; i<marriage_learner.len; ++i) {
     marriage_learner.w[i] = 1. / num_of_classifers;
     marriage_learner.supp[i].init();

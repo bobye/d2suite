@@ -89,9 +89,13 @@ namespace d2 {
       using _Meta<def::Histogram, D>::_Meta;
     };
 
+    /*
+     * convert sparse representations into dense representation 
+     * for performance with small overheads
+     */
     template <typename ElemType>
     void get_dense_if_need(const Block<ElemType> &block, real_t **X);
-
+    
     template <size_t D>
     void get_dense_if_need(const Block<Elem<def::WordVec, D> >&block, real_t **X) {
       *X=new real_t[D * block.get_col()];
@@ -102,7 +106,7 @@ namespace d2 {
 	  p[d] = q[d];
       }	
     }
-
+   
     template <size_t D>
     void get_dense_if_need(const Block<Elem<def::Euclidean, D> >&block, real_t **X) {
       *X = block.get_support_ptr();
@@ -119,6 +123,47 @@ namespace d2 {
     template <size_t D>
     void release_dense_if_need(const Block<Elem<def::Euclidean, D> > &block, real_t **X) {
     }
+
+
+    /*
+     * convert sparse representations into dense representation 
+     * for performance with small overheads
+     *
+     * branch ad-hoc code for (extra_class)
+     */
+    template <typename ElemType>
+    void get_dense_if_need_ec(const Block<ElemType> &block, real_t **X);
+    
+    template <size_t D>
+    void get_dense_if_need_ec(const Block<Elem<def::WordVec, D> >&block, real_t **X) {
+      *X=new real_t[D * block.get_col() * 2];
+      for (size_t i=0; i<block.get_col(); ++i) {
+	real_t* p=(*X) + i*D;
+	real_t* q=&block.meta.embedding[D*block.get_support_ptr()[i]];
+	for (size_t d=0; d<D; ++d)
+	  p[d] = q[d];
+      }
+
+      std::memcpy(*X + D * block.get_col(), *X, sizeof(real_t) * D * block.get_col());      
+    }
+   
+    template <size_t D>
+    void get_dense_if_need_ec(const Block<Elem<def::Euclidean, D> >&block, real_t **X) {
+      *X = block.get_support_ptr();
+    }
+
+    template <typename ElemType>
+    void release_dense_if_need_ec(const Block<ElemType> &block, real_t **X);
+
+    template <size_t D>
+    void release_dense_if_need_ec(const Block<Elem<def::WordVec, D> > &block, real_t **X) {
+      delete [] (*X);
+    }
+
+    template <size_t D>
+    void release_dense_if_need_ec(const Block<Elem<def::Euclidean, D> > &block, real_t **X) {
+    }
+    
     
     template <typename T1=Elem<def::Euclidean, 0>, typename... Ts>
     struct _ElemMultiPhaseConstructor: public _ElemMultiPhaseConstructor<Ts...> {

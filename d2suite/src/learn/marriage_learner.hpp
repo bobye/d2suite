@@ -208,6 +208,7 @@ namespace d2 {
 	_D2_CBLAS_FUNC(copy)(data.get_col(),
 			     badmm_cache_arr.Pi2 + i, learner.len,
 			     sample_weight, 1);
+
 	//learner.supp[i].init();
 	int err_code = learner.supp[i].fit(X, y, sample_weight, data.get_col());
 	assert(err_code >= 0);	
