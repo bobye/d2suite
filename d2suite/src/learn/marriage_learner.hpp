@@ -8,7 +8,7 @@
 
 namespace d2 {
   template <typename ElemType1, typename FuncType, size_t dim>
-  real_t ML_Predict(Block<ElemType1> &data,
+  real_t ML_Predict_ByWinnerTakeAll(Block<ElemType1> &data,
 		    const Elem<def::Function<FuncType>, dim> &learner,
 		    bool write_label = false) {
     real_t *y, *label_cache;
@@ -50,12 +50,88 @@ namespace d2 {
 
     return accuracy;    
   }
+
+  template <typename ElemType1, typename FuncType, size_t dim>
+  real_t ML_Predict_ByVoting(Block<ElemType1> &data,
+		    const Elem<def::Function<FuncType>, dim> &learner,
+		    bool write_label = false) {
+    real_t *y, *label_cache;
+    y = new real_t[data.get_size()];
+    label_cache = new real_t[data.get_col()];
+    memcpy(label_cache, data.get_label_ptr(), sizeof(real_t) * data.get_col());
+    for (size_t i=0; i<data.get_size(); ++i) y[i] = data[i].label[0];
+
+    const size_t mat_size = data.get_col() * learner.len;
+    real_t *C    = new real_t [mat_size * FuncType::NUMBER_OF_CLASSES];
+    real_t *minC = new real_t [mat_size];
+    real_t *Pi   = new real_t [mat_size];
+    size_t *index= new size_t [mat_size];
+    for (size_t i=0; i<FuncType::NUMBER_OF_CLASSES; ++i) {
+      for (size_t j=0; j<data.get_col(); ++j) data.get_label_ptr()[j] = i;
+      _pdist2(learner.supp, learner.len,
+	      data.get_support_ptr(), data.get_label_ptr(), data.get_col(),
+	      data.meta, C + mat_size * i);
+    }
+    for (size_t i=0; i<mat_size; ++i) {
+      real_t minC_value = std::numeric_limits<real_t>::max();
+      size_t minC_index = -1;
+      for (size_t j=0; j<FuncType::NUMBER_OF_CLASSES; ++j) {
+	if (minC_value > C[i+j*mat_size]) {
+	  minC_value = C[i+j*mat_size];
+	  minC_index = j;
+	}
+      }
+      minC[i] = minC_value;
+      index[i] = minC_index;
+    }
+    EMD(learner, data, NULL, minC, Pi, NULL, true);        
+
+    real_t accuracy = 0.0;    
+    if (write_label) {
+      
+    } else {
+      real_t *Pi_ptr = Pi;
+      size_t *index_ptr = index;
+      for (size_t i=0; i<data.get_size(); ++i) {
+	const size_t ms = learner.len * data[i].len;
+	real_t thislabel[FuncType::NUMBER_OF_CLASSES] ={};
+	for (size_t j=0; j<ms; ++j) {
+	  thislabel[index_ptr[j]] += Pi_ptr[j];
+	}
+	index_ptr += ms;
+	Pi_ptr    += ms;
+
+	bool is_correct = true;
+	const real_t w = thislabel[(size_t) y[i]];
+	for (size_t j=0; j<FuncType::NUMBER_OF_CLASSES; ++j)
+	  if (j!= (size_t) y[i]) {
+	    is_correct &= (thislabel[j] < w);
+	  }
+	accuracy += is_correct;
+      }
+      accuracy /= data.get_size();
+      //printf("accuracy: %.3lf\n", accuracy);
+      memcpy(data.get_label_ptr(), label_cache, sizeof(real_t) * data.get_col());
+      
+    }
+
+    
+    delete [] y;
+    delete [] label_cache;
+    delete [] C;
+    delete [] minC;
+    delete [] index;
+    delete [] Pi;
+    
+    return accuracy;    
+  }
   
   template <typename ElemType1, typename FuncType, size_t dim>
   void ML_BADMM (Block<ElemType1> &data,
 		 Elem<def::Function<FuncType>, dim> &learner,
 		 const size_t max_iter,
-		 const real_t rho = 2.0) {    
+		 const real_t rho = 2.0,
+		 Block<ElemType1> *val_data = NULL, size_t val_size = 0) {    
     BADMMCache badmm_cache_arr;
     
     allocate_badmm_cache(data, learner, badmm_cache_arr);
@@ -81,7 +157,9 @@ namespace d2 {
 	      << "rho     " << "\t" 
 	      << "prim_res" << "\t"
 	      << "dual_res" << "\t"
-	      << "tr_acc  " << std::endl;
+	      << "tr_acc  " << "\t"
+	      << "va_acc  " << std::endl;
+    
 
     for (size_t iter=0; iter < max_iter; ++iter) {
       _pdist2(learner.supp, learner.len,
@@ -130,14 +208,23 @@ namespace d2 {
 	_D2_CBLAS_FUNC(copy)(data.get_col(),
 			     badmm_cache_arr.Pi1 + i, learner.len,
 			     sample_weight, 1);
-	//	learner.supp[i].init();
+	//learner.supp[i].init();
 	int err_code = learner.supp[i].fit(X, y, sample_weight, data.get_col());
 	assert(err_code >= 0);	
 	delete [] sample_weight;
       }
 
-      train_accuracy = ML_Predict(data, learner);
-      printf("%zd\t\t%.6lf\t%.6lf\t\%.6lf\t%.6lf\t%.6lf\n", iter, loss, totalC * rho, prim_res, dual_res, train_accuracy);
+      train_accuracy = ML_Predict_ByWinnerTakeAll(data, learner);
+      printf("%zd\t\t%.6lf\t%.6lf\t\%.6lf\t%.6lf\t%.6lf\t", iter, loss, totalC * rho, prim_res, dual_res, train_accuracy);
+
+      if (val_size > 0) {
+	real_t validate_accuracy;
+	for (size_t i=0; i<val_size; ++i) {
+	  validate_accuracy = ML_Predict_ByWinnerTakeAll(val_data[i], learner);
+	  printf("%.6lf\t", validate_accuracy);
+	}	
+      }
+      std::cout << std::endl;
     }
 
     

@@ -168,6 +168,12 @@ namespace d2 {
   }
 
   template <typename ElemType>
+  void Block<ElemType>::read(const std::string &filename, const size_t size, const std::string &filename_meta) {
+    meta.read(filename_meta);
+    read_main(filename, size);
+  }
+
+  template <typename ElemType>
   void Block<ElemType>::read_label(const std::string &filename, const size_t start) {
     std::ifstream fs;
     fs.open(filename, std::ifstream::in);
@@ -312,8 +318,61 @@ namespace d2 {
 	cerr << getLogHeader() << " error: empty filename specified." << endl;
       }
     }
+    template<typename BlockType> 
+    void _train_test_split_write(const BlockType &block, const std::string &filename, const real_t train_ratio, const size_t start = 0) {
+      using namespace std;
+      const size_t size = block.get_size();
+      vector<size_t> rand_ind(size);
+      for (size_t i=0; i<size; ++i) rand_ind[i] = i;
+      random_shuffle(rand_ind.begin(), rand_ind.end());
+
+      if (filename != "") {
+	double startTime = getRealTime();
+	ofstream fs_train, fs_test;
+	size_t train_size = size * train_ratio;
+	size_t test_size  = size - train_size;
+
+	// write data
+	fs_train.open(filename + ".train", ofstream::out);
+	fs_test.open (filename + ".test",  ofstream::out);
+	assert(fs_train.is_open() && fs_test.is_open());
+
+	for (size_t i=0; i<train_size; ++i) {
+	  _append_to(fs_train, block, rand_ind[i]);
+	}
+	for (size_t i=train_size; i<size; ++i) {
+	  _append_to(fs_test, block, rand_ind[i]);
+	}
+
+	fs_train.close();
+	fs_test.close();
+
+	// write label
+	fs_train.open(filename + ".train.label", ofstream::out);
+	fs_test.open (filename + ".test.label",  ofstream::out);
+	assert(fs_train.is_open() && fs_test.is_open());
+
+	for (size_t i=0; i<train_size; ++i) {
+	  fs_train << block[rand_ind[i]].label[0] + start << std::endl;
+	}
+	for (size_t i=train_size; i<size; ++i) {
+	  fs_test << block[rand_ind[i]].label[0] + start << std::endl;
+	}
+
+	fs_train.close();
+	fs_test.close();
+
+	  
+	cerr << getLogHeader() << " logging: write data into train,test" << " in " 
+	     << (getRealTime() - startTime) << " seconds." << endl;
+      
+      } else {
+	cerr << getLogHeader() << " error: empty filename specified." << endl;
+      }
+    }
   }
 
+  
   template<typename... Ts>
   void BlockMultiPhase<Ts...>::read_meta(const std::string &filename) {
     using namespace std;
@@ -354,6 +413,11 @@ namespace d2 {
   template<typename ElemType>
   void Block<ElemType>::split_write(const std::string &filename, const size_t num_copies) const {
     internal::_split_write(*this, filename, num_copies);
+  }
+
+  template<typename ElemType>
+  void Block<ElemType>::train_test_split_write(const std::string &filename, const real_t train_ratio, const size_t start) const {
+    internal::_train_test_split_write(*this, filename, train_ratio, start);
   }
 
   template<typename... Ts>
