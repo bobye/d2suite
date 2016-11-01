@@ -206,7 +206,7 @@ namespace d2 {
       for (size_t i=0; i<learner.len; ++i) {
 	real_t *sample_weight = new real_t[data.get_col()];
 	_D2_CBLAS_FUNC(copy)(data.get_col(),
-			     badmm_cache_arr.Pi1 + i, learner.len,
+			     badmm_cache_arr.Pi2 + i, learner.len,
 			     sample_weight, 1);
 	//learner.supp[i].init();
 	int err_code = learner.supp[i].fit(X, y, sample_weight, data.get_col());

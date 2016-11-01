@@ -49,7 +49,7 @@ namespace d2 {
       //int ret = lbfgs(N, x, &fx, evaluate_, progress_, NULL, &param);
       int ret = lbfgs(N, x, &fx, evaluate_, NULL, NULL, &param);
       // printf("loss: %lf\n", fx);
-      if (ret != 0) printf("L-BFGS optimization terminated with status code = %d\n", ret);
+      if (ret < 0) printf("L-BFGS optimization terminated with status code = %d\n", ret);
       
       std::memcpy(coeff, x, sizeof(real_t) * N);
       A = coeff;

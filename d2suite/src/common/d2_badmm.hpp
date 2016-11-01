@@ -63,14 +63,15 @@ namespace d2 {
 
       for (size_t i=0; i<mat_size; ++i)
 	cache.Ltmp[i] = exp(cache.Lambda[i]);
-      for (size_t i=0; i<mat_size; ++i)
-	cache.Pi1[i] = cache.Pi2[i] / (cache.Ctmp[i] * cache.Ltmp[i]) + eps;
+      for (size_t i=0; i<mat_size; ++i) {
+	cache.Pi1[i] = cache.Pi2[i] / (cache.Ltmp[i]) + eps;
+      }
       _D2_FUNC(rnorm)(a.len, b.len, cache.Pi1, cache.buffer);
       _D2_FUNC(gcms)(a.len, b.len, cache.Pi1, a.w);
 
 
       for (size_t i=0; i<mat_size; ++i) {	
-	cache.Pi2[i] = cache.Pi1[i] * cache.Ltmp[i] + eps;
+	cache.Pi2[i] = cache.Pi1[i] * cache.Ltmp[i] / cache.Ctmp[i] + eps;
       }
       
       _D2_FUNC(cnorm)(a.len, b.len, cache.Pi2, cache.buffer);
