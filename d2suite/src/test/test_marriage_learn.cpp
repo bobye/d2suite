@@ -8,22 +8,23 @@ int main(int argc, char** argv) {
   using namespace d2;
   std::string prefix_name("data/20newsgroups/20newsgroups_clean/20newsgroups");
   const size_t start = 1;
-  {
-    size_t len = 100, size=1000;
-  
+  const real_t propo = 0.5;
+  const size_t len = 100, size=1000;    
+
+  {  
     Block<Elem<def::WordVec, dim> > data (size, len);
     data.read(prefix_name + ".d2s", size);
     data.read_label(prefix_name + ".label", start);
 
-    data.train_test_split_write(prefix_name + ".d2s", 0.7, start);
+    data.train_test_split_write(prefix_name + ".d2s", propo, start);
   }
 
-  Block<Elem<def::WordVec, dim> > train (700, 100);
-  train.read(prefix_name + ".d2s.train", 700, prefix_name + ".d2s.meta0");
+  Block<Elem<def::WordVec, dim> > train (size*propo, 100);
+  train.read(prefix_name + ".d2s.train", size*propo, prefix_name + ".d2s.meta0");
   train.read_label(prefix_name + ".d2s.train.label", start);
 
-  Block<Elem<def::WordVec, dim> > test (300, 100);
-  test.read(prefix_name + ".d2s.test", 300, prefix_name + ".d2s.meta0");
+  Block<Elem<def::WordVec, dim> > test (size*(1-propo), 100);
+  test.read(prefix_name + ".d2s.test", size*(1-propo), prefix_name + ".d2s.meta0");
   test.read_label(prefix_name + ".d2s.test.label", start);
   
 
