@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
 
   // create and initialize the LR marriage learner 
   Elem<def::Function<Logistic_Regression<dim, cls+1> >, dim> marriage_learner;
-  size_t num_of_classifers = 2;
+  size_t num_of_classifers = 3;
   marriage_learner.len = num_of_classifers;
   marriage_learner.w = new real_t[num_of_classifers];
   marriage_learner.supp = new Logistic_Regression<dim, cls+1>[num_of_classifers];
@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
   }
 
   server::Init(argc, argv);
-  ML_BADMM(train, marriage_learner, 20, 2.0, &test, 1);
+  ML_BADMM(train, marriage_learner, 40, 2.0, &test, 1);
   server::Finalize();
 
   delete [] marriage_learner.w;

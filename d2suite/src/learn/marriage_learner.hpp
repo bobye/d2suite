@@ -31,7 +31,7 @@ namespace d2 {
       for (size_t i=0; i<data.get_size(); ++i) {
 	bool is_correct = true;
 	real_t *emd = emds + i;
-	for (size_t j=0; j<FuncType::NUMBER_OF_CLASSES; ++j)
+	for (size_t j=1; j<FuncType::NUMBER_OF_CLASSES; ++j)
 	  if (j != y[i]) {
 	    is_correct &= emd[j*data.get_size()] > emd[(size_t)y[i]*data.get_size()];
 	  }
@@ -75,13 +75,13 @@ namespace d2 {
     for (size_t i=0; i<mat_size; ++i) {
       real_t minC_value = std::numeric_limits<real_t>::max();
       size_t minC_index = -1;
-      for (size_t j=0; j<FuncType::NUMBER_OF_CLASSES; ++j) {
+      for (size_t j=1; j<FuncType::NUMBER_OF_CLASSES; ++j) {
 	if (minC_value > C[i+j*mat_size]) {
 	  minC_value = C[i+j*mat_size];
 	  minC_index = j;
 	}
       }
-      minC[i] = minC_value;
+      minC[i] = minC_value - C[i];
       index[i] = minC_index;
     }
     EMD(learner, data, NULL, minC, Pi, NULL, true);        
@@ -103,7 +103,7 @@ namespace d2 {
 
 	bool is_correct = true;
 	const real_t w = thislabel[(size_t) y[i]];
-	for (size_t j=0; j<FuncType::NUMBER_OF_CLASSES; ++j)
+	for (size_t j=1; j<FuncType::NUMBER_OF_CLASSES; ++j)
 	  if (j!= (size_t) y[i]) {
 	    is_correct &= (thislabel[j] < w);
 	  }
@@ -133,7 +133,8 @@ namespace d2 {
 		 const real_t rho = 2.0,
 		 Block<ElemType1> *val_data = NULL, size_t val_size = 0) {    
     BADMMCache badmm_cache_arr;
-    
+    const real_t beta = 1./(learner.len - 1);
+    assert(learner.len > 1);
     allocate_badmm_cache(data, learner, badmm_cache_arr);
 
     // initialization
@@ -148,8 +149,10 @@ namespace d2 {
 
     real_t prim_res, dual_res, totalC;
     real_t *X, *y;
-    internal::get_dense_if_need(data, &X);
-    y = data.get_label_ptr();
+    internal::get_dense_if_need_ec(data, &X);
+    y = new real_t[data.get_col() * 2];
+    for (size_t i=0; i<data.get_col(); ++i) y[i] = 0;
+    memcpy(y+data.get_col(), data.get_label_ptr(), sizeof(real_t)*data.get_col());
 
 
     std::cout << "iter    " << "\t"
@@ -166,7 +169,14 @@ namespace d2 {
 	      data.get_support_ptr(), data.get_label_ptr(), data.get_col(),
 	      data.meta, badmm_cache_arr.C);
 
-      if (iter == 0 || true) {
+      _pdist2(learner.supp, learner.len,
+	      data.get_support_ptr(), NULL, data.get_col(),
+	      data.meta, badmm_cache_arr.Ctmp);
+
+      for (size_t i=0; i<data.get_col() * learner.len; ++i)
+	badmm_cache_arr.C[i] -= beta * badmm_cache_arr.Ctmp[i];      
+
+      if (iter == 0) {
 	totalC = _D2_CBLAS_FUNC(asum)(data.get_col() * learner.len, badmm_cache_arr.C, 1);
 	totalC /= data.get_col() * learner.len;
       }
@@ -178,7 +188,7 @@ namespace d2 {
       for (size_t i=0; i<data.get_size();++i) {
 	const size_t matsize = data[i].len * learner.len;
 	real_t p_res, d_res;
-	EMD_BADMM(learner, data[i], badmm_cache_ptr, 20, &p_res, &d_res);
+	EMD_BADMM(learner, data[i], badmm_cache_ptr, 50, &p_res, &d_res);
 
 	badmm_cache_ptr.C += matsize;
 	badmm_cache_ptr.Ctmp += matsize;
@@ -204,17 +214,27 @@ namespace d2 {
       
       
       for (size_t i=0; i<learner.len; ++i) {
-	real_t *sample_weight = new real_t[data.get_col()];
-	_D2_CBLAS_FUNC(copy)(data.get_col(),
+	real_t *sample_weight = new real_t[data.get_col() * 2];
+	for (size_t ii=0; ii<data.get_col(); ++ii) sample_weight[ii] = 0;
+	_D2_CBLAS_FUNC(axpy)(data.get_col(),
+			     - beta,
 			     badmm_cache_arr.Pi2 + i, learner.len,
 			     sample_weight, 1);
+	_D2_CBLAS_FUNC(axpy)(data.get_col(),
+			     beta,
+			     data.get_weight_ptr(), 1,
+			     sample_weight, 1);
+	_D2_CBLAS_FUNC(copy)(data.get_col(),
+			     badmm_cache_arr.Pi2 + i, learner.len,
+			     sample_weight + data.get_col(), 1);
+	
 
 	//learner.supp[i].init();
-	int err_code = learner.supp[i].fit(X, y, sample_weight, data.get_col());
+	int err_code = learner.supp[i].fit(X, y, sample_weight, data.get_col() * 2);
 	assert(err_code >= 0);	
 	delete [] sample_weight;
       }
-
+      
       train_accuracy = ML_Predict_ByWinnerTakeAll(data, learner);
       printf("%zd\t\t%.6lf\t%.6lf\t\%.6lf\t%.6lf\t%.6lf\t", iter, loss, totalC * rho, prim_res, dual_res, train_accuracy);
 
@@ -229,8 +249,8 @@ namespace d2 {
     }
 
     
-    internal::release_dense_if_need(data, &X);
-    
+    internal::release_dense_if_need_ec(data, &X);
+    delete [] y;
 
     
     deallocate_badmm_cache(badmm_cache_arr);
