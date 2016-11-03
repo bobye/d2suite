@@ -174,6 +174,13 @@ namespace d2 {
   }
 
   template <typename ElemType>
+  void Block<ElemType>::read(const std::string &filename, const size_t size, const MetaType &meta) {
+    this->meta = meta;
+    this->meta.to_shared();
+    read_main(filename, size);
+  }
+  
+  template <typename ElemType>
   void Block<ElemType>::read_label(const std::string &filename, const size_t start) {
     std::ifstream fs;
     fs.open(filename, std::ifstream::in);

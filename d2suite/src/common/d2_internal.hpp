@@ -13,6 +13,7 @@ namespace d2 {
     class _Meta {
     public:
       void read(const std::string &filename) {};
+      inline void to_shared() {};
     };
 
     template <size_t D>
@@ -42,6 +43,7 @@ namespace d2 {
       ~_Meta() {
 	if (embedding!=NULL && _is_allocated) delete [] embedding;
       }
+      inline void to_shared() { _is_allocated = false; };
     private:
       bool _is_allocated;
     };
@@ -72,6 +74,7 @@ namespace d2 {
       ~_Meta() {
 	if (dist_mat!=NULL && _is_allocated) delete [] dist_mat;
       }
+      inline void to_shared() { _is_allocated = false; };
     private:
       bool _is_allocated;
     };

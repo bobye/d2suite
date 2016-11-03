@@ -79,7 +79,7 @@ namespace d2 {
   public:
     Block(const size_t thesize, 
 	  const size_t thelen): 
-      len(thelen), col(0), max_len(0), size(0), isShared(false) {
+      size(0), len(thelen), max_len(0), col(0), isShared(false) {
       // allocate block memory
       p_w = (real_t*) malloc(sizeof(real_t) * thesize * thelen);
       p_label = (real_t*) malloc(sizeof(real_t) * thesize * thelen);      
@@ -88,23 +88,22 @@ namespace d2 {
       max_col = thesize*thelen;
     };
     Block(const Block<ElemType> &that, index_t start, size_t thesize, bool isview = true) {
-      assert(that.get_size() >= start + thesize);
+      //      assert(that.get_size() >= start + thesize);
       size = 0;
       col = 0;
       max_col = -1;
       len = that.len;
       max_len = 0;
       size_t end = std::min(thesize+start, that.get_size());
-      for (int i=start; i< end; ++i) {
+      for (size_t i=start; i< end; ++i) {
 	size+= 1;
 	col += that[i].len;
 	if (max_len < that[i].len) max_len = that[i].len;
       }
       vec_.resize(thesize);
-      for (int i=0; i< size; ++i) {
+      for (size_t i=0; i< size; ++i) {
 	vec_[i].len = that[i+start].len;
       }
-      realign_vec();
       if (isview) {
 	isShared = true;
 	p_w = that[start].w;
@@ -118,7 +117,10 @@ namespace d2 {
 	memcpy(p_w, &(that[start].w), sizeof(real_t) * col);
 	memcpy(p_label, &(that[start].label), sizeof(real_t) * col);
 	memcpy(p_supp, &(that[start].supp), sizeof(SuppType) * ElemType::T::step_stride(col, ElemType::D));
-      }      
+      }
+      realign_vec();
+      meta = that.meta; // shallow copy
+      meta.to_shared();
     };
     ~Block() {
       if (!isShared) {
@@ -144,6 +146,8 @@ namespace d2 {
     inline real_t* get_label_ptr() const {return p_label;}
     inline SuppType* &get_support_ptr() {return p_supp;}
     inline SuppType* get_support_ptr() const {return p_supp;}
+    inline MetaType &get_meta() {return meta;}
+    inline MetaType get_meta() const {return meta;}
     inline void initialize(const size_t thesize, const size_t thelen) {
       len = thelen;
       size = thesize;
@@ -159,6 +163,7 @@ namespace d2 {
     void read_main(const std::string &filename, const size_t size);
     void read(const std::string &filename, const size_t size);
     void read(const std::string &filename, const size_t size, const std::string &filename_meta);
+    void read(const std::string &filename, const size_t size, const MetaType &meta);    
     void read_label(const std::string &filename, const size_t start = 0);
       
     void write(const std::string &filename) const;

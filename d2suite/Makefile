@@ -5,7 +5,7 @@ CXX=g++ -std=c++0x
 MPICXX=mpicxx -std=c++0x
 
 ARCH_FLAGS=-m64 -D _D2_DOUBLE 
-CFLAGS=-Wextra -Wall -pedantic-errors -O3 $(ARCH_FLAGS)
+CFLAGS=-pedantic-errors -O3 $(ARCH_FLAGS)
 LDFLAGS=$(ARCH_FLAGS)
 DEFINES=
 INCLUDES=-I$(RABIT)/include -I$(MOSEK)/h -I$(LBFGS)/include
@@ -70,21 +70,21 @@ lib/libd2suite.a: $(ALL_OBJECTS)
 ifeq ($(OS), Darwin)
 %.rabit: %_rabit.cpp Makefile $(LIB)
 	$(CXX) -MM -MT $@ -MF $(patsubst %_rabit.cpp,%.rabit.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
-	$(MPICXX) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
+	$(MPICXX) $(CFLAGS) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
 	install_name_tool -change @loader_path/libmosek64.$(MOSEK_VERSION).dylib $(MOSEK)/bin/libmosek64.$(MOSEK_VERSION).dylib $@
 else
 	$(CXX) -MM -MT $@ -MF $(patsubst %_rabit.cpp,%.rabit.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
-	$(MPICXX) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
+	$(MPICXX) $(CFLAGS) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
 endif
 
 ifeq ($(OS), Darwin)
 %: %.cpp Makefile $(LIB)
 	$(CXX) -MM -MT $@ -MF $(patsubst %.cpp,%.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
-	$(CXX) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
+	$(CXX) $(CFLAGS) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
 	install_name_tool -change @loader_path/libmosek64.$(MOSEK_VERSION).dylib $(MOSEK)/bin/libmosek64.$(MOSEK_VERSION).dylib $@
 else
 	$(CXX) -MM -MT $@ -MF $(patsubst %.cpp,%.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
-	$(CXX) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
+	$(CXX) $(CFLAGS) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
 endif
 
 -include $(DEPENDENCY_FILES)
