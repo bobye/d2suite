@@ -29,11 +29,11 @@ CPP_SOURCE_WITH_MAIN=\
 	src/test/test_20newsgroups_io.cpp\
 	src/test/test_orl.cpp\
 	src/test/test_lr.cpp\
-	src/test/test_marriage_learn.cpp
 
 RABIT_SOURCE_WITH_MAIN=\
 	src/test/test_20newsgroups_io_rabit.cpp\
-	src/test/test_mnist_rabit.cpp
+	src/test/test_mnist_rabit.cpp\
+	src/test/test_marriage_learn_rabit.cpp
 
 
 ALL_OBJECTS=\
@@ -104,3 +104,7 @@ test: $(TESTS) all
 
 %.rabit_test: %.rabit
 	python ../dmlc-core/tracker/dmlc-submit --cluster mpi --num-workers 4 $<
+
+
+
+

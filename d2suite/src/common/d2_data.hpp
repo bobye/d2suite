@@ -87,18 +87,16 @@ namespace d2 {
       assert(p_w && p_label && p_supp);
       max_col = thesize*thelen;
     };
-    Block(const Block<ElemType> &that, index_t start, size_t thesize) {
+    Block(const Block<ElemType> &that, index_t start, size_t thesize, bool isview = true) {
       assert(that.get_size() >= start + thesize);
-      size = thesize;
+      size = 0;
       col = 0;
       max_col = -1;
       len = that.len;
       max_len = 0;
-      isShared = true;
-      p_w = that[start].w;
-      p_label = that[start].label;
-      p_supp = that[start].supp;
-      for (int i=start; i< size+start; ++i) {
+      size_t end = std::min(thesize+start, that.get_size());
+      for (int i=start; i< end; ++i) {
+	size+= 1;
 	col += that[i].len;
 	if (max_len < that[i].len) max_len = that[i].len;
       }
@@ -107,6 +105,20 @@ namespace d2 {
 	vec_[i].len = that[i+start].len;
       }
       realign_vec();
+      if (isview) {
+	isShared = true;
+	p_w = that[start].w;
+	p_label = that[start].label;
+	p_supp = that[start].supp;
+      } else {
+	isShared = false;
+	p_w = (real_t*) malloc(sizeof(real_t) * col);
+	p_label = (real_t*) malloc(sizeof(real_t) * col);
+	p_supp = (SuppType *) malloc(sizeof(SuppType) * ElemType::T::step_stride(col, ElemType::D));
+	memcpy(p_w, &(that[start].w), sizeof(real_t) * col);
+	memcpy(p_label, &(that[start].label), sizeof(real_t) * col);
+	memcpy(p_supp, &(that[start].supp), sizeof(SuppType) * ElemType::T::step_stride(col, ElemType::D));
+      }      
     };
     ~Block() {
       if (!isShared) {
@@ -288,3 +300,8 @@ namespace d2 {
 
 
 #endif /* _D2_DATA_H_ */
+
+
+
+
+
