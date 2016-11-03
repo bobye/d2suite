@@ -174,7 +174,7 @@ namespace d2 {
 	badmm_cache_arr.Pi1[l] = badmm_cache_arr.Pi2[l];
       }
 
-    real_t prim_res, dual_res, totalC;
+    real_t prim_res, dual_res, totalC = 0.;
     real_t *X, *y;
     internal::get_dense_if_need_ec(data, &X);
     y = new real_t[data.get_col() * 2];
@@ -205,7 +205,9 @@ namespace d2 {
       for (size_t i=0; i<data.get_col() * learner.len; ++i)
 	badmm_cache_arr.C[i] -= beta * badmm_cache_arr.Ctmp[i];      
 
-      if (iter == 0) {
+      real_t old_totalC;
+      if (iter == 0 || true) {
+	old_totalC = totalC;
 	totalC = _D2_CBLAS_FUNC(asum)(data.get_col() * learner.len, badmm_cache_arr.C, 1);
 #ifdef RABIT_RABIT_H_
 	Allreduce<op::Sum>(&totalC, 1);
@@ -213,6 +215,7 @@ namespace d2 {
 	totalC /= global_col * learner.len;
       }
       _D2_CBLAS_FUNC(scal)(data.get_col() * learner.len, 1./ (rho*totalC), badmm_cache_arr.C, 1);
+      _D2_CBLAS_FUNC(scal)(data.get_col() * learner.len, old_totalC / totalC, badmm_cache_arr.Lambda, 1);
 
       prim_res = 0;
       dual_res = 0;
@@ -279,11 +282,18 @@ namespace d2 {
 	delete [] sample_weight;
       }
       
+      printf("%zd\t\t%.6lf\t%.6lf\t%.6lf\t%.6lf\t", iter, loss, totalC * rho, prim_res, dual_res);
+
       train_accuracy = ML_Predict_ByWinnerTakeAll(data, learner);
 #ifdef RABIT_RABIT_H_
       if (GetRank() == 0)
 #endif
-      printf("%zd\t\t%.6lf\t%.6lf\t%.6lf\t%.6lf\t%.6lf\t", iter, loss, totalC * rho, prim_res, dual_res, train_accuracy);
+      printf("%.3lf/", train_accuracy);
+      train_accuracy = ML_Predict_ByVoting(data, learner);
+#ifdef RABIT_RABIT_H_
+      if (GetRank() == 0)
+#endif
+      printf("%.3lf\t", train_accuracy);
 
       if (val_size > 0) {
 	real_t validate_accuracy;
@@ -292,7 +302,12 @@ namespace d2 {
 #ifdef RABIT_RABIT_H_
 	  if (GetRank() == 0)
 #endif
-	  printf("%.6lf\t", validate_accuracy);
+	  printf("%.3lf/", validate_accuracy);
+	  validate_accuracy = ML_Predict_ByVoting(val_data[i], learner);
+#ifdef RABIT_RABIT_H_
+	  if (GetRank() == 0)
+#endif
+	  printf("%.3lf\t", validate_accuracy);
 	}	
       }
 #ifdef RABIT_RABIT_H_
