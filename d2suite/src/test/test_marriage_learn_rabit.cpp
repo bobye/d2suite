@@ -13,7 +13,7 @@ int main(int argc, char** argv) {
   const size_t len = 100, size=1000;    
   server::Init(argc, argv);
 
-#ifdef RABIT_RABIT_H
+#ifdef RABIT_RABIT_H_
   if (rabit::GetRank() == 0)
 #endif
   {  
@@ -23,26 +23,28 @@ int main(int argc, char** argv) {
 
     data.train_test_split_write(prefix_name + ".d2s", propo, start);
   }
+#ifdef RABIT_RABIT_H_
+  rabit::Barrier();
+#endif
+  
 
-  auto train_p = new Block<Elem<def::WordVec, dim> > (size*propo, 100);
-  train_p->read(prefix_name + ".d2s.train", size*propo, prefix_name + ".d2s.meta0");
-  train_p->read_label(prefix_name + ".d2s.train.label", start);
+  Block<Elem<def::WordVec, dim> > train_(size*propo, 100);
+  train_.read(prefix_name + ".d2s.train", size*propo, prefix_name + ".d2s.meta0");
+  train_.read_label(prefix_name + ".d2s.train.label", start);
 
-  auto test_p  = new Block<Elem<def::WordVec, dim> > (size*(1-propo), 100);
-  test_p-> read(prefix_name + ".d2s.test", size*(1-propo), prefix_name + ".d2s.meta0");
-  test_p-> read_label(prefix_name + ".d2s.test.label", start);
+  Block<Elem<def::WordVec, dim> > test_(size*(1-propo), 100);
+  test_. read(prefix_name + ".d2s.test", size*(1-propo), train_.get_meta());
+  test_. read_label(prefix_name + ".d2s.test.label", start);
 
-#ifdef RABIT_RABIT_H
+#ifdef RABIT_RABIT_H_
   size_t subblock_size;
-  subblock_size = (train_p->get_size() - 1) / rabit::GetWorldSize() + 1;
-  Block<Elem<def::WordVec, dim> > train(*train_p, subblock_size * rabit::GetRank(), subblock_size, false);
-  subblock_size = (test_p ->get_size() - 1) / rabit::GetWorldSize() + 1;
-  Block<Elem<def::WordVec, dim> > test (*test_p,  subblock_size * rabit::GetRank(), subblock_size, false);
-  delete train_p;
-  delete test_p;
+  subblock_size = (train_.get_size() - 1) / rabit::GetWorldSize() + 1;
+  Block<Elem<def::WordVec, dim> > train(train_, subblock_size * rabit::GetRank(), subblock_size);
+  subblock_size = (test_. get_size() - 1) / rabit::GetWorldSize() + 1;
+  Block<Elem<def::WordVec, dim> > test (test_,  subblock_size * rabit::GetRank(), subblock_size);
 #else
-  Block<Elem<def::WordVec, dim> > &train = *train_p;
-  Block<Elem<def::WordVec, dim> > &test  = *test_p;
+  Block<Elem<def::WordVec, dim> > &train = train_;
+  Block<Elem<def::WordVec, dim> > &test  = test_;
 #endif
 
 
@@ -55,19 +57,32 @@ int main(int argc, char** argv) {
   for (size_t i=0; i<marriage_learner.len; ++i) {
     marriage_learner.w[i] = 1. / num_of_classifers;
     marriage_learner.supp[i].init();
+#ifdef RABIT_RABIT_H_
+    rabit::Broadcast(marriage_learner.supp[i].get_coeff(),
+		     marriage_learner.supp[i].get_coeff_size() * sizeof(real_t),
+		     i % rabit::GetWorldSize() );
+#endif
   }
 
+  double startTime = getRealTime();
   ML_BADMM(train, marriage_learner, 40, 2.0, &test, 1);
+#ifdef RABIT_RABIT_H_
+  if (rabit::GetRank() == 0)
+#endif
+  std::cerr << getLogHeader() << " logging: marriage learning finished in " 
+	    << (getRealTime() - startTime) << " seconds." << std::endl;
   server::Finalize();
 
   delete [] marriage_learner.w;
   delete [] marriage_learner.supp;
-#ifndef RABIT_RABIT_H
-  delete train_p;
-  delete test_p;
-#endif
   return 0;
 }
+
+
+
+
+
+
 
 
 

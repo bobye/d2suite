@@ -110,9 +110,14 @@ namespace d2 {
       delete [] v;
       delete [] sv;
     }
+
+    inline real_t* &get_coeff()  { return coeff_; }
+    inline real_t* get_coeff() const { return coeff_; }
+    inline size_t get_coeff_size() {return n_class*dim+n_class;}
     
   private:
     real_t coeff[n_class*dim+n_class];
+    real_t* coeff_ = coeff;
     real_t *A = coeff, *b = coeff+n_class*dim;
     real_t *cache;
     const real_t *X, *y, *sample_weight;
@@ -135,6 +140,9 @@ namespace d2 {
       _D2_FUNC(cnorm)(n_class, n, v, sv);
     }
     real_t gradient_(real_t *grad) const {
+#ifdef RABIT_RABIT_H_
+      using namespace rabit;
+#endif
       size_t n = sample_size;
       real_t *v = cache;
       real_t *sv= cache + n*n_class;
@@ -148,6 +156,9 @@ namespace d2 {
 	sample_wsum=_D2_CBLAS_FUNC(asum)(n, sample_weight, 1);
       else
 	sample_wsum=n;
+#ifdef RABIT_RABIT_H_
+      Allreduce<op::Sum>(&sample_wsum, 1);
+#endif
 
       // compute the regularized loss
       if (sample_weight) {
@@ -157,6 +168,9 @@ namespace d2 {
 	for (size_t i=0; i<n; ++i)
 	  loss += -log (v[i*n_class + (size_t) y[i]]);
       }
+#ifdef RABIT_RABIT_H_
+      Allreduce<op::Sum>(&loss, 1);
+#endif
       loss /= sample_wsum;
 
       for (size_t i=0; i<n_class*dim; ++i)
@@ -180,6 +194,9 @@ namespace d2 {
 			   0.0,
 			   gradA, n_class);      
       _D2_FUNC(rsum)(n_class, n, v, gradb);
+#ifdef RABIT_RABIT_H_
+      Allreduce<op::Sum>(grad, n_class*dim+n_class);
+#endif
       _D2_CBLAS_FUNC(scal)(n_class*dim+n_class, 1./sample_wsum, grad, 1);
       _D2_CBLAS_FUNC(axpy)(n_class*dim, l2_reg, A, 1, gradA, 1);
       return loss;
