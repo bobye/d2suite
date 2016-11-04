@@ -80,7 +80,7 @@ namespace d2 {
 	*dual_res = 0;
 	for (size_t i=0; i<mat_size; ++i) {
 	  real_t err=cache.Pi_buffer[i] - cache.Pi2[i];
-	  *dual_res += err * err;
+	  *dual_res += fabs(err);
 	}
       }
       
@@ -91,18 +91,18 @@ namespace d2 {
     real_t Pi2_norm = 0.;
     if (prim_res || dual_res) {
       for (size_t i=0; i<mat_size; ++i)
-	Pi2_norm += cache.Pi2[i] * cache.Pi2[i];
+	Pi2_norm += fabs(cache.Pi2[i]);
     }
     if (prim_res) {
       *prim_res = 0;
       for (size_t i=0; i<mat_size; ++i) {
 	real_t err=(cache.Pi1[i] - cache.Pi2[i]);
-	*prim_res += err * err;
+	*prim_res += fabs(err);
       }
-      *prim_res = sqrt(*prim_res) / sqrt(Pi2_norm);
+      *prim_res = (*prim_res) / (Pi2_norm);
     }
     if (dual_res) {
-      *dual_res = sqrt(*dual_res) / sqrt(Pi2_norm);
+      *dual_res = (*dual_res) / (Pi2_norm);
     }
       
 
