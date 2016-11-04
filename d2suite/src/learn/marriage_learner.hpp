@@ -183,7 +183,8 @@ namespace d2 {
 #ifdef RABIT_RABIT_H_
     if (GetRank() == 0)
 #endif
-    std::cout << "iter    " << "\t"
+    std::cout << "\t"
+	      << "iter    " << "\t"
 	      << "loss    " << "\t"
 	      << "rho     " << "\t" 
 	      << "prim_res" << "\t"
@@ -249,7 +250,7 @@ namespace d2 {
 #ifdef RABIT_RABIT_H_
 	if (GetRank() == 0) 
 #endif
-	  printf("%zd\t\t%.6lf\t%.6lf\t%.6lf\t%.6lf\t", iter, loss, totalC * rho, prim_res, dual_res);
+	  printf("\t%zd\t\t%.6lf\t%.6lf\t%.6lf\t%.6lf\t", iter, loss, totalC * rho, prim_res, dual_res);
 #ifdef RABIT_RABIT_H_
 	if (GetRank() == 0) 
 #endif
@@ -352,9 +353,8 @@ namespace d2 {
 	if (GetRank() == 0)
 #endif
 	  {
-	    printf("%3zd/%3zd", (i+1), learner.len);
+	    printf("\b\b\b\b\b\b\b%3zd/%3zd", (i+1), learner.len);
 	    fflush(stdout);
-	    printf("\b\b\b\b\b\b\b");
 	  }	  
 
       }
