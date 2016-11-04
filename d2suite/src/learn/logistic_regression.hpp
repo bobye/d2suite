@@ -94,23 +94,54 @@ namespace d2 {
       loss = - log(v[(size_t) y]) + log(exp_sum);
       return loss;
     }
+
+    real_t eval_min(const real_t *X) const {
+      real_t loss;
+      real_t v[n_class];
+
+      _D2_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, n_class, dim,
+			   1.0,
+			   A, n_class,
+			   X, 1,
+			   0,
+			   v, 1);
+      _D2_CBLAS_FUNC(axpy)(n_class, 1.0, b, 1, v, 1);
+      _D2_FUNC(exp)(n_class, v);
+      real_t exp_sum=_D2_CBLAS_FUNC(asum)(n_class, v, 1);
+      loss = 0;
+      for (size_t j=1; j<n_class; ++j)
+	if (loss < v[j]) loss = v[j];
+      loss = - log(loss) + log(exp_sum);
+      return loss;      
+    }
     
-    void evals(const real_t *X, const real_t *y, const size_t n, real_t *loss, const size_t leading) const {
+    void evals(const real_t *X, const real_t *y, const size_t n, real_t *loss, const size_t leading, const size_t stride = 1) const {
       real_t *v = new real_t[n*n_class];
       real_t *sv= new real_t[n];
 
       forward_(A, b, X, n, v, sv);
-      if (y) {
-	for (size_t i=0; i<n; i+=leading)
-	  loss[i] = -log (v[i*n_class + (size_t) y[i]]);
-      } else {
-	for (size_t i=0; i<n; i+=leading)
-	  loss[i] = -log (v[i*n_class]);
+      for (size_t i=0; i<n; i+=leading) {
+	loss[i] = -log (v[i*n_class + (size_t) y[i*stride]]);
       }
       delete [] v;
       delete [] sv;
     }
 
+    void evals_min(const real_t *X, const size_t n, real_t *loss, const size_t leading) const {
+      real_t *v = new real_t[n*n_class];
+      real_t *sv= new real_t[n];
+
+      forward_(A, b, X, n, v, sv);
+      for (size_t i=0; i<n; i+=leading) {
+	real_t this_loss = 0;
+	for (size_t j=i*n_class + 1; j<=i*n_class + n_class; ++j)
+	  if (this_loss < v[j]) this_loss = v[j];
+	loss[i] = -log (this_loss);
+      }
+      delete [] v;
+      delete [] sv;
+    }
+    
     inline real_t* &get_coeff()  { return coeff_; }
     inline real_t* get_coeff() const { return coeff_; }
     inline size_t get_coeff_size() {return n_class*dim+n_class;}

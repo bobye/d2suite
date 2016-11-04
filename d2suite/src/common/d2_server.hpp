@@ -75,33 +75,68 @@ namespace d2 {
 
     template <typename FuncType, size_t dim>
     inline void _pdist2( const FuncType *s2, const size_t n2,
+			 const def::Euclidean::type *s1, const size_t n1,
+			 const Meta<Elem<def::Euclidean, dim> > &meta,
+			 real_t *mat) {
+      for (size_t j=0; j<n2; ++j)
+	s2[j].evals_min(s1, n1, &mat[j], n2);
+    }
+
+    template <typename FuncType, size_t dim>
+    inline void _pdist2_label( const FuncType *s2, const size_t n2,
 			 const def::Euclidean::type *s1, const real_t *label,
 			 const size_t n1,
 			 const Meta<Elem<def::Euclidean, dim> > &meta,
 			 real_t *mat) {
       for (size_t j=0; j<n2; ++j)
-	s2[j].evals(s1, label, n1, &mat[j], n2);
+	s2[j].evals(s1, label, n1, &mat[j], n2, 1);
     }
 
     template <typename FuncType, size_t dim>
+    inline void _pdist2_label( const FuncType *s2, const size_t n2,
+			 const def::Euclidean::type *s1, const real_t label,
+			 const size_t n1,
+			 const Meta<Elem<def::Euclidean, dim> > &meta,
+			 real_t *mat) {
+      for (size_t j=0; j<n2; ++j)
+	s2[j].evals(s1, &label, n1, &mat[j], n2, 0);
+    }
+    
+    template <typename FuncType, size_t dim>
     inline void _pdist2( const FuncType *s2, const size_t n2,
+			 const def::WordVec::type *s1, const size_t n1,
+			 const Meta<Elem<def::WordVec, dim> > &meta,
+			 real_t *mat) {
+      for (size_t i=0, k=0; i<n1; ++i) {
+	for (size_t j=0; j<n2; ++j, ++k)
+	  mat[k] = s2[j].eval_min(&meta.embedding[s1[i]*dim]);
+      }
+    }
+
+    template <typename FuncType, size_t dim>
+    inline void _pdist2_label( const FuncType *s2, const size_t n2,
 			 const def::WordVec::type *s1, const real_t *label,
 			 const size_t n1,
 			 const Meta<Elem<def::WordVec, dim> > &meta,
 			 real_t *mat) {
-      if (label) {
-	for (size_t i=0, k=0; i<n1; ++i) {
-	  for (size_t j=0; j<n2; ++j, ++k)
-	    mat[k] = s2[j].eval(&meta.embedding[s1[i]*dim], label[i]);
-	}
-      } else {
-	for (size_t i=0, k=0; i<n1; ++i) {
-	  for (size_t j=0; j<n2; ++j, ++k)
-	    mat[k] = s2[j].eval(&meta.embedding[s1[i]*dim], 0);
-	}
+      for (size_t i=0, k=0; i<n1; ++i) {
+	for (size_t j=0; j<n2; ++j, ++k)
+	  mat[k] = s2[j].eval(&meta.embedding[s1[i]*dim], label[i]);
       }
     }
 
+    template <typename FuncType, size_t dim>
+    inline void _pdist2_label( const FuncType *s2, const size_t n2,
+			 const def::WordVec::type *s1, const real_t label,
+			 const size_t n1,
+			 const Meta<Elem<def::WordVec, dim> > &meta,
+			 real_t *mat) {
+      for (size_t i=0, k=0; i<n1; ++i) {
+	for (size_t j=0; j<n2; ++j, ++k)
+	  mat[k] = s2[j].eval(&meta.embedding[s1[i]*dim], label);
+      }
+    }
+    
     template <typename FuncType, size_t dim>
     inline real_t _EMD(const Elem<def::Function<FuncType>, dim> &e1,
 		       const Elem<def::WordVec, dim> &e2,
@@ -111,10 +146,10 @@ namespace d2 {
       assert(cache_mat);// cache_mat has to be pre-allocated for speed performance
       real_t val;
       if (!cost_computed) {
-	_pdist2(e1.supp, e1.len, 
-		e2.supp, e2.label, e2.len,
-		meta,
-		cache_mat);
+	_pdist2_label(e1.supp, e1.len, 
+		      e2.supp, e2.label, e2.len,
+		      meta,
+		      cache_mat);
       }
       val = d2_match_by_distmat(e1.len, e2.len, 
 				cache_mat, 

@@ -78,10 +78,9 @@ namespace d2 {
     real_t *Pi   = new real_t [mat_size];
     size_t *index= new size_t [mat_size];
     for (size_t i=0; i<FuncType::NUMBER_OF_CLASSES; ++i) {
-      for (size_t j=0; j<data.get_col(); ++j) data.get_label_ptr()[j] = i;
-      _pdist2(learner.supp, learner.len,
-	      data.get_support_ptr(), data.get_label_ptr(), data.get_col(),
-	      data.meta, C + mat_size * i);
+      _pdist2_label(learner.supp, learner.len,
+		    data.get_support_ptr(), i, data.get_col(),
+		    data.meta, C + mat_size * i);
     }
     for (size_t i=0; i<mat_size; ++i) {
       real_t minC_value = std::numeric_limits<real_t>::max();
@@ -193,19 +192,29 @@ namespace d2 {
 	      << "va_acc  " << std::endl;
     
 
+    real_t loss;
+    real_t train_accuracy_1, train_accuracy_2, validate_accuracy_1, validate_accuracy_2;
+    real_t old_totalC;
     for (size_t iter=0; iter < max_iter; ++iter) {
-      _pdist2(learner.supp, learner.len,
-	      data.get_support_ptr(), data.get_label_ptr(), data.get_col(),
-	      data.meta, badmm_cache_arr.C);
+      /* ************************************************
+       * compute cost matrix
+       */
 
       _pdist2(learner.supp, learner.len,
-	      data.get_support_ptr(), NULL, data.get_col(),
-	      data.meta, badmm_cache_arr.Ctmp);
+	      data.get_support_ptr(), data.get_col(),
+	      data.meta, badmm_cache_arr.C);
+
+      _pdist2_label(learner.supp, learner.len,
+		    data.get_support_ptr(), (real_t) 0, data.get_col(),
+		    data.meta, badmm_cache_arr.Ctmp);
 
       for (size_t i=0; i<data.get_col() * learner.len; ++i)
 	badmm_cache_arr.C[i] -= beta * badmm_cache_arr.Ctmp[i];      
 
-      real_t old_totalC;
+      
+      /* ************************************************
+       * rescale badmm parameters
+       */
       if (iter == 0 || true) {
 	old_totalC = totalC;
 	totalC = _D2_CBLAS_FUNC(asum)(data.get_col() * learner.len, badmm_cache_arr.C, 1);
@@ -214,9 +223,62 @@ namespace d2 {
 #endif
 	totalC /= global_col * learner.len;
       }
+      if (iter % 10 == 0) {
+	// restart badmm
+	// old_totalC = 0;
+      }
       _D2_CBLAS_FUNC(scal)(data.get_col() * learner.len, 1./ (rho*totalC), badmm_cache_arr.C, 1);
       _D2_CBLAS_FUNC(scal)(data.get_col() * learner.len, old_totalC / totalC, badmm_cache_arr.Lambda, 1);
 
+      /* ************************************************
+       * compute current loss
+       */
+      loss = _D2_CBLAS_FUNC(dot)(data.get_col() * learner.len,
+				 badmm_cache_arr.C, 1,
+				 badmm_cache_arr.Pi2, 1);
+#ifdef RABIT_RABIT_H_
+      Allreduce<op::Sum>(&loss, 1);
+#endif
+      loss = loss / global_size * totalC * rho;
+
+
+      /* ************************************************
+       * print status informations 
+       */
+      if (iter > 0) {
+	printf("%zd\t\t%.6lf\t%.6lf\t%.6lf\t%.6lf\t", iter, loss, totalC * rho, prim_res, dual_res);
+#ifdef RABIT_RABIT_H_
+	if (GetRank() == 0) 
+#endif
+	  printf("%.3lf/", train_accuracy_1);
+#ifdef RABIT_RABIT_H_
+	if (GetRank() == 0) 
+#endif
+	  printf("%.3lf\t", train_accuracy_2);
+
+	if (val_size > 0) {
+	  for (size_t i=0; i<val_size; ++i) {
+	    validate_accuracy_1 = ML_Predict_ByWinnerTakeAll(val_data[i], learner);
+	    validate_accuracy_2 = ML_Predict_ByVoting(val_data[i], learner);
+	  }	
+	}	
+#ifdef RABIT_RABIT_H_
+	if (GetRank() == 0)
+#endif
+	  printf("%.3lf/", validate_accuracy_1);
+#ifdef RABIT_RABIT_H_
+	if (GetRank() == 0)
+#endif
+	  printf("%.3lf", validate_accuracy_2);
+#ifdef RABIT_RABIT_H_
+	if (GetRank() == 0)
+#endif
+	  std::cout << std::endl;
+      }
+
+      /* ************************************************
+       * start badmm iterations
+       */
       prim_res = 0;
       dual_res = 0;
       BADMMCache badmm_cache_ptr = badmm_cache_arr;
@@ -244,17 +306,10 @@ namespace d2 {
       prim_res /= global_size;
       dual_res /= global_size;
 
-      real_t loss;
-      real_t train_accuracy;
-      loss = _D2_CBLAS_FUNC(dot)(data.get_col() * learner.len,
-				 badmm_cache_arr.C, 1,
-				 badmm_cache_arr.Pi1, 1);
-#ifdef RABIT_RABIT_H_
-      Allreduce<op::Sum>(&loss, 1);
-#endif
-      loss = loss / global_size * totalC * rho;
       
-      
+      /* ************************************************
+       * re-fit classifiers
+       */
       for (size_t i=0; i<learner.len; ++i)
       {
 	real_t *sample_weight = new real_t[data.get_col() * 2];
@@ -271,7 +326,15 @@ namespace d2 {
 			     badmm_cache_arr.Pi2 + i, learner.len,
 			     sample_weight + data.get_col(), 1);
 	
-
+	// weight dropout
+	/*
+	std::random_device rd;
+	std::bernoulli_distribution bern(0.1);
+	std::mt19937 rnd_gen(rd());
+	for (size_t ii=0; ii<data.get_col()*2; ++ii)
+	  if (bern(rnd_gen)) sample_weight[ii]=0.;
+	*/
+	
 	//learner.supp[i].init();
 	int err_code = 0;
 	err_code = learner.supp[i].fit(X, y, sample_weight, data.get_col() * 2);
@@ -282,38 +345,10 @@ namespace d2 {
 	delete [] sample_weight;
       }
       
-      printf("%zd\t\t%.6lf\t%.6lf\t%.6lf\t%.6lf\t", iter, loss, totalC * rho, prim_res, dual_res);
 
-      train_accuracy = ML_Predict_ByWinnerTakeAll(data, learner);
-#ifdef RABIT_RABIT_H_
-      if (GetRank() == 0)
-#endif
-      printf("%.3lf/", train_accuracy);
-      train_accuracy = ML_Predict_ByVoting(data, learner);
-#ifdef RABIT_RABIT_H_
-      if (GetRank() == 0)
-#endif
-      printf("%.3lf\t", train_accuracy);
+      train_accuracy_1 = ML_Predict_ByWinnerTakeAll(data, learner);
+      train_accuracy_2 = ML_Predict_ByVoting(data, learner);
 
-      if (val_size > 0) {
-	real_t validate_accuracy;
-	for (size_t i=0; i<val_size; ++i) {
-	  validate_accuracy = ML_Predict_ByWinnerTakeAll(val_data[i], learner);
-#ifdef RABIT_RABIT_H_
-	  if (GetRank() == 0)
-#endif
-	  printf("%.3lf/", validate_accuracy);
-	  validate_accuracy = ML_Predict_ByVoting(val_data[i], learner);
-#ifdef RABIT_RABIT_H_
-	  if (GetRank() == 0)
-#endif
-	  printf("%.3lf\t", validate_accuracy);
-	}	
-      }
-#ifdef RABIT_RABIT_H_
-      if (GetRank() == 0)
-#endif
-      std::cout << std::endl;
     }
 
     

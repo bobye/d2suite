@@ -21,7 +21,8 @@ int main(int argc, char** argv) {
     data.read(prefix_name + ".d2s", size);
     data.read_label(prefix_name + ".label", start);
 
-    data.train_test_split_write(prefix_name + ".d2s", propo, start);
+    unsigned int seed = 777;
+    data.train_test_split_write(prefix_name + ".d2s", propo, start, seed);
   }
 #ifdef RABIT_RABIT_H_
   rabit::Barrier();
@@ -65,7 +66,7 @@ int main(int argc, char** argv) {
   }
 
   double startTime = getRealTime();
-  ML_BADMM(train, marriage_learner, 200, 2.0, &test, 1);
+  ML_BADMM(train, marriage_learner, 50, 10.0, &test, 1);
 #ifdef RABIT_RABIT_H_
   if (rabit::GetRank() == 0)
 #endif
