@@ -332,13 +332,15 @@ namespace d2 {
       const size_t size = block.get_size();
       vector<size_t> rand_ind(size);
       for (size_t i=0; i<size; ++i) rand_ind[i] = i;
-      std::mt19937 r{seed};
-      std::shuffle(std::begin(rand_ind), std::end(rand_ind), r);
-
+      if (seed > 0) {
+	std::mt19937 r{seed};
+	std::shuffle(std::begin(rand_ind), std::end(rand_ind), r);
+      }
+      
       if (filename != "") {
 	double startTime = getRealTime();
 	ofstream fs_train, fs_test;
-	size_t train_size = size * train_ratio;
+	size_t train_size = std::round(size * train_ratio);
 	size_t test_size  = size - train_size;
 
 	// write data

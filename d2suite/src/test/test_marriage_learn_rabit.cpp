@@ -4,13 +4,13 @@
 #include "../learn/marriage_learner.hpp"
 
 #define dim 100
-#define cls 4
+#define cls 20
 int main(int argc, char** argv) {
   using namespace d2;
   std::string prefix_name("data/20newsgroups/20newsgroups_clean/20newsgroups");
   const size_t start = 1;
   const real_t propo = 0.5;
-  const size_t len = 100, size=2000;    
+  const size_t len = 100, size=20000;    
   server::Init(argc, argv);
 
 #ifdef RABIT_RABIT_H_
@@ -21,8 +21,9 @@ int main(int argc, char** argv) {
     data.read(prefix_name + ".d2s", size);
     data.read_label(prefix_name + ".label", start);
 
-    unsigned int seed = 777;
-    data.train_test_split_write(prefix_name + ".d2s", propo, start, seed);
+    //unsigned int seed = 777;
+    //data.train_test_split_write(prefix_name + ".d2s", propo, start, seed);
+    data.train_test_split_write(prefix_name + ".d2s", 11293. / data.get_size(), start, 0);    
   }
 #ifdef RABIT_RABIT_H_
   rabit::Barrier();
@@ -51,7 +52,7 @@ int main(int argc, char** argv) {
 
   // create and initialize the LR marriage learner 
   Elem<def::Function<Logistic_Regression<dim, cls+1> >, dim> marriage_learner;
-  size_t num_of_classifers = 20;
+  size_t num_of_classifers = 2;
   marriage_learner.len = num_of_classifers;
   marriage_learner.w = new real_t[num_of_classifers];
   marriage_learner.supp = new Logistic_Regression<dim, cls+1>[num_of_classifers];
