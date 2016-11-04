@@ -101,6 +101,15 @@ namespace d2 {
       for (size_t j=0; j<n2; ++j)
 	s2[j].evals(s1, &label, n1, &mat[j], n2, 0);
     }
+
+    template <typename FuncType, size_t dim>
+    inline void _pdist2_alllabel( const FuncType *s2, const size_t n2,
+			 const def::Euclidean::type *s1, const size_t n1,
+			 const Meta<Elem<def::Euclidean, dim> > &meta,
+			 real_t *mat) {
+      for (size_t j=0; j<n2; ++j)
+	s2[j].evals_alllabel(s1, n1, &mat[j], n2, n1*n2);
+    }
     
     template <typename FuncType, size_t dim>
     inline void _pdist2( const FuncType *s2, const size_t n2,
@@ -136,6 +145,18 @@ namespace d2 {
 	  mat[k] = s2[j].eval(&meta.embedding[s1[i]*dim], label);
       }
     }
+
+    template <typename FuncType, size_t dim>
+    inline void _pdist2_alllabel( const FuncType *s2, const size_t n2,
+			 const def::WordVec::type *s1, const size_t n1,
+			 const Meta<Elem<def::WordVec, dim> > &meta,
+			 real_t *mat) {
+      for (size_t i=0, k=0; i<n1; ++i) {
+	for (size_t j=0; j<n2; ++j, ++k)
+	  s2[j].eval_alllabel(&meta.embedding[s1[i]*dim], &mat[k], n1*n2);
+      }
+    }
+    
     
     template <typename FuncType, size_t dim>
     inline real_t _EMD(const Elem<def::Function<FuncType>, dim> &e1,

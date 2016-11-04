@@ -73,11 +73,11 @@ namespace d2 {
     real_t *minC = new real_t [mat_size];
     real_t *Pi   = new real_t [mat_size];
     size_t *index= new size_t [mat_size];
-    for (size_t i=0; i<FuncType::NUMBER_OF_CLASSES; ++i) {
-      _pdist2_label(learner.supp, learner.len,
-		    data.get_support_ptr(), i, data.get_col(),
-		    data.meta, C + mat_size * i);
-    }
+
+    _pdist2_alllabel(learner.supp, learner.len,
+		     data.get_support_ptr(), data.get_col(),
+		     data.meta, C);
+
     for (size_t i=0; i<mat_size; ++i) {
       real_t minC_value = std::numeric_limits<real_t>::max();
       size_t minC_index = -1;

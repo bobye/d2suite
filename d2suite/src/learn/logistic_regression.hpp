@@ -122,6 +122,23 @@ namespace d2 {
       return loss;
     }
 
+    void eval_alllabel(const real_t *X, real_t *loss, const size_t stride) const {
+
+      real_t v[n_class];
+
+      _D2_CBLAS_FUNC(gemv)(CblasColMajor, CblasNoTrans, n_class, dim,
+			   1.0,
+			   A, n_class,
+			   X, 1,
+			   0,
+			   v, 1);
+      _D2_CBLAS_FUNC(axpy)(n_class, 1.0, b, 1, v, 1);
+      _D2_FUNC(exp)(n_class, v);
+      real_t exp_sum=_D2_CBLAS_FUNC(asum)(n_class, v, 1);
+      for (size_t i=0; i<n_class; ++i)
+	loss[i*stride] = - log(v[i]) + log(exp_sum);
+    }
+    
     real_t eval_min(const real_t *X) const {
       real_t loss;
       real_t v[n_class];
@@ -154,6 +171,19 @@ namespace d2 {
       delete [] sv;
     }
 
+    void evals_alllabel(const real_t *X, const size_t n, real_t *loss, const size_t leading, const size_t stride) const {
+      real_t *v = new real_t[n*n_class];
+      real_t *sv= new real_t[n];
+
+      forward_(A, b, X, n, v, sv);
+      for (size_t i=0; i<n; i+=leading) {
+	for (size_t j=0; j<n_class; ++j)
+	  loss[i+j*stride] = -log (v[i*n_class + j]);
+      }
+      delete [] v;
+      delete [] sv;
+    }
+    
     void evals_min(const real_t *X, const size_t n, real_t *loss, const size_t leading) const {
       real_t *v = new real_t[n*n_class];
       real_t *sv= new real_t[n];
