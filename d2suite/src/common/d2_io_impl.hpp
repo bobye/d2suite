@@ -7,6 +7,7 @@
 #include <string>
 #include <assert.h>
 #include <algorithm>
+#include <random>
 
 namespace d2 {
 
@@ -326,12 +327,13 @@ namespace d2 {
       }
     }
     template<typename BlockType> 
-    void _train_test_split_write(const BlockType &block, const std::string &filename, const real_t train_ratio, const size_t start = 0) {
+    void _train_test_split_write(const BlockType &block, const std::string &filename, const real_t train_ratio, const size_t start, const unsigned int seed) {
       using namespace std;
       const size_t size = block.get_size();
       vector<size_t> rand_ind(size);
       for (size_t i=0; i<size; ++i) rand_ind[i] = i;
-      random_shuffle(rand_ind.begin(), rand_ind.end());
+      std::mt19937 r{seed};
+      std::shuffle(std::begin(rand_ind), std::end(rand_ind), r);
 
       if (filename != "") {
 	double startTime = getRealTime();
@@ -423,8 +425,8 @@ namespace d2 {
   }
 
   template<typename ElemType>
-  void Block<ElemType>::train_test_split_write(const std::string &filename, const real_t train_ratio, const size_t start) const {
-    internal::_train_test_split_write(*this, filename, train_ratio, start);
+  void Block<ElemType>::train_test_split_write(const std::string &filename, const real_t train_ratio, const size_t start, const unsigned int seed) const {
+    internal::_train_test_split_write(*this, filename, train_ratio, start, seed);
   }
 
   template<typename... Ts>

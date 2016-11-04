@@ -168,7 +168,7 @@ namespace d2 {
       
     void write(const std::string &filename) const;
     void split_write(const std::string &filename, const size_t num_copies) const;
-    void train_test_split_write(const std::string &filename, const real_t train_ratio = 0.7, const size_t start = 0) const;
+    void train_test_split_write(const std::string &filename, const real_t train_ratio = 0.7, const size_t start = 0, const unsigned int seed = 0) const;
 
 #ifdef RABIT_RABIT_H_
     void sync(const index_t rank) {
