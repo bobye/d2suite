@@ -1,11 +1,11 @@
 include make.inc
 
-CC=gcc
+CC=gcc -std=c99
 CXX=g++ -std=c++0x
 MPICXX=mpicxx -std=c++0x
 
-ARCH_FLAGS=-m64 -D _D2_DOUBLE 
-CFLAGS=-pedantic-errors -O3 $(ARCH_FLAGS)
+ARCH_FLAGS=-m64 -D _D2_DOUBLE $(DEFINE_EXTRA)
+CFLAGS=-O3 $(ARCH_FLAGS)
 LDFLAGS=$(ARCH_FLAGS)
 DEFINES=
 INCLUDES=-I$(RABIT)/include -I$(MOSEK)/h -I$(LBFGS)/include
@@ -73,6 +73,7 @@ ifeq ($(OS), Darwin)
 	$(MPICXX) $(CFLAGS) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
 	install_name_tool -change @loader_path/libmosek64.$(MOSEK_VERSION).dylib $(MOSEK)/bin/libmosek64.$(MOSEK_VERSION).dylib $@
 else
+%.rabit: %_rabit.cpp Makefile $(LIB)
 	$(CXX) -MM -MT $@ -MF $(patsubst %_rabit.cpp,%.rabit.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
 	$(MPICXX) $(CFLAGS) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
 endif
@@ -83,6 +84,7 @@ ifeq ($(OS), Darwin)
 	$(CXX) $(CFLAGS) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
 	install_name_tool -change @loader_path/libmosek64.$(MOSEK_VERSION).dylib $(MOSEK)/bin/libmosek64.$(MOSEK_VERSION).dylib $@
 else
+%: %.cpp Makefile $(LIB)
 	$(CXX) -MM -MT $@ -MF $(patsubst %.cpp,%.d,$<) $(CFLAGS) $(DEFINES) $(INCLUDES) $<
 	$(CXX) $(CFLAGS) $(LDFLAGS) $(DEFINES) $(INCLUDES) -o $@ $< $(LIBRARIES)
 endif

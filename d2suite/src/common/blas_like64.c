@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdint.h>
+#include <float.h>
 
 #define real_t double
 #define _D2_MALLOC_SCALAR(n) (real_t*) malloc((n)*sizeof(real_t))
