@@ -109,7 +109,7 @@ namespace d2 {
 	  p[d] = q[d];
       }	
     }
-   
+       
     template <size_t D>
     void get_dense_if_need(const Block<Elem<def::Euclidean, D> >&block, real_t **X) {
       *X = block.get_support_ptr();
@@ -135,10 +135,10 @@ namespace d2 {
      * branch ad-hoc code for (extra_class)
      */
     template <typename ElemType>
-    void get_dense_if_need_ec(const Block<ElemType> &block, real_t **X);
+    void get_dense_if_need_ec(const Block<ElemType> &block, real_t **X, real_t **y);
     
     template <size_t D>
-    void get_dense_if_need_ec(const Block<Elem<def::WordVec, D> >&block, real_t **X) {
+    void get_dense_if_need_ec(const Block<Elem<def::WordVec, D> >&block, real_t **X, real_t **y) {
       *X=new real_t[D * block.get_col() * 2];
       for (size_t i=0; i<block.get_col(); ++i) {
 	real_t* p=(*X) + i*D;
@@ -148,24 +148,53 @@ namespace d2 {
       }
 
       std::memcpy(*X + D * block.get_col(), *X, sizeof(real_t) * D * block.get_col());      
+
+      *y = new real_t[block.get_col() * 2];
+      for (size_t i=0; i<block.get_col(); ++i) (*y)[i] = 0;
+      memcpy(*y+block.get_col(), block.get_label_ptr(), sizeof(real_t)*block.get_col());
     }
    
     template <size_t D>
-    void get_dense_if_need_ec(const Block<Elem<def::Euclidean, D> >&block, real_t **X) {
+    void get_dense_if_need_ec(const Block<Elem<def::Euclidean, D> >&block, real_t **X, real_t **y) {
       *X = block.get_support_ptr();
+
+      *y = new real_t[block.get_col() * 2];
+      for (size_t i=0; i<block.get_col(); ++i) (*y)[i] = 0;
+      memcpy(*y+block.get_col(), block.get_label_ptr(), sizeof(real_t)*block.get_col());
     }
 
     template <typename ElemType>
-    void release_dense_if_need_ec(const Block<ElemType> &block, real_t **X);
+    void release_dense_if_need_ec(const Block<ElemType> &block, real_t **X, real_t **y);
 
     template <size_t D>
-    void release_dense_if_need_ec(const Block<Elem<def::WordVec, D> > &block, real_t **X) {
+    void release_dense_if_need_ec(const Block<Elem<def::WordVec, D> > &block, real_t **X, real_t **y) {
       delete [] (*X);
+      delete [] (*y);
     }
 
     template <size_t D>
-    void release_dense_if_need_ec(const Block<Elem<def::Euclidean, D> > &block, real_t **X) {
+    void release_dense_if_need_ec(const Block<Elem<def::Euclidean, D> > &block, real_t **X, real_t **y) {}
+
+
+
+    /* special functions for WordVec */    
+    template <size_t D>
+    void get_dense_if_need_mapped(const Block<Elem<def::WordVec, D> >&block,
+				  real_t **X, real_t **y, const size_t num_of_copies) {
+      const size_t size = D * block.meta.size;
+      *X=new real_t[size * num_of_copies];
+      *y=new real_t[block.meta.size * num_of_copies];
+      for (size_t i=0, k=0; i<num_of_copies; ++i) {
+	std::memcpy(*X + i*size, block.meta.embedding, size * sizeof(real_t));
+	for (size_t j=0; j<block.meta.size; ++j, ++k) (*y)[k] = i;
+      }
     }
+    template <size_t D>
+    void release_dense_if_need_mapped(const Block<Elem<def::WordVec, D> > &block, real_t **X, real_t **y) {
+      delete [] (*X);
+      delete [] (*y);
+    }
+    
     
     
     template <typename T1=Elem<def::Euclidean, 0>, typename... Ts>

@@ -8,6 +8,7 @@
 #include <random>
 #include <assert.h>
 #include <functional>
+
 namespace d2 {
 
   template <size_t dim, size_t n_class>
@@ -27,12 +28,33 @@ namespace d2 {
 
 
     
-    int fit(const real_t *X, const real_t *y, const real_t *sample_weight, const size_t n) {      
-      this->X = X;
-      this->y = y;
-      this->sample_weight = sample_weight;
-      sample_size = n;
-      cache= new real_t [n_class*n + n];
+    int fit(const real_t *X, const real_t *y, const real_t *sample_weight, const size_t n, bool sparse = false) {
+      real_t *XX, *yy, *ss;
+      if (sparse) {
+	size_t nz = 0;
+	for (size_t i = 0; i<n; ++i) nz += sample_weight[i] > 0;
+	XX = new real_t [nz * dim];
+	yy = new real_t [nz];
+	ss = new real_t [nz];
+	size_t count = 0;
+	for (size_t i = 0; i<n; ++i)
+	  if (sample_weight[i] > 0) {	  
+	    for (size_t j = 0; j<dim; ++j) XX[count*dim + j] = X[i*dim + j];
+	    yy[count] = y[i];
+	    ss[count] = sample_weight[i];
+	    count ++;
+	  }
+	this->X = XX;
+	this->y = yy;
+	this->sample_weight = ss;
+	sample_size = nz;
+      } else {
+	this->X = X;
+	this->y = y;
+	this->sample_weight = sample_weight;
+	sample_size = n;
+      }
+      cache= new real_t [n_class*sample_size + sample_size];
       assert(sizeof(lbfgsfloatval_t) == sizeof(real_t));
 
       size_t N = n_class*dim+n_class;
@@ -58,6 +80,11 @@ namespace d2 {
       lbfgs_free(x);
       current_lr = NULL;
       delete [] cache;
+      if (sparse) {
+	delete [] XX;
+	delete [] yy;
+	delete [] ss;
+      }
       return ret;
     }
     void predict(const real_t *X, const size_t n, real_t *y) const {
@@ -145,7 +172,7 @@ namespace d2 {
     inline real_t* &get_coeff()  { return coeff_; }
     inline real_t* get_coeff() const { return coeff_; }
     inline size_t get_coeff_size() {return n_class*dim+n_class;}
-    
+    inline void set_communicate(bool bval) { communicate = bval; }
   private:
     real_t coeff[n_class*dim+n_class];
     real_t* coeff_ = coeff;
@@ -154,6 +181,7 @@ namespace d2 {
     const real_t *X, *y, *sample_weight;
     real_t l2_reg = 0.001;
     size_t sample_size;
+    bool communicate = true;
 
     static void forward_(real_t *A, real_t *b,
 			 const real_t *X, const size_t n,
@@ -188,7 +216,8 @@ namespace d2 {
       else
 	sample_wsum=n;
 #ifdef RABIT_RABIT_H_
-      Allreduce<op::Sum>(&sample_wsum, 1);
+      if (communicate)
+	Allreduce<op::Sum>(&sample_wsum, 1);
 #endif
 
       // compute the regularized loss
@@ -200,7 +229,8 @@ namespace d2 {
 	  loss += -log (v[i*n_class + (size_t) y[i]]);
       }
 #ifdef RABIT_RABIT_H_
-      Allreduce<op::Sum>(&loss, 1);
+      if (communicate)
+	Allreduce<op::Sum>(&loss, 1);
 #endif
       loss /= sample_wsum;
 
@@ -226,7 +256,8 @@ namespace d2 {
 			   gradA, n_class);      
       _D2_FUNC(rsum)(n_class, n, v, gradb);
 #ifdef RABIT_RABIT_H_
-      Allreduce<op::Sum>(grad, n_class*dim+n_class);
+      if (communicate)
+	Allreduce<op::Sum>(grad, n_class*dim+n_class);
 #endif
       _D2_CBLAS_FUNC(scal)(n_class*dim+n_class, 1./sample_wsum, grad, 1);
       _D2_CBLAS_FUNC(axpy)(n_class*dim, l2_reg, A, 1, gradA, 1);
@@ -259,10 +290,15 @@ namespace d2 {
 			 int k,
 			 int ls
 			 ) {
-      printf("Iteration %d:\n", k);
-      printf("  fx = %f\n", fx);
-      printf("  xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
-      printf("\n");
+#ifdef RABIT_RABIT_H_
+      if (rabit::GetRank() == 0)
+#endif
+      {
+	printf("Iteration %d:\n", k);
+	printf("  fx = %f\n", fx);
+	printf("  xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
+	printf("\n");
+      }
       return 0;
     }
 
@@ -274,5 +310,4 @@ namespace d2 {
   Logistic_Regression<dim, n_class>* Logistic_Regression<dim, n_class>::current_lr = NULL;
   
 }
-
 #endif /* _D2_LOGISTIC_REGRESSION_H_ */
