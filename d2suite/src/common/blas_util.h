@@ -3,8 +3,10 @@
 
 #ifdef __BLAS_LEGACY__
 #include <math.h>
-#include "utils/cblas.h"
+#include "cblas.h"
 //#include <lapacke.h> //! hasn't used
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
 
 #elif defined __APPLE__
 #include <Accelerate/Accelerate.h>
