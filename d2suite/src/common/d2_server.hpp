@@ -327,8 +327,8 @@ namespace d2 {
 		   __OUT__ real_t ** emds_arr,
 		   __IN__ real_t** cache_mat_arr) {
       EMD(e.head, b.head, *emds_arr, *cache_mat_arr, NULL, NULL);      
-      const _ElemMultiPhaseConstructor<Ts...> &e0 = e;
-      const _BlockMultiPhaseConstructor<Ts...> &b0 = b;
+      const _ElemMultiPhaseConstructor<Ts...> &e0 = e.tail;
+      const _BlockMultiPhaseConstructor<Ts...> &b0 = b.tail;
       _EMD_impl<Ts...>(e0, b0, emds_arr + 1, cache_mat_arr + 1);
     }
     template <>
@@ -345,8 +345,8 @@ namespace d2 {
 		     const _BlockMultiPhaseConstructor<T, Ts...> &b,
 		     const size_t idx,
 		     __IN__ real_t * cache_mat) {
-      const _ElemMultiPhaseConstructor<Ts...> &e0 = e;
-      const _BlockMultiPhaseConstructor<Ts...> &b0 = b;
+      const _ElemMultiPhaseConstructor<Ts...> &e0 = e.tail;
+      const _BlockMultiPhaseConstructor<Ts...> &b0 = b.tail;
       return EMD(e.head, b.head[idx], b.head.meta, cache_mat) + 
 	_EMD_impl<Ts...>(e0, b0, idx, cache_mat);
     }    
@@ -364,8 +364,8 @@ namespace d2 {
     real_t _LowerThanEMD_v0_impl(const _ElemMultiPhaseConstructor<T, Ts...> &e,
 				 const _BlockMultiPhaseConstructor<T, Ts...> &b,
 				 const size_t idx) {
-      const _ElemMultiPhaseConstructor<Ts...> &e0 = e;
-      const _BlockMultiPhaseConstructor<Ts...> &b0 = b;
+      const _ElemMultiPhaseConstructor<Ts...> &e0 = e.tail;
+      const _BlockMultiPhaseConstructor<Ts...> &b0 = b.tail;
       return _LowerThanEMD_v0(e.head, b.head[idx], b.head.meta) +
 	_LowerThanEMD_v0_impl(e0, b0, idx);
     }
@@ -383,8 +383,8 @@ namespace d2 {
 				 const _BlockMultiPhaseConstructor<T, Ts...> &b,
 				 const size_t idx,
 				 __IN__ real_t *cache_mat) {
-      const _ElemMultiPhaseConstructor<Ts...> &e0 = e;
-      const _BlockMultiPhaseConstructor<Ts...> &b0 = b;
+      const _ElemMultiPhaseConstructor<Ts...> &e0 = e.tail;
+      const _BlockMultiPhaseConstructor<Ts...> &b0 = b.tail;
       return _LowerThanEMD_v1(e.head, b.head[idx], b.head.meta, cache_mat) +
 	_LowerThanEMD_v1_impl(e0, b0, idx, cache_mat);
     }

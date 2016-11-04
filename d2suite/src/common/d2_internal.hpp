@@ -169,11 +169,12 @@ namespace d2 {
     
     
     template <typename T1=Elem<def::Euclidean, 0>, typename... Ts>
-    struct _ElemMultiPhaseConstructor: public _ElemMultiPhaseConstructor<Ts...> {
+    struct _ElemMultiPhaseConstructor {
       _ElemMultiPhaseConstructor (const index_t i=0): 
-	ind(i), _ElemMultiPhaseConstructor<Ts...>(i + 1) {}
+	ind(i), tail(i + 1) {}
       index_t ind;
       T1 head;
+      _ElemMultiPhaseConstructor<Ts...> tail;
     };
     template <>
     struct _ElemMultiPhaseConstructor<> {
@@ -181,15 +182,15 @@ namespace d2 {
     };
 
     template <typename T1=Elem<def::Euclidean, 0>, typename... Ts>
-    class _BlockMultiPhaseConstructor: public _BlockMultiPhaseConstructor<Ts...> {
+    class _BlockMultiPhaseConstructor {
     public:
       _BlockMultiPhaseConstructor (const size_t thesize, 
 				   const size_t* thelen,
 				   const index_t i = 0) : 
-	head(thesize, *thelen), ind(i),
-	_BlockMultiPhaseConstructor<Ts...>(thesize, thelen+1, i+1) {}
+	head(thesize, *thelen), ind(i), tail(thesize, thelen+1, i+1) {}
       index_t ind;
       Block<T1> head;
+      _BlockMultiPhaseConstructor<Ts...> tail;
     };
 
     template <>
@@ -233,7 +234,7 @@ namespace d2 {
     typename std::enable_if<
       k != 0, typename _elem_type_holder<k, T, Ts...>::type & >::type
     _get_phase(_ElemMultiPhaseConstructor<T, Ts...>& t) {
-      _ElemMultiPhaseConstructor<Ts...>& base = t;
+      _ElemMultiPhaseConstructor<Ts...>& base = t.tail;
       return _get_phase<k - 1>(base);
     }
 
@@ -249,7 +250,7 @@ namespace d2 {
     typename std::enable_if<
       k != 0, Block<typename _elem_type_holder<k, T, Ts...>::type> & >::type
     _get_block(_BlockMultiPhaseConstructor<T, Ts...>& t) {
-      _BlockMultiPhaseConstructor<Ts...>& base = t;
+      _BlockMultiPhaseConstructor<Ts...>& base = t.tail;
       return _get_block<k - 1>(base);
     }
 
@@ -258,8 +259,8 @@ namespace d2 {
     void _copy_elem_from_block(_ElemMultiPhaseConstructor<T, Ts...>&e,
 			       const _BlockMultiPhaseConstructor<T, Ts...>&b,
 			       size_t ind) {
-      _ElemMultiPhaseConstructor<Ts...> & e_base = e;
-      const _BlockMultiPhaseConstructor<Ts...> & b_base = b;
+      _ElemMultiPhaseConstructor<Ts...> & e_base = e.tail;
+      const _BlockMultiPhaseConstructor<Ts...> & b_base = b.tail;
       e.head = b.head[ind];      
       _copy_elem_from_block<Ts...>(e_base, b_base, ind);
     }
@@ -272,7 +273,7 @@ namespace d2 {
 
     template <typename T=Elem<def::Euclidean, 0>, typename... Ts>
     size_t _get_max_len(const _ElemMultiPhaseConstructor<T, Ts...> &e) {
-      const _ElemMultiPhaseConstructor<Ts...> & e_base = e;
+      const _ElemMultiPhaseConstructor<Ts...> & e_base = e.tail;
       return std::max(e.head.len, _get_max_len<Ts...>(e_base));
     }
 
@@ -283,7 +284,7 @@ namespace d2 {
 
     template <typename T=Elem<def::Euclidean, 0>, typename... Ts>
     size_t _get_max_len(const _BlockMultiPhaseConstructor<T, Ts...> &b) {
-      const _BlockMultiPhaseConstructor<Ts...> & b_base = b;
+      const _BlockMultiPhaseConstructor<Ts...> & b_base = b.tail;
       return std::max(b.head.get_max_len(), _get_max_len<Ts...>(b_base));
     }
 

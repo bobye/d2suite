@@ -198,7 +198,7 @@ namespace d2 {
     template<typename T1=Elem<def::Euclidean, 0>, typename... Ts>
     int _append(std::istream &is, _BlockMultiPhaseConstructor<T1, Ts...> &t) {
       int tag = (t.head).append(is);
-      _BlockMultiPhaseConstructor<Ts...> & base = t;
+      _BlockMultiPhaseConstructor<Ts...> & base = t.tail;
       return tag || _append(is, base);
     }
 
@@ -216,7 +216,7 @@ namespace d2 {
     template<typename T1=Elem<def::Euclidean, 0>, typename... Ts>
     void _read_meta(const std::string &filename, _BlockMultiPhaseConstructor<T1, Ts...> &t) {
       t.head.meta.read(filename + ".meta" + std::to_string(t.ind));
-      _BlockMultiPhaseConstructor<Ts...> & base = t;
+      _BlockMultiPhaseConstructor<Ts...> & base = t.tail;
       _read_meta<Ts...>(filename, base);
     } 
     template<>
@@ -225,7 +225,7 @@ namespace d2 {
     template<typename T1=Elem<def::Euclidean, 0>, typename... Ts>
     void _realign_vec(_BlockMultiPhaseConstructor<T1, Ts...> &t) {
       (t.head).realign_vec();
-      _BlockMultiPhaseConstructor<Ts...> & base = t;
+      _BlockMultiPhaseConstructor<Ts...> & base = t.tail;
       _realign_vec<Ts...>(base);
     }
     template<>
@@ -239,7 +239,7 @@ namespace d2 {
     template<typename T1=Elem<def::Euclidean, 0>, typename... Ts>
     void _append_to(std::ostream &os, const _BlockMultiPhaseConstructor<T1, Ts...> &t, size_t i) {
       os << t.head[i];
-      const _BlockMultiPhaseConstructor<Ts...> &base = t;
+      const _BlockMultiPhaseConstructor<Ts...> &base = t.tail;
       _append_to(os, base, i);
     }
     template<>
