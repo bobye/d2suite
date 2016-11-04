@@ -346,6 +346,17 @@ namespace d2 {
 	Broadcast(learner.supp[i].get_coeff(), learner.supp[i].get_coeff_size() * sizeof(real_t), i % GetWorldSize() );
 #endif
 	delete [] sample_weight;
+
+
+#ifdef RABIT_RABIT_H_
+	if (GetRank() == 0)
+#endif
+	  {
+	    printf("%3zd/%3zd", (i+1), learner.len);
+	    fflush(stdout);
+	    printf("\b\b\b\b\b\b\b");
+	  }	  
+
       }
       
 
