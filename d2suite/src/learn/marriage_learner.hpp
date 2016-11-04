@@ -246,7 +246,10 @@ namespace d2 {
        * print status informations 
        */
       if (iter > 0) {
-	printf("%zd\t\t%.6lf\t%.6lf\t%.6lf\t%.6lf\t", iter, loss, totalC * rho, prim_res, dual_res);
+#ifdef RABIT_RABIT_H_
+	if (GetRank() == 0) 
+#endif
+	  printf("%zd\t\t%.6lf\t%.6lf\t%.6lf\t%.6lf\t", iter, loss, totalC * rho, prim_res, dual_res);
 #ifdef RABIT_RABIT_H_
 	if (GetRank() == 0) 
 #endif
