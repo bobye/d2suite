@@ -2,6 +2,7 @@
 #define _COMMON_H_
 
 #include <string>
+#include <cstring>
 
 namespace d2 {
 
