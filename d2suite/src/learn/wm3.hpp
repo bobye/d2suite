@@ -37,7 +37,7 @@ namespace d2 {
     Block<ElemType1> mixture_data(n, m);
     mixture_data.initialize(data.get_size(), m);
 
-    SACache sac, sac_b;
+    internal::SACache sac, sac_b;
     allocate_sa_cache(mixture_data, data, sac, true);
     
     std::vector< Block<ElemType1> * > mbatch;

@@ -1,27 +1,41 @@
 #ifndef _D2_H_
 #define _D2_H_
-
 /*!
- * Main header file for apps
+ * \file d2.hpp
+ * \brief Main header file for apps
+ *
+ * Core data structures in template: 
+ *     Elem, ElemMultiPhase, Meta, Block, BlockMultiPhase
+ *
+ * and distributed data structure: 
+ *     DistributedBlockMultiPhase
+ *
  */
+
+
+/**********************************************************************/
 
 #include "common.hpp"
 
+/*! \namespace d2 */
 namespace d2 {
 
+  /*!
+   * \namespace d2::def
+   * \brief The type of discrete distribution decides how the
+   * ground distance is computed. 
+   * 
+   * For example, d2::def::Euclidean
+   * means the ground distance is computed from the Euclidean 
+   * distance between two arbitrary vectors. Also, the type
+   * of discrete distribution also decides how the data is 
+   * stored. For example, d2::def::WordVec means the raw 
+   * data is stored with index, aka, the word and the meta part 
+   * stores the actual vector w.r.t. individual indexed word. 
+   * Thus, different types corresponds to different meta data.
+   * In the case of d2::def::Euclidean, the meta data is empty.
+   */
   namespace def {    
-    /*!
-     * The type of discrete distribution decides how the
-     * ground distance is computed. For example, d2::def::Euclidean
-     * means the ground distance is computed from the Euclidean 
-     * distance between two arbitray vectors. Also, the type
-     * of discrete distribution also decides how the data is 
-     * stored. For example, d2::def::WordVec means the raw 
-     * data is stored with index, aka, the word and the meta part 
-     * stores the actual vector w.r.t. individual indexed word. 
-     * Thus, different types corresponds to different meta data.
-     * In the case of d2::def::Euclidean, the meta data is empty.
-     */
     struct Euclidean;
 
     struct WordVec;
@@ -31,18 +45,15 @@ namespace d2 {
     struct Histogram;
 
     struct SparseHistogram;
+
+    /// FuncType is a classification/regression class 
+    template <typename FuncType> 
+    struct Function;
   }
 
-  /**********************************************************************/
-  /* Core data structures in template: 
-   *     Elem, ElemMultiPhase, Meta, Block, BlockMultiPhase
-   *
-   * and distributed data structure: 
-   *     DistributedBlockMultiPhase
-   */
 
   /*!
-   * Elem defines an element type has two parameters to specify, one is the
+   * \brief Elem defines an element type has two parameters to specify, one is the
    * type of ground metric space, and the other is the dimension
    * of the ground metric space. 
    */
@@ -82,12 +93,16 @@ namespace d2 {
   class DistributedBlockMultiPhase;
 #endif 
 
-  /**********************************************************************/
-  /* Core functions over previous data structures:
-   *     pdist2, EMD, LowerThanEMD, KNearestNeighbors_Linear
-   *
+  /*!
+   * \brief compute pairwise (generalized) distance between two sets of vectors.
+   * the two sets of vectors can be of different types.
+   * \param s1 the first support array
+   * \param n1 the count of s1
+   * \param s2 the second support array
+   * \param n2 the count of s2
+   * \param meta the meta data for the second array
+   * \param mat the n1 x n2 (distance) cost matrix computed
    */
-
   template <typename D2Type1, typename D2Type2, size_t dim>
   inline void pdist2 (const typename D2Type1::type *s1, const size_t n1,
 		      const typename D2Type2::type *s2, const size_t n2,
@@ -96,7 +111,15 @@ namespace d2 {
 
 
   /*!
-   * compute EMD between two discrete distributions
+   * \brief compute EMD between two discrete distributions
+   * \param e1 the first element
+   * \param e2 the second element
+   * \param meta the meta data of the second element
+   * \param cache_mat the cached distance matrix, length of e1.len x e2.len 
+   * \param cache_primal the primal solution of solved optimal transport, length of e1.len x e2.len 
+   * \param cache_dual the dual solution of solved optimal transport, length of e1.len + e2.len
+   * \param cost_computed bool variable implying whether the cost matrix 
+                          are precomputed and supplied.
    */
   template <typename ElemType1, typename ElemType2>
   inline real_t EMD (const ElemType1 &e1, const ElemType2 &e2,
@@ -107,7 +130,10 @@ namespace d2 {
 		     __IN__ const bool cost_computed= false);
 
   /*!
-   * compute EMD between a discrete distribution and a block of discrete distributions
+   * \brief compute EMD between a (single-phased) discrete distribution and 
+   * a block of (single-phased) discrete distributions
+   * \param e the querying element
+   * \param b the queried block of elements   
    */
   template <typename ElemType1, typename ElemType2>
   void EMD (const ElemType1 &e, const Block<ElemType2> &b,
@@ -117,6 +143,10 @@ namespace d2 {
 	    __OUT__ real_t* cache_dual = NULL,
 	    __IN__ const bool cost_computed = false);
 
+  /*!
+   * \brief compute EMD between a (multi-phased) discrete distribution and 
+   * a block of (multi-phased) discrete distributions
+   */
   template <template<typename...> class D1, template<typename... > class D2, 
 	    typename... Ts1, typename... Ts2>
   void EMD(const D1<Ts1...> &e, const D2<Ts2...> &b,
@@ -124,7 +154,7 @@ namespace d2 {
   
 
   /*!
-   * compute lower bound of EMD 
+   * \brief compute lower bound of EMD.
    * version 0: extremely cheap, non-iterative
    */
   template <typename ElemType1, typename ElemType2>
@@ -136,7 +166,7 @@ namespace d2 {
 		       __OUT__ real_t* emds);
 
   /*!
-   * compute lower bound of EMD 
+   * \brief compute lower bound of EMD.
    * version 1: fast, non-iterative and simple
    */
   template <typename ElemType1, typename ElemType2>
@@ -151,7 +181,7 @@ namespace d2 {
 
 
   /*!
-   * simple linear approach without any prefetching or pruning
+   * \brief simple linear approach without any prefetching or pruning.
    */
   template <typename ElemType1, typename ElemType2>
   void KNearestNeighbors_Linear(size_t k,
@@ -169,7 +199,7 @@ namespace d2 {
 
 
   /*!
-   * prefetching and pruning with lowerbounds (return the actual number of EMD computed)
+   * \brief prefetching and pruning with lowerbounds (return the actual number of EMD computed).
    */
   template <typename ElemType1, typename ElemType2>
   size_t KNearestNeighbors_Simple(size_t k,
@@ -187,8 +217,9 @@ namespace d2 {
 				__OUT__ index_t* rank,
 				size_t n);
 
-
+  /*! \brief initialize the d2 background utilities (including rabit and mosek). */
   inline void Init(int argc, char*argv[]);
+  /*! \brief finalize the d2 background utilities. */
   inline void Finalize();
 
 }

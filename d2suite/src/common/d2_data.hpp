@@ -1,5 +1,10 @@
 #ifndef _D2_DATA_H_
 #define _D2_DATA_H_
+/*!
+ * \file d2_data.hpp
+ * \brief This header defines basic data structure to work with
+ * discrete distribution (d2) data. 
+ */
 
 #include "common.hpp"
 #include "d2_internal.hpp"
@@ -12,18 +17,15 @@
 #include <tuple> 
 
 namespace d2 {
-  /*!
-   * This header defines basic data structure to work with
-   * discrete distribution (d2) data. 
-   */
-
-  namespace def {    
+  namespace def {
+    /*! \brief regular vector */
     struct Euclidean {
       typedef real_t type;
       static inline size_t step_stride(size_t col, size_t dim) {return col*dim;}
     };
 
-    struct WordVec { // indexed vector
+    /*! \brief indexed vector */
+    struct WordVec { 
       typedef index_t type;
       static inline size_t step_stride(size_t col, size_t dim) {return col;}
     };
@@ -43,7 +45,7 @@ namespace d2 {
       static inline size_t step_stride(size_t col, size_t dim) {return col;}
     };
 
-    template <typename FuncType> // FuncType is a class which as eval() member function
+    template <typename FuncType>
     struct Function {
       typedef FuncType type;
       static inline size_t step_stride(size_t col, size_t dim) {return col;}
@@ -51,19 +53,20 @@ namespace d2 {
   }
 
 
-
   template <typename D2Type, size_t dim>
   struct Elem {
   public:
+    /*! the type of support points */
     typedef D2Type T;
+    /*! the actual dimension of support points */
     static const size_t D = dim;
-    /* this defines the length of supports */
+    /*! the length of supports */
     size_t len;    
-    /* this defined the weight array of supports*/
+    /*! the weight array of supports*/
     real_t* w;
-    /* this defines the support arrays */
+    /*! the support arrays */
     typename D2Type::type* supp;
-    /* this defined the label array of supports (optional) */
+    /*! the label array of supports (optional) */
     real_t* label;
   };
 

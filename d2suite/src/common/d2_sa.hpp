@@ -14,89 +14,90 @@ namespace d2 {
    */
 #define eps (1E-16)
 
-  struct SACache {
-    real_t *_m;
-    real_t *_mtmp;
-    real_t *_primal;
-    real_t *_dual1;
-    real_t *_dual2;
-    real_t *_U;
-    real_t *_L;
-  };
+  namespace internal {
+    struct SACache {
+      real_t *_m;
+      real_t *_mtmp;
+      real_t *_primal;
+      real_t *_dual1;
+      real_t *_dual2;
+      real_t *_U;
+      real_t *_L;
+    };
 
-  template <typename ElemType1, typename ElemType2>
-  void allocate_sa_cache(const Block<ElemType1> &a,
-			 const Block<ElemType2> &b,
-			 SACache &sac,
-			 const bool hasPrimal = false) {
-    assert(a.get_size() == b.get_size());
-    size_t mat_size = 0;
-    for (size_t i=0; i<a.get_size(); ++i) mat_size += a[i].len * b[i].len;
-    sac._m = (real_t*) malloc(sizeof(real_t) * mat_size);
-    sac._mtmp = (real_t*) malloc(sizeof(real_t) * mat_size);
-    if (hasPrimal) {
-      sac._primal = (real_t*) malloc(sizeof(real_t) * mat_size);
-    } else {
-      sac._primal = NULL;
+    template <typename ElemType1, typename ElemType2>
+    void allocate_sa_cache(const Block<ElemType1> &a,
+			   const Block<ElemType2> &b,
+			   SACache &sac,
+			   const bool hasPrimal = false) {
+      assert(a.get_size() == b.get_size());
+      size_t mat_size = 0;
+      for (size_t i=0; i<a.get_size(); ++i) mat_size += a[i].len * b[i].len;
+      sac._m = (real_t*) malloc(sizeof(real_t) * mat_size);
+      sac._mtmp = (real_t*) malloc(sizeof(real_t) * mat_size);
+      if (hasPrimal) {
+	sac._primal = (real_t*) malloc(sizeof(real_t) * mat_size);
+      } else {
+	sac._primal = NULL;
+      }
+      sac._dual1 = (real_t*) malloc(a.get_col() * sizeof(real_t));
+      sac._dual2 = (real_t*) malloc(b.get_col() * sizeof(real_t));
+      for (size_t i=0; i<a.get_col(); ++i) sac._dual1[i] = 0;
+      for (size_t i=0; i<b.get_col(); ++i) sac._dual2[i] = 0;    
+      sac._U = (real_t*) malloc(sizeof(real_t) * a.get_col());
+      sac._L = (real_t*) malloc(sizeof(real_t) * b.get_col());
     }
-    sac._dual1 = (real_t*) malloc(a.get_col() * sizeof(real_t));
-    sac._dual2 = (real_t*) malloc(b.get_col() * sizeof(real_t));
-    for (size_t i=0; i<a.get_col(); ++i) sac._dual1[i] = 0;
-    for (size_t i=0; i<b.get_col(); ++i) sac._dual2[i] = 0;    
-    sac._U = (real_t*) malloc(sizeof(real_t) * a.get_col());
-    sac._L = (real_t*) malloc(sizeof(real_t) * b.get_col());
-  }
 
-  void deallocate_sa_cache(SACache &sac) {
-    free(sac._m);
-    free(sac._mtmp);
-    if (sac._primal) free(sac._primal);
-    free(sac._dual1);
-    free(sac._dual2);
-    free(sac._U);
-    free(sac._L);
-  }  
+    void deallocate_sa_cache(SACache &sac) {
+      free(sac._m);
+      free(sac._mtmp);
+      if (sac._primal) free(sac._primal);
+      free(sac._dual1);
+      free(sac._dual2);
+      free(sac._U);
+      free(sac._L);
+    }  
 
 
-  real_t sort_and_estimate(real_t *arr, int incr, int elements, real_t *arr2, real_t T, bool is_increasing = true) {
-//  This public-domain C implementation by Darel Rex Finley.
+    real_t sort_and_estimate(real_t *arr, int incr, int elements, real_t *arr2, real_t T, bool is_increasing = true) {
+      //  This public-domain C implementation by Darel Rex Finley.
 #define  MAX_LEVELS  1000
 
-    real_t piv, piv2;
-    int  beg[MAX_LEVELS], end[MAX_LEVELS], i, L, R ;
+      real_t piv, piv2;
+      int  beg[MAX_LEVELS], end[MAX_LEVELS], i, L, R ;
 
-    if (!is_increasing)
-      for (i=0;i<elements*incr; i+=incr) arr[i]=-arr[i];
-    i=0; beg[0]=0; end[0]=elements*incr;
-    while (i>=0) {
-      L=beg[i]; R=end[i]-incr;
-      if (L<R) {
-	piv=arr[L]; piv2=arr2[L];
-	if (i==MAX_LEVELS-1) return -1;
-	while (L<R) {
-	  while (arr[R]>=piv && L<R) R-=incr;
-	  if (L<R) {arr[L]=arr[R]; arr2[L]=arr2[R]; L+=incr;}
-	  while (arr[L]<=piv && L<R) L+=incr;
-	  if (L<R) {arr[R]=arr[L]; arr2[R]=arr2[L]; R-=incr;}
+      if (!is_increasing)
+	for (i=0;i<elements*incr; i+=incr) arr[i]=-arr[i];
+      i=0; beg[0]=0; end[0]=elements*incr;
+      while (i>=0) {
+	L=beg[i]; R=end[i]-incr;
+	if (L<R) {
+	  piv=arr[L]; piv2=arr2[L];
+	  if (i==MAX_LEVELS-1) return -1;
+	  while (L<R) {
+	    while (arr[R]>=piv && L<R) R-=incr;
+	    if (L<R) {arr[L]=arr[R]; arr2[L]=arr2[R]; L+=incr;}
+	    while (arr[L]<=piv && L<R) L+=incr;
+	    if (L<R) {arr[R]=arr[L]; arr2[R]=arr2[L]; R-=incr;}
+	  }
+	  arr[L]=piv; arr2[L]=piv2;
+	  beg[i+1]=L+incr; end[i+1]=end[i]; end[i++]=L; }
+	else {
+	  i--;
 	}
-	arr[L]=piv; arr2[L]=piv2;
-	beg[i+1]=L+incr; end[i+1]=end[i]; end[i++]=L; }
-      else {
-	i--;
       }
-    }
 
-    real_t q=0., lambda=1., lambda2=1., sum=0.;
-    for (i=0; i<elements-1; ++i) {
-      q+=arr2[i*incr];
-      lambda2 *= exp(q*(arr[i*incr] - arr[i*incr+incr])/T);
-      sum+=(lambda - lambda2)/q;
-      lambda = lambda2;
+      real_t q=0., lambda=1., lambda2=1., sum=0.;
+      for (i=0; i<elements-1; ++i) {
+	q+=arr2[i*incr];
+	lambda2 *= exp(q*(arr[i*incr] - arr[i*incr+incr])/T);
+	sum+=(lambda - lambda2)/q;
+	lambda = lambda2;
+      }
+      sum += lambda;
+      return sum;
     }
-    sum += lambda;
-    return sum;
   }
-
 
   /*
    * INPUT/OUTPUT:
@@ -110,7 +111,7 @@ namespace d2 {
   int EMD_SA (const Block<ElemType1> &a, const Block<ElemType2> &b,
 	      const real_t &T,
 	      const size_t niter,
-	      const SACache &sac,
+	      const internal::SACache &sac,
 	      real_t &A, real_t &B, real_t &D, bool hasProposal = false) {
     assert(sac._m && sac._mtmp);
     assert(sac._dual1 && sac._dual2);
@@ -186,7 +187,7 @@ namespace d2 {
 	memcpy(Mtmp, M, sizeof(real_t)*mat_size);
 	_D2_FUNC(grmv)(m1, m2, Mtmp, L);
 	for (size_t j=0; j<m1; ++j) {
-	  phi+=sort_and_estimate(Mtmp+j, m1, m2, primal+j, T, true) * w1[j];
+	  phi+=internal::sort_and_estimate(Mtmp+j, m1, m2, primal+j, T, true) * w1[j];
 	  cost-=(Mtmp[j]-U[j])*w1[j];
 	  //	  div+=(_D2_CBLAS_FUNC(dot)(m2, Mtmp+j, m1, primal+j, m1)-Mtmp[j])*w1[j];
 	}
@@ -195,7 +196,7 @@ namespace d2 {
 	memcpy(Mtmp, M, sizeof(real_t)*mat_size);
 	_D2_FUNC(gcmv2)(m1, m2, Mtmp, U);
 	for (size_t j=0; j<m2; ++j) {
-	  phi+=sort_and_estimate(Mtmp+j*m1, 1, m1, primal+j*m1, T, false)*w2[j];
+	  phi+=internal::sort_and_estimate(Mtmp+j*m1, 1, m1, primal+j*m1, T, false)*w2[j];
 	  cost-=(Mtmp[j*m1]+L[j])*w2[j];
 	  //	  div+=(_D2_CBLAS_FUNC(dot)(m1, Mtmp+j*m1, 1, primal+j*m1, 1)-Mtmp[j*m1])*w2[j];
 	}

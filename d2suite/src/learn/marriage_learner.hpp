@@ -58,7 +58,7 @@ namespace d2 {
 		    const Elem<def::Function<FuncType>, dim> &learner,
 		    bool write_label = false) {
     using namespace rabit;
-
+    
     real_t *y, *label_cache;
     y = new real_t[data.get_size()];
     label_cache = new real_t[data.get_col()];
@@ -204,7 +204,7 @@ namespace d2 {
       learner.supp[i].set_communicate(false);
 #endif
     
-    BADMMCache badmm_cache_arr;
+    internal::BADMMCache badmm_cache_arr;
     beta = 1./(learner.len - 1);
     assert(learner.len > 1);
     allocate_badmm_cache(data, learner, badmm_cache_arr);
@@ -312,7 +312,7 @@ namespace d2 {
        */
       prim_res = 0;
       dual_res = 0;
-      BADMMCache badmm_cache_ptr = badmm_cache_arr;
+      internal::BADMMCache badmm_cache_ptr = badmm_cache_arr;
       for (size_t i=0; i<data.get_size();++i) {
 	const size_t matsize = data[i].len * learner.len;
 	real_t p_res, d_res;

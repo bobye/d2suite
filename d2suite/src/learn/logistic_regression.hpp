@@ -27,7 +27,6 @@ namespace d2 {
 
 
 
-    
     int fit(const real_t *X, const real_t *y, const real_t *sample_weight, const size_t n, bool sparse = false) {
       real_t *XX, *yy, *ss;
       if (sparse) {

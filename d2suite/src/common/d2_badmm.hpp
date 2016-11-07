@@ -9,46 +9,48 @@
 #include <random>
 namespace d2 {
 #define eps (1E-16)
-  struct BADMMCache {
-    real_t *C;
-    real_t *Ctmp;
-    real_t *Pi1;
-    real_t *Pi2;
-    real_t *Lambda;
-    real_t *Ltmp;
-    real_t *buffer;
-    real_t *Pi_buffer;
-  };
 
-  template <typename ElemType1, typename ElemType2>
-  void allocate_badmm_cache(const Block<ElemType1> &a, const ElemType2 &b,
-			    BADMMCache &cache) {
-    const size_t n = a.get_col() * b.len;
-    cache.C      = new real_t[n];
-    cache.Ctmp   = new real_t[n];
-    cache.Pi1    = new real_t[n];
-    cache.Pi2    = new real_t[n];
-    cache.Lambda = new real_t[n];
-    cache.Ltmp   = new real_t[n];
-    cache.buffer = new real_t[n];
-    cache.Pi_buffer = new real_t[n];
+  namespace internal {
+    struct BADMMCache {
+      real_t *C;
+      real_t *Ctmp;
+      real_t *Pi1;
+      real_t *Pi2;
+      real_t *Lambda;
+      real_t *Ltmp;
+      real_t *buffer;
+      real_t *Pi_buffer;
+    };
+
+    template <typename ElemType1, typename ElemType2>
+    void allocate_badmm_cache(const Block<ElemType1> &a, const ElemType2 &b,
+			      BADMMCache &cache) {
+      const size_t n = a.get_col() * b.len;
+      cache.C      = new real_t[n];
+      cache.Ctmp   = new real_t[n];
+      cache.Pi1    = new real_t[n];
+      cache.Pi2    = new real_t[n];
+      cache.Lambda = new real_t[n];
+      cache.Ltmp   = new real_t[n];
+      cache.buffer = new real_t[n];
+      cache.Pi_buffer = new real_t[n];
+    }
+
+    void deallocate_badmm_cache(BADMMCache &cache) {
+      delete [] cache.C;
+      delete [] cache.Ctmp;
+      delete [] cache.Pi1;
+      delete [] cache.Pi2;
+      delete [] cache.Lambda;
+      delete [] cache.Ltmp;
+      delete [] cache.buffer;
+      delete [] cache.Pi_buffer;
+    }
   }
-
-  void deallocate_badmm_cache(BADMMCache &cache) {
-    delete [] cache.C;
-    delete [] cache.Ctmp;
-    delete [] cache.Pi1;
-    delete [] cache.Pi2;
-    delete [] cache.Lambda;
-    delete [] cache.Ltmp;
-    delete [] cache.buffer;
-    delete [] cache.Pi_buffer;
-  }
-
 
   template <typename ElemType1, typename ElemType2>
   int EMD_BADMM(const ElemType1 &a, const ElemType2 &b,
-		const BADMMCache &cache,
+		const internal::BADMMCache &cache,
 		const size_t niter,
 		real_t *prim_res, real_t *dual_res) {
     const size_t mat_size = a.len * b.len;
