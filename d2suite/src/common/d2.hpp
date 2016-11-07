@@ -163,6 +163,10 @@ namespace d2 {
   inline real_t LowerThanEMD_v0(const ElemType1 &e1, const ElemType2 &e2,
 				const Meta<ElemType2> &meta);
 
+  /*!
+   * \brief compute lower bound of EMD.
+   * version 0: extremely cheap, non-iterative
+   */
   template <typename ElemType1, typename ElemType2>
   void LowerThanEMD_v0(const ElemType1 &e, const Block<ElemType2> &b,
 		       __OUT__ real_t* emds);
@@ -176,6 +180,10 @@ namespace d2 {
 				const Meta<ElemType2> &meta,
 				__IN__ real_t* cache_mat = NULL);
 
+  /*!
+   * \brief compute lower bound of EMD.
+   * version 1: fast, non-iterative and simple
+   */
   template <typename ElemType1, typename ElemType2>
   void LowerThanEMD_v1(const ElemType1 &e, const Block<ElemType2> &b,
 		       __OUT__ real_t* emds,
@@ -191,6 +199,9 @@ namespace d2 {
 				__OUT__ real_t* emds_approx,
 				__OUT__ index_t* rank);
 
+  /*!
+   * \brief simple linear approach without any prefetching or pruning.
+   */
   template <template<typename...> class D1, template<typename...> class D2,
 	    typename... Ts1, typename... Ts2>
   void KNearestNeighbors_Linear(size_t k,
@@ -210,6 +221,9 @@ namespace d2 {
 				__OUT__ index_t* rank,
 				size_t n = 0);
 
+  /*!
+   * \brief prefetching and pruning with lowerbounds (return the actual number of EMD computed).
+   */
   template <template<typename...> class D1, template<typename...> class D2,
 	    typename... Ts1, typename... Ts2>
   size_t KNearestNeighbors_Simple(size_t k,
