@@ -46,14 +46,14 @@ namespace d2 {
 
     struct SparseHistogram;
 
-    /// FuncType is a classification/regression class 
+    /// @tparam FuncType is a classification/regression class 
     template <typename FuncType> 
     struct Function;
   }
 
 
   /*!
-   * \brief Elem defines an element type has two parameters to specify, one is the
+   * \brief an element type, which has two parameters to specify, one is the
    * type of ground metric space, and the other is the dimension
    * of the ground metric space. 
    */
@@ -61,34 +61,36 @@ namespace d2 {
   struct Elem;
 
   /*!
-   * ElemMultiPhase defines a multi-phase element type
-   * param @Ts: struct Elem<>
+   * \brief a multi-phase element type
    */
   template <typename... Ts>
   struct ElemMultiPhase;
 
   /*!
-   * A Meta class is for storing the meta data associated with
+   * \brief a class for storing the meta data associated with
    * an Elem type. It is an empty class for def::Euclidean. 
    */
   template <typename ElemType>
   class Meta;  
 
   /*!
-   * A Block class is for storing a block data of Elem in a 
+   * \brief a class is for storing a block data of Elem in a 
    * local node. 
    */
   template <typename ElemType>
   class Block;
 
   /*!
-   * BlockMultiPhase defines a block of elements with multiple phases
-   * param @Ts: struct Elem<>
+   * \brief a block of elements with multiple phases
    */
   template <typename... Ts> // a sequence of Elem types
   class BlockMultiPhase;
 
 #ifdef RABIT_RABIT_H_
+  /*!
+   * \brief a block of elements with 
+   * multiple phases subject to a distributed setting.
+   */
   template <typename... Ts>
   class DistributedBlockMultiPhase;
 #endif 
