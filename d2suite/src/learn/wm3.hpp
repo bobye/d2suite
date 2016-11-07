@@ -19,14 +19,12 @@ namespace d2 {
    * \param initT the initial temperature
    * \param gamma the learning rate
    * \param batch_size the batch size used in training
-   * \deprecated \param sigma the momentum percentage maintained
    */
   template <typename ElemType1, typename ElemType2>
   void WM3_SA (const Block<ElemType1> &model,
 	       const Block<ElemType2> &data,
 	       const size_t max_epoch,
 	       const real_t initT,
-	       real_t sigma,
 	       real_t gamma,
 	       size_t batch_size = 20) {
 

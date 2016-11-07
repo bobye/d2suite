@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
   }
   wm3.sync(0);
   
-  WM3_SA(wm3, data, 1000, .1, 0.9, 2., 20 / GetWorldSize());
+  WM3_SA(wm3, data, 1000, .1, 2., 20 / GetWorldSize());
 
   Barrier();
   

@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
   }
 
 
-  WM3_SA(wm3, data, 1000, .05, 0.1, 2., 20);
+  WM3_SA(wm3, data, 1000, .05, 2., 20);
   wm3.write("data/orl/mixture_" + std::to_string(k) + "n.txt");
 
   std::ofstream f; f.open("data/orl/real.d2s");
