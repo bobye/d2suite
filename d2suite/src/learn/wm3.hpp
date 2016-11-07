@@ -10,7 +10,17 @@
 namespace d2 {
 
 #define eps (1E-16)
-  
+
+  /*!
+   * \brief The Wasserstein Mixed Membership Model (WM3) Learned with Simulated Annealing (Gibbs-OT)
+   * \param model the basic prototype distribution model
+   * \param data the whole data set of elements
+   * \param max_epoch the maximum number of epoch
+   * \param initT the initial temperature
+   * \param gamma the learning rate
+   * \param batch_size the batch size used in training
+   * \deprecated \param sigma the momentum percentage maintained
+   */
   template <typename ElemType1, typename ElemType2>
   void WM3_SA (const Block<ElemType1> &model,
 	       const Block<ElemType2> &data,

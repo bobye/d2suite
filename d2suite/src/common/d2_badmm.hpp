@@ -48,6 +48,15 @@ namespace d2 {
     }
   }
 
+  /*! 
+   * \brief the basic BADMM algorithmic iteration unit
+   * \param a the first element
+   * \param b the second element
+   * \param cache the cached (latent) parameter associated with pair (a,b)
+   * \param niter the number of intended iterations
+   * \param prim_res the primal residual to be updated. If NULL, it implies no need to compute.
+   * \param dual_res the dual residual to be updated. If NULL, it implies no need to compute.
+   */
   template <typename ElemType1, typename ElemType2>
   int EMD_BADMM(const ElemType1 &a, const ElemType2 &b,
 		const internal::BADMMCache &cache,

@@ -7,6 +7,7 @@
 #include "../common/d2_sa.hpp"
 
 namespace d2 {
+  /*! \todo an implementation of Wasserstein RBM using SA */
   template <>
   void WRBM_SA (real_t* W, real_t *a, real_t* b, /* parameters of RBM */
 		size_t l, /* latent dimension */

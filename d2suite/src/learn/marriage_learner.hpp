@@ -8,10 +8,16 @@
 #include "../common/d2_badmm.hpp"
 
 namespace d2 {
+  /*!
+   * \brief The predicting utility of marriage learning using the winner-take-all method
+   * \param data the data block to be predicted
+   * \param learner the set of classifiers learnt via marriage learning
+   * \param write_label if false, compute the accuracy, otherwise overwrite labels to data
+   */
   template <typename ElemType1, typename FuncType, size_t dim>
   real_t ML_Predict_ByWinnerTakeAll(Block<ElemType1> &data,
-		    const Elem<def::Function<FuncType>, dim> &learner,
-		    bool write_label = false) {
+				    const Elem<def::Function<FuncType>, dim> &learner,
+				    bool write_label = false) {
     using namespace rabit;
     real_t *y;
     y = new real_t[data.get_size()];
@@ -53,10 +59,16 @@ namespace d2 {
     return accuracy;    
   }
 
+  /*!
+   * \brief The predicting utility of marriage learning using the (multimarginal) voting method
+   * \param data the data block to be predicted
+   * \param learner the set of classifiers learnt via marriage learning
+   * \param write_label if false, compute the accuracy, otherwise overwrite labels to data
+   */
   template <typename ElemType1, typename FuncType, size_t dim>
   real_t ML_Predict_ByVoting(Block<ElemType1> &data,
-		    const Elem<def::Function<FuncType>, dim> &learner,
-		    bool write_label = false) {
+			     const Elem<def::Function<FuncType>, dim> &learner,
+			     bool write_label = false) {
     using namespace rabit;
     
     real_t *y, *label_cache;
@@ -139,57 +151,68 @@ namespace d2 {
 #ifdef _USE_SPARSE_ACCELERATE_
   const static bool sparse = true; /* only possible for def::WordVec */
 #endif
-  template <typename ElemType>
-  void _get_sample_weight(const Block<ElemType> &data,
-			  const real_t *Pi, size_t leading,
-			  real_t *sample_weight, size_t sample_size) {
-    for (size_t ii=0; ii<data.get_col(); ++ii) sample_weight[ii] = 0;
-    _D2_CBLAS_FUNC(axpy)(data.get_col(),
-			 - beta,
-			 Pi, leading,
-			 sample_weight, 1);
-    _D2_CBLAS_FUNC(axpy)(data.get_col(),
-			 beta,
-			 data.get_weight_ptr(), 1,
-			 sample_weight, 1);
-    _D2_CBLAS_FUNC(copy)(data.get_col(),
-			 Pi, leading,
-			 sample_weight + data.get_col(), 1);    
-  }
 
-#ifdef _USE_SPARSE_ACCELERATE_
-  template <size_t D>
-  void _get_sample_weight(const Block<Elem<def::WordVec, D> > &data,
-			  const real_t *Pi, size_t leading,
-			  real_t *sample_weight, size_t sample_size) {
-    using namespace rabit;
-    for (size_t ii=0; ii<sample_size; ++ii) sample_weight[ii] = 0;
-    for (size_t ii=0; ii<data.get_col(); ++ii) {
-      real_t cur_w = Pi[ii*leading];
-      sample_weight[data.get_support_ptr()[ii] +
-		    data.meta.size * (size_t) data.get_label_ptr()[ii]] += cur_w;
-      sample_weight[data.get_support_ptr()[ii]] += beta * (data.get_weight_ptr()[ii] - cur_w);
+  namespace internal {
+    template <typename ElemType>
+    void _get_sample_weight(const Block<ElemType> &data,
+			    const real_t *Pi, size_t leading,
+			    real_t *sample_weight, size_t sample_size) {
+      for (size_t ii=0; ii<data.get_col(); ++ii) sample_weight[ii] = 0;
+      _D2_CBLAS_FUNC(axpy)(data.get_col(),
+			   - beta,
+			   Pi, leading,
+			   sample_weight, 1);
+      _D2_CBLAS_FUNC(axpy)(data.get_col(),
+			   beta,
+			   data.get_weight_ptr(), 1,
+			   sample_weight, 1);
+      _D2_CBLAS_FUNC(copy)(data.get_col(),
+			   Pi, leading,
+			   sample_weight + data.get_col(), 1);    
     }
-    Allreduce<op::Sum>(sample_weight, sample_size);
-  }
-#endif
-
-  template <typename ElemType>
-  size_t _get_sample_size(const Block<ElemType> &data, size_t num_of_copies)
-  {return data.get_col() * 2;}
 
 #ifdef _USE_SPARSE_ACCELERATE_
-  template <size_t D>
-  size_t _get_sample_size(const Block<Elem<def::WordVec, D> > &data, size_t num_of_copies)
-  {return data.meta.size * num_of_copies;}
+    template <size_t D>
+    void _get_sample_weight(const Block<Elem<def::WordVec, D> > &data,
+			    const real_t *Pi, size_t leading,
+			    real_t *sample_weight, size_t sample_size) {
+      using namespace rabit;
+      for (size_t ii=0; ii<sample_size; ++ii) sample_weight[ii] = 0;
+      for (size_t ii=0; ii<data.get_col(); ++ii) {
+	real_t cur_w = Pi[ii*leading];
+	sample_weight[data.get_support_ptr()[ii] +
+		      data.meta.size * (size_t) data.get_label_ptr()[ii]] += cur_w;
+	sample_weight[data.get_support_ptr()[ii]] += beta * (data.get_weight_ptr()[ii] - cur_w);
+      }
+      Allreduce<op::Sum>(sample_weight, sample_size);
+    }
 #endif
 
+    template <typename ElemType>
+    size_t _get_sample_size(const Block<ElemType> &data, size_t num_of_copies)
+    {return data.get_col() * 2;}
+
+#ifdef _USE_SPARSE_ACCELERATE_
+    template <size_t D>
+    size_t _get_sample_size(const Block<Elem<def::WordVec, D> > &data, size_t num_of_copies)
+    {return data.meta.size * num_of_copies;}
+#endif
+  }
+
+  /*!
+   * \brief the marriage learning algorithm enabled by BADMM 
+   * \param data a block of elements to train
+   * \param learner a d2 element which has several classifiers of type FuncType
+   * \param max_iter the maximum number of iterations
+   * \param rho the BADMM parameter
+   * \param val_data a vector of validation data
+   */
   template <typename ElemType1, typename FuncType, size_t dim>
   void ML_BADMM (Block<ElemType1> &data,
 		 Elem<def::Function<FuncType>, dim> &learner,
 		 const size_t max_iter,
-		 const real_t rho = 2.0,
-		 Block<ElemType1> *val_data = NULL, size_t val_size = 0) {    
+		 const real_t rho,
+		 std::vector<Block<ElemType1>* > &val_data) {    
     using namespace rabit;
 
     size_t global_col = data.get_col();
@@ -294,10 +317,10 @@ namespace d2 {
 	  printf("%.3lf/", train_accuracy_1);
 	  printf("%.3lf\t", train_accuracy_2);
 	}
-	if (val_size > 0) {
-	  for (size_t i=0; i<val_size; ++i) {
-	    validate_accuracy_1 = ML_Predict_ByWinnerTakeAll(val_data[i], learner);
-	    validate_accuracy_2 = ML_Predict_ByVoting(val_data[i], learner);
+	if (val_data.size() > 0) {
+	  for (size_t i=0; i<val_data.size(); ++i) {
+	    validate_accuracy_1 = ML_Predict_ByWinnerTakeAll(*val_data[i], learner);
+	    validate_accuracy_2 = ML_Predict_ByVoting(*val_data[i], learner);
 	  }	
 	}	
 	if (GetRank() == 0) {
@@ -341,14 +364,14 @@ namespace d2 {
       /* ************************************************
        * re-fit classifiers
        */
-      const size_t sample_size = _get_sample_size(data, FuncType::NUMBER_OF_CLASSES);
+      const size_t sample_size = internal::_get_sample_size(data, FuncType::NUMBER_OF_CLASSES);
 #ifdef _USE_SPARSE_ACCELERATE_      
       real_t *sample_weight_local = new real_t[sample_size];
 #endif
       for (size_t i=0, old_i=0; i<learner.len; ++i)
       {
 	real_t *sample_weight = new real_t[sample_size];
-	_get_sample_weight(data, badmm_cache_arr.Pi2 + i, learner.len, sample_weight, sample_size);
+	internal::_get_sample_weight(data, badmm_cache_arr.Pi2 + i, learner.len, sample_weight, sample_size);
 	//learner.supp[i].init();
 #ifdef _USE_SPARSE_ACCELERATE_      
 	if (i % GetWorldSize() == GetRank())

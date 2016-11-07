@@ -99,13 +99,13 @@ namespace d2 {
     }
   }
 
-  /*
-   * INPUT/OUTPUT:
-   * a, b  -- a block of distributions
-   * T     -- temperature
-   * niter -- iterations of minimal loop block
-   * sac   -- simulated annealing cache
-   * A, B, C, hasProposal -- basic relevant statistics to be tracked
+  /*!
+   * \brief the basic GibbsOT algorithmic unit for a batch of elements
+   * \param a the first block of distributions
+   * \param b the second block of distributions
+   * \param T the temperature
+   * \param niter iterations of minimal loop block
+   * \param sac simulated annealing cache
    */
   template <typename ElemType1, typename ElemType2>
   int EMD_SA (const Block<ElemType1> &a, const Block<ElemType2> &b,
