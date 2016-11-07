@@ -13,17 +13,17 @@ namespace d2 {
 		    const Elem<def::Function<FuncType>, dim> &learner,
 		    bool write_label = false) {
     using namespace rabit;
-    real_t *y, *label_cache;
+    real_t *y;
     y = new real_t[data.get_size()];
-    label_cache = new real_t[data.get_col()];
-    memcpy(label_cache, data.get_label_ptr(), sizeof(real_t) * data.get_col());
     for (size_t i=0; i<data.get_size(); ++i) y[i] = data[i].label[0];
 
-    
+    real_t *C = new real_t [data.get_col() * learner.len];
     real_t *emds = new real_t [data.get_size() * FuncType::NUMBER_OF_CLASSES];
     for (size_t i=0; i<FuncType::NUMBER_OF_CLASSES; ++i) {
-      for (size_t j=0; j<data.get_col(); ++j) data.get_label_ptr()[j] = i;
-      EMD(learner, data, emds + data.get_size() * i, NULL, NULL, NULL);
+      _pdist2_label(learner.supp, learner.len,
+		    data.get_support_ptr(), i, data.get_col(),
+		    data.meta, C);
+      EMD(learner, data, emds + data.get_size() * i, C, NULL, NULL, true);
     }
 
     real_t accuracy = 0.0;    
@@ -42,17 +42,14 @@ namespace d2 {
       size_t global_size = data.get_size();
       Allreduce<op::Sum>(&global_size, 1);
       Allreduce<op::Sum>(&accuracy, 1);
-      accuracy /= global_size;
-      //      printf("accuracy: %.3lf\n", accuracy);
-      memcpy(data.get_label_ptr(), label_cache, sizeof(real_t) * data.get_col());
-      
+      accuracy /= global_size;      
     }
 
     
     delete [] y;
-    delete [] label_cache;
+    delete [] C;
     delete [] emds;
-
+    
     return accuracy;    
   }
 

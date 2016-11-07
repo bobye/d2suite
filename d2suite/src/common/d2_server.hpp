@@ -116,10 +116,23 @@ namespace d2 {
 			 const def::WordVec::type *s1, const size_t n1,
 			 const Meta<Elem<def::WordVec, dim> > &meta,
 			 real_t *mat) {
+      /*
       for (size_t i=0, k=0; i<n1; ++i) {
 	for (size_t j=0; j<n2; ++j, ++k)
 	  mat[k] = s2[j].eval_min(&meta.embedding[s1[i]*dim]);
       }
+      */
+      real_t *X = new real_t [n1 * dim];
+      for (size_t i=0; i<n1; ++i) {
+	real_t *p=X + i*dim;
+	real_t *q=meta.embedding + s1[i]*dim;
+	for (size_t j=0; j<dim; ++j) p[j] = q[j];
+      }
+
+      Meta<Elem<def::Euclidean, dim> > _meta;
+      _pdist2(s2, n2, X, n1, _meta, mat);
+      delete [] X;
+      
     }
 
     template <typename FuncType, size_t dim>
@@ -128,10 +141,22 @@ namespace d2 {
 			 const size_t n1,
 			 const Meta<Elem<def::WordVec, dim> > &meta,
 			 real_t *mat) {
+      /*
       for (size_t i=0, k=0; i<n1; ++i) {
 	for (size_t j=0; j<n2; ++j, ++k)
 	  mat[k] = s2[j].eval(&meta.embedding[s1[i]*dim], label[i]);
       }
+      */
+      real_t *X = new real_t [n1 * dim];
+      for (size_t i=0; i<n1; ++i) {
+	real_t *p=X + i*dim;
+	real_t *q=meta.embedding + s1[i]*dim;
+	for (size_t j=0; j<dim; ++j) p[j] = q[j];
+      }
+
+      Meta<Elem<def::Euclidean, dim> > _meta;
+      _pdist2_label(s2, n2, X, label, n1, _meta, mat);
+      delete [] X;
     }
 
     template <typename FuncType, size_t dim>
@@ -140,10 +165,23 @@ namespace d2 {
 			 const size_t n1,
 			 const Meta<Elem<def::WordVec, dim> > &meta,
 			 real_t *mat) {
+      /*
       for (size_t i=0, k=0; i<n1; ++i) {
 	for (size_t j=0; j<n2; ++j, ++k)
 	  mat[k] = s2[j].eval(&meta.embedding[s1[i]*dim], label);
       }
+      */
+      
+      real_t *X = new real_t [n1 * dim];
+      for (size_t i=0; i<n1; ++i) {
+	real_t *p=X + i*dim;
+	real_t *q=meta.embedding + s1[i]*dim;
+	for (size_t j=0; j<dim; ++j) p[j] = q[j];
+      }
+
+      Meta<Elem<def::Euclidean, dim> > _meta;
+      _pdist2_label(s2, n2, X, label, n1, _meta, mat);
+      delete [] X;
     }
 
     template <typename FuncType, size_t dim>
@@ -151,10 +189,22 @@ namespace d2 {
 			 const def::WordVec::type *s1, const size_t n1,
 			 const Meta<Elem<def::WordVec, dim> > &meta,
 			 real_t *mat) {
+      /*
       for (size_t i=0, k=0; i<n1; ++i) {
 	for (size_t j=0; j<n2; ++j, ++k)
 	  s2[j].eval_alllabel(&meta.embedding[s1[i]*dim], &mat[k], n1*n2);
       }
+      */
+      real_t *X = new real_t [n1 * dim];
+      for (size_t i=0; i<n1; ++i) {
+	real_t *p=X + i*dim;
+	real_t *q=meta.embedding + s1[i]*dim;
+	for (size_t j=0; j<dim; ++j) p[j] = q[j];
+      }
+
+      Meta<Elem<def::Euclidean, dim> > _meta;
+      _pdist2_alllabel(s2, n2, X, n1, _meta, mat);
+      delete [] X;      
     }
     
     

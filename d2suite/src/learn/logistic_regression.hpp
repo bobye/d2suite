@@ -164,8 +164,8 @@ namespace d2 {
       real_t *sv= new real_t[n];
 
       forward_(A, b, X, n, v, sv);
-      for (size_t i=0; i<n; i+=leading) {
-	loss[i] = -log (v[i*n_class + (size_t) y[i*stride]]);
+      for (size_t i=0; i<n; ++i) {
+	loss[i*leading] = -log (v[i*n_class + (size_t) y[i*stride]]);
       }
       delete [] v;
       delete [] sv;
@@ -176,9 +176,9 @@ namespace d2 {
       real_t *sv= new real_t[n];
 
       forward_(A, b, X, n, v, sv);
-      for (size_t i=0; i<n; i+=leading) {
+      for (size_t i=0; i<n; ++i) {
 	for (size_t j=0; j<n_class; ++j)
-	  loss[i+j*stride] = -log (v[i*n_class + j]);
+	  loss[i*leading+j*stride] = -log (v[i*n_class + j]);
       }
       delete [] v;
       delete [] sv;
