@@ -56,17 +56,17 @@ namespace d2 {
   template <typename D2Type, size_t dim>
   struct Elem {
   public:
-    /*! the type of support points */
+    /*! \brief the type of support points */
     typedef D2Type T;
-    /*! the actual dimension of support points */
+    /*! \brief the actual dimension of support points */
     static const size_t D = dim;
-    /*! the length of supports */
+    /*! \brief the length of supports */
     size_t len;    
-    /*! the weight array of supports*/
+    /*! \brief the weight array of supports*/
     real_t* w;
-    /*! the support arrays */
+    /*! \brief the support arrays */
     typename D2Type::type* supp;
-    /*! the label array of supports (optional) */
+    /*! \brief the label array of supports (optional) */
     real_t* label;
   };
 
@@ -80,6 +80,9 @@ namespace d2 {
     typedef typename ElemType::T::type SuppType;
     typedef Meta<ElemType> MetaType;
   public:
+    /*! \brief the constructor that preallocates memory for block<ElemType>
+     * whose allocation size depends on the (estimated) thesize and thelen.
+     */
     Block(const size_t thesize, 
 	  const size_t thelen): 
       size(0), len(thelen), max_len(0), col(0), isShared(false) {
@@ -90,6 +93,12 @@ namespace d2 {
       assert(p_w && p_label && p_supp);
       max_col = thesize*thelen;
     };
+    /*! \brief the constructor from a provided block<ElemType>
+     * \param that an existing block<ElemType>
+     * \param start the start count in that
+     * \param thesize the count of elements used
+     * \param isview whether elements are deeply copied
+     */
     Block(const Block<ElemType> &that, index_t start, size_t thesize, bool isview = true) {
       //      assert(that.get_size() >= start + thesize);
       size = 0;
@@ -133,8 +142,9 @@ namespace d2 {
       }
     }
     
-    /* get specific d2 in the block */
+    /*! \brief get specific element in the block */
     inline ElemType& operator[](const size_t ind) {return vec_[ind];}
+    /*! \brief get specific element in the block */
     inline const ElemType& operator[](const size_t ind) const {return vec_[ind];}
     
     inline size_t & get_size() {return size;}
@@ -171,9 +181,16 @@ namespace d2 {
       
     void write(const std::string &filename) const;
     void split_write(const std::string &filename, const size_t num_copies) const;
+    /*! \brief split data into train and test and write them into two files
+     * \param train_ratio the ratio of training elements in data
+     * \param start the start index of categories
+     * \param seed the random seed for shuffling, and no shuffle if seed=0
+     */
     void train_test_split_write(const std::string &filename, const real_t train_ratio = 0.7, const size_t start = 0, const unsigned int seed = 0) const;
 
 #ifdef RABIT_RABIT_H_
+    /*! \brief synchronize block data across different processers
+     */
     void sync(const index_t rank) {
       rabit::Broadcast(&size, sizeof(size_t), rank);      
       rabit::Broadcast(&len, sizeof(size_t), rank);
@@ -192,7 +209,8 @@ namespace d2 {
       rabit::Broadcast(&vec_[0], sizeof(ElemType) * size_of_vec_, rank);
     }
 #endif
-    
+
+    /*! \brief the meta information used by the block */
     MetaType meta;
 
     Block<ElemType> & get_subblock(index_t start, size_t thesize) {

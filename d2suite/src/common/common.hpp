@@ -10,9 +10,9 @@ namespace d2 {
 #define __OUT__ 
 #define __IN_OUT__
 
-  /* this defines the float point that will be used to 
-   * store real numbers.
-   */
+
+  /*! \brief the float point that will be used to 
+   * store real numbers. */
 #ifdef _D2_DOUBLE
   typedef double real_t;
 #elif defined _D2_SINGLE
@@ -32,11 +32,13 @@ namespace d2 {
   //#define _D2_LAPACKE_FUNC(x) s ## x
 #endif
 
-  /* this defines the unsigned integer type that will
+  /*! \brief the unsigned integer type that will
    * be used to store index 
    */
   typedef unsigned index_t;
 
+  /*! \brief the header string of log printing subject to each processer
+   */
 #ifdef RABIT_RABIT_H_
   inline const std::string getLogHeader() 
   {return std::string("@d2suite(") + std::to_string(rabit::GetRank()) + ")";}
@@ -48,6 +50,7 @@ namespace d2 {
 
 }
 
+/*! \brief the ad-hoc solution to barrier() api */
 #ifdef RABIT_RABIT_H_
 namespace rabit {
   inline void Barrier(){ static float a = 1; rabit::Broadcast(&a, sizeof(float), 0); }

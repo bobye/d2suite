@@ -11,8 +11,10 @@
 
 namespace d2 {
 
+  /*! \brief overloading >> operator for input stream */
   template <typename D2Type, size_t dim>
   std::istream& operator>> (std::istream& is, Elem<D2Type, dim> & op);
+  /*! \brief overloading << operator for output stream */
   template <typename D2Type, size_t dim>
   std::ostream& operator<< (std::ostream& os, const Elem<D2Type, dim> &op);
 

@@ -11,6 +11,16 @@
 
 namespace d2 {
 
+  /*! \brief the logistic regression class that is currently used in marriage learning framework
+   *
+   * Example:
+   * \code{.cpp}
+   * Logistic_Regression a;
+   * a.init() // randomized initialization
+   * a.fit(X, y, sample_weight, n) // fit to n vectors X with label y
+   * real_t* coeff = a.get_coeff() // get coeffients of fitted LR
+   * \endcode
+   */
   template <size_t dim, size_t n_class>
   class Logistic_Regression {
   public:
