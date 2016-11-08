@@ -89,6 +89,13 @@ namespace d2 {
 #ifdef RABIT_RABIT_H_
   /*!
    * \brief a block of elements with 
+   * a single phase subject to a distributed setting.
+   */
+  template <typename... Ts>
+  class DistributedBlock;
+
+  /*!
+   * \brief a block of elements with 
    * multiple phases subject to a distributed setting.
    */
   template <typename... Ts>
