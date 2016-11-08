@@ -12,7 +12,6 @@ of typical d2 data, such as images, sequences, documents. Contributions are welc
 
 Dependencies
  - BLAS
- - [dmlc-core](https://github.com/dmlc/dmlc-core)
  - [rabit](https://github.com/dmlc/rabit): the use of generic parallel infrastructure
  - [mosek](https://www.mosek.com): fast LP/QP solvers, academic license available.
 

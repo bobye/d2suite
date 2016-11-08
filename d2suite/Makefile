@@ -45,8 +45,11 @@ EXECUTABLES=\
 	$(patsubst %.cpp, %, $(CPP_SOURCE_WITH_MAIN))
 
 TESTS=\
-	$(patsubst %.cpp, %.test, $(CPP_SOURCE_WITH_MAIN))\
-	$(patsubst %_rabit.cpp, %.rabit_test, $(RABIT_SOURCE_WITH_MAIN))
+	src/test/test_euclidean.test\
+	src/test/test_20newsgroups_io.test\
+	src/test/test_20newsgroups_io.rabit_test\
+#	$(patsubst %.cpp, %.test, $(CPP_SOURCE_WITH_MAIN))\
+#	$(patsubst %_rabit.cpp, %.rabit_test, $(RABIT_SOURCE_WITH_MAIN))
 
 DEPENDENCY_FILES=\
 	$(patsubst %.o, %.d, $(ALL_OBJECTS))\
@@ -105,7 +108,7 @@ test: $(TESTS) all
 	$<
 
 %.rabit_test: %.rabit
-	python ../dmlc-core/tracker/dmlc-submit --cluster mpi --num-workers 4 $<
+	mpirun -np 4 $<
 
 
 
