@@ -91,7 +91,7 @@ namespace d2 {
    * \brief a block of elements with 
    * a single phase subject to a distributed setting.
    */
-  template <typename... Ts>
+  template <typename ElemType>
   class DistributedBlock;
 
   /*!
