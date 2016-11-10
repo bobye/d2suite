@@ -29,6 +29,7 @@ CPP_SOURCE_WITH_MAIN=\
 	src/test/test_20newsgroups_io.cpp\
 	src/test/test_orl.cpp\
 	src/test/test_lr.cpp\
+	src/test/test_dt.cpp
 
 RABIT_SOURCE_WITH_MAIN=\
 	src/test/test_20newsgroups_io_rabit.cpp\

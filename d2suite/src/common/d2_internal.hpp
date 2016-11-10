@@ -1,5 +1,9 @@
 #ifndef _D2_INTERNAL_H_
 #define _D2_INTERNAL_H_
+/*!
+ * \file d2_internal.hpp
+ * \brief This header defines basic internal data structure to work with
+ */
 
 
 #include "d2.hpp"
@@ -7,6 +11,10 @@
 #include <fstream>
 
 namespace d2 {
+
+  /*! \namespace d2::internal  
+   * \brief the internal functions and classes that should not be called by users
+   */
   namespace internal {
 
     template <typename D2Type, size_t D>
@@ -92,8 +100,8 @@ namespace d2 {
       using _Meta<def::Histogram, D>::_Meta;
     };
 
-    /*
-     * convert sparse representations into dense representation 
+    /*!
+     * \brief convert sparse representations into dense representation 
      * for performance with small overheads
      */
     template <typename ElemType>
@@ -128,8 +136,8 @@ namespace d2 {
     }
 
 
-    /*
-     * convert sparse representations into dense representation 
+    /*!
+     * \brief convert sparse representations into dense representation 
      * for performance with small overheads
      *
      * branch ad-hoc code for (extra_class)
@@ -231,22 +239,25 @@ namespace d2 {
     };
 
     
-
+    /*! \brief auxilary function to obtain tuple size */
     template <typename T=Elem<def::Euclidean, 0>, typename... Ts>
     struct tuple_size {
       static const size_t value = tuple_size<Ts...>::value + 1;
     };
 
+    /*! \brief auxilary function to obtain tuple size (empty tuple)  */
     template <>
     struct tuple_size<> {
       static const size_t value = 0;
     };
 
+    /*! \brief auxilary function to obtain element type  */
     template <size_t k, typename T, typename... Ts>
     struct _elem_type_holder {
       typedef typename _elem_type_holder<k - 1, Ts...>::type type;
     };
     
+    /*! \brief auxilary function to obtain the first element type  */
     template <typename T, typename... Ts>
     struct _elem_type_holder<0, T, Ts...> {
       typedef T type;

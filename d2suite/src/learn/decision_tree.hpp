@@ -9,6 +9,9 @@
 #include <stack>
 #include <tuple>
 #include <array>
+#include <algorithm>
+#include <numeric>
+
 namespace d2 {
   
   namespace internal {
@@ -22,7 +25,9 @@ namespace d2 {
       std::array<real_t, n_class> class_histogram = {}; ///< histogram of sample weights 
       virtual real_t predict(real_t *X); ///< recursive prediction function
     };
-    
+
+    /*! \brief lead node in decision tree
+     */
     template <size_t dim, size_t n_class>
     class _DTLeaf : public _DTNode<dim, n_class> {
     public:
@@ -30,6 +35,8 @@ namespace d2 {
       real_t label;
     };
 
+    /*! \brief branch node in decision tree
+     */
     template <size_t dim, size_t n_class>
     class _DTBranch : public virtual _DTNode<dim, n_class> {
     public:
@@ -56,10 +63,12 @@ namespace d2 {
       size_t cache_offset; ///< offset to the cache array head, aka (ptr - cache_offset) should be constant
     };
 
+    /*! \brief data structure to store a single sample
+     */
     struct sample {
-      real_t X;
+      real_t x;
       size_t y;
-      real_t sample_weight;
+      real_t weight;
       size_t index;
     };
 
@@ -76,18 +85,79 @@ namespace d2 {
 			    _DTBranch<dim, n_class>*> > tree_stack;
     };
 
+    /*! \brief gini function used in make splits
+     */ 
+    template <size_t n_class>
+    real_t gini(const std::array<real_t, n_class> &proportion) {
+      real_t total_weight_sqr;
+      total_weight_sqr = std::accumulate(proportion.begin(), proportion.end(), 0);
+      total_weight_sqr = total_weight_sqr * total_weight_sqr;
+      if (total_weight_sqr <= 0) return 1.;
 
+      real_t gini = 1.;
+      for (size_t i = 0; i<n_class; ++i)
+	gini -= (proportion[i] * proportion[i]) / total_weight_sqr ;
+
+      return gini;
+    }
+    
+    template <size_t n_class>
     real_t best_split(sample *sample,
 		      size_t n,
 		      real_t &cutoff,
 		      size_t &left_count) {
-      return 0;
+      std::sort(sample, sample+n, [](const struct sample &a,
+				     const struct sample &b) -> bool {return a.x < b.x;});
+      real_t best_goodness = 0;
+
+      std::array<real_t, n_class> proportion_left = {};
+      std::array<real_t, n_class> proportion_right = {};
+      for (size_t i=0; i<n; ++i) proportion_right[sample[i].y] += sample[i].weight;
+      real_t no_split_score =gini(proportion_right);
+      for (size_t i=0; i<n; ) {
+	real_t current_x = sample[i].x;
+	while (i<n && sample[i].x == current_x) {
+	  size_t y=sample[i].y;
+	  real_t w=sample[i].weight;
+	  proportion_left[y]  += w;
+	  proportion_right[y] -= w;
+	  i++;
+	};
+	if (i<n) {
+	  real_t goodness = no_split_score -
+	    ( gini(proportion_left) * i + gini(proportion_right) * (n-i) ) / n;
+	  if (goodness > best_goodness) {
+	    best_goodness = goodness;
+	    cutoff = sample[i].x;
+	    left_count = i;
+	  }
+	}
+      }
+      return best_goodness;
     }
+
     void inplace_split(sample *sample,
 		       node_assignment &assignment,
 		       real_t cutoff,
 		       size_t left_count) {
+      struct sample *head, *end;
+      struct sample swap_cache;
+      head = sample;
+      end = sample + assignment.size - 1;
+      while (head < end) {
+	while (head < end && head->x < cutoff) ++head;
+	while (head < end && end->x >= cutoff) --end;
+	if (head < end) {
+	  swap_cache = *head;
+	  *head      = *end;
+	  *end       = swap_cache;
+	}
+      }
+      assert(head == sample + left_count);
+      for (size_t i=0; i<assignment.size; ++i)
+	assignment.ptr[i] = sample[i].index;      
     }
+    
     template <size_t dim, size_t n_class>
     _DTNode<dim, n_class> *build_dtnode(node_assignment &assignment,
 					node_assignment &aleft,
@@ -129,15 +199,15 @@ namespace d2 {
 	  for (size_t jj = 0; jj < assignment.size; ++jj) {
 	    size_t index = assignment.ptr[jj];
 	    sample &sample = sample_cache[jj];
-	    sample.X = buf.X[ii][index];
+	    sample.x = buf.X[ii][index];
 	    sample.y = buf.y[index];
-	    sample.sample_weight = buf.sample_weight[index];
+	    sample.weight = buf.sample_weight[index];
 	    sample.index = index;
 	  }
-	  goodness[ii] = best_split(sample_cache,
-				    assignment.size,
-				    cutoff[ii],
-				    left_count[ii]);
+	  goodness[ii] = best_split<n_class>(sample_cache,
+					     assignment.size,
+					     cutoff[ii],
+					     left_count[ii]);
 	}
 	// pick the best goodness 
 	auto best_goodness = std::max_element(goodness.begin(), goodness.end());	
@@ -155,7 +225,9 @@ namespace d2 {
 	  branch->cutoff = cutoff[ii];
 	  sample *sample_cache = &buf.sample_cache[0] + assignment.cache_offset;
 	  for (size_t jj=0; jj<assignment.size; ++jj) {
-	    sample_cache[jj].X = buf.X[ii][assignment.ptr[jj]];
+	    sample_cache[jj].x = buf.X[ii][assignment.ptr[jj]];
+	    sample_cache[jj].index = assignment.ptr[jj];
+	    // note that sample_cache[jj].weight and sample_cache[jj].y are invalid	    
 	  }
 	  // split assignment
 	  inplace_split(sample_cache,
