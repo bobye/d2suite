@@ -329,6 +329,7 @@ namespace d2 {
       sample_size = n;
       
       buf_tree_constructor<dim, n_class> buf;
+      buf.max_depth = max_depth;
       buf.X.resize(dim);
       for (size_t i=0, j=0; i<sample_size; ++i) {
 	for (size_t k=0; k<dim; ++k, ++j) {
@@ -355,6 +356,7 @@ namespace d2 {
     internal::_DTNode<dim, n_class> *root = nullptr;
     real_t *coeff;
     size_t sample_size;
+    size_t max_depth = 12;
     bool communicate = true;    
   };    
 }
