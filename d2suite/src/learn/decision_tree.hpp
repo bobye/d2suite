@@ -23,7 +23,7 @@ namespace d2 {
     public:
       constexpr static real_t prior_class_weight = 0.;
       std::array<real_t, n_class> class_histogram = {}; ///< histogram of sample weights 
-      virtual real_t predict(real_t *X); ///< recursive prediction function
+      virtual real_t predict(const real_t *X); ///< recursive prediction function
     };
 
     /*! \brief lead node in decision tree
@@ -31,7 +31,7 @@ namespace d2 {
     template <size_t dim, size_t n_class>
     class _DTLeaf : public _DTNode<dim, n_class> {
     public:
-      real_t predict(real_t *X) {return label;}
+      real_t predict(const real_t *X) {return label;}
       real_t label;
     };
 
@@ -44,9 +44,13 @@ namespace d2 {
 	if (left) delete left;
 	if (right) delete right;
       }
-      real_t predict(real_t *X) {
-	if (X[index]<cutoff) {return left->predict(X);}
-	else {return right->predict(X);}
+      real_t predict(const real_t *X) {
+	assert(left && right);
+	if (X[index]<cutoff) {
+	  return left->predict(X);
+	} else {
+	  return right->predict(X);
+	}
       }
       _DTNode<dim, n_class> *left = nullptr, *right = nullptr;
       size_t index;
@@ -210,7 +214,7 @@ namespace d2 {
 					     left_count[ii]);
 	}
 	// pick the best goodness 
-	auto best_goodness = std::max_element(goodness.begin(), goodness.end());	
+	auto best_goodness = std::max_element(goodness.begin(), goodness.end());
 	if (*best_goodness < 1E-3) {
 	  // if the best goodness is not good enough, a leaf node is still created
 	  _DTLeaf<dim, n_class> *leaf = new _DTLeaf<dim, n_class>();
@@ -238,9 +242,9 @@ namespace d2 {
 	  aleft.ptr = assignment.ptr;
 	  aleft.size = left_count[ii];
 	  aleft.cache_offset = assignment.cache_offset;
-	  aleft.ptr = assignment.ptr + left_count[ii];
-	  aleft.size = assignment.size - left_count[ii];
-	  aleft.cache_offset = assignment.cache_offset + left_count[ii];
+	  aright.ptr = assignment.ptr + left_count[ii];
+	  aright.size = assignment.size - left_count[ii];
+	  aright.cache_offset = assignment.cache_offset + left_count[ii];
 	  return branch;
 	}
 	
@@ -263,7 +267,7 @@ namespace d2 {
       // allocate cache memory
       _buf.sample_cache.resize(sample_size);
       // to be returned
-      _DTNode<dim, n_class> *root = NULL;
+      _DTNode<dim, n_class> *root = nullptr;
 
       // start to travel a tree construction using a stack
       while (!tree_stack.empty()) { 
@@ -276,9 +280,11 @@ namespace d2 {
 						   assignment_left,
 						   assignment_right,
 						   _buf);
-	if (root) { root = node; assert(!cur_parent); }
-	else if (cur_parent) {
-	  if (cur_parent->right)
+	if (!root) {
+	  root = node;
+	  assert(!cur_parent);
+	} else if (cur_parent) {
+	  if (!cur_parent->right)
 	    cur_parent->right = node;
 	  else
 	    cur_parent->left = node;
@@ -289,7 +295,7 @@ namespace d2 {
 					  dynamic_cast<_DTBranch<dim, n_class> *>(node)));
 	  tree_stack.push(std::make_tuple(assignment_right,
 					  dynamic_cast<_DTBranch<dim, n_class> *>(node)));
-	}	
+	}
       }
       return root;
     }
@@ -304,7 +310,13 @@ namespace d2 {
     static const size_t NUMBER_OF_CLASSES = n_class;
 
     void init() {}
-    void predict(const real_t *X, const size_t n, real_t *y) const {};
+    void predict(const real_t *X, const size_t n, real_t *y) const {
+      const real_t* x = X;
+      assert(root);
+      for (size_t i=0; i<n; ++i, x+=dim) {
+	y[i] = root->predict(x);
+      }
+    };
     real_t eval(const real_t *X, const real_t y) const { return 0.;}
     void eval_alllabel(const real_t *X, real_t *loss, const size_t stride) const {}
     real_t eval_min(const real_t *X) const {}
@@ -325,7 +337,7 @@ namespace d2 {
 	buf.y.push_back((size_t) y[i]);
 	buf.sample_weight.push_back(sample_weight[i]);	
       }
-      _DTNode<dim, n_class> *root = build_tree(sample_size, buf);
+      root = build_tree(sample_size, buf);
       return 0;
     }
 
@@ -334,11 +346,16 @@ namespace d2 {
     inline size_t get_coeff_size() {return n_class*dim+n_class;}
     inline void set_communicate(bool bval) { communicate = bval; }
 
+    ~Decision_Tree() {
+      if (root) {
+	delete root;
+      }
+    }
   private:
+    internal::_DTNode<dim, n_class> *root = nullptr;
     real_t *coeff;
     size_t sample_size;
-    bool communicate = true;
-    
+    bool communicate = true;    
   };    
 }
 
