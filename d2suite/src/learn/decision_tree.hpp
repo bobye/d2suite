@@ -67,13 +67,23 @@ namespace d2 {
       size_t cache_offset; ///< offset to the cache array head, aka (ptr - cache_offset) should be constant
     };
 
-    /*! \brief data structure to store a single sample
+    /*! \brief data structure for a single sample
      */
     struct sample {
       real_t x;
       size_t y;
       real_t weight;
       size_t index;
+    };
+
+    /*! \brief data structure for additional linked list on presort samples
+     */
+    struct sorted_sample {
+      real_t x;
+      size_t y;
+      real_t weight;
+      size_t index;
+      sorted_sample *next;
     };
 
     /*! \brief the whole data structure used in building the decision trees
@@ -87,7 +97,12 @@ namespace d2 {
       std::vector<sample> sample_cache;
       std::stack<std::tuple<node_assignment,
 			    _DTBranch<dim, n_class>*> > tree_stack;
-    };
+
+      // decision tree with presort
+      std::vector<std::vector<sorted_sample> > sorted_samples;
+      std::vector<std::vector<size_t> > inv_ind_sorted;
+      std::vector<char> sample_mask_cache;
+    };    
 
     /*! \brief gini function used in make splits
      */ 
@@ -104,21 +119,26 @@ namespace d2 {
 
       return gini;
     }
-    
+
+    /*! \brief find the best split (cutoff) for a given feature
+     */
     template <size_t n_class>
     real_t best_split(sample *sample,
 		      size_t n,
 		      real_t &cutoff,
-		      size_t &left_count) {
-      std::sort(sample, sample+n, [](const struct sample &a,
-				     const struct sample &b) -> bool {return a.x < b.x;});
+		      size_t &left_count,
+		      const bool presort) {
+      if (!presort) {
+	std::sort(sample, sample+n, [](const struct sample &a,
+				       const struct sample &b) -> bool {return a.x < b.x;});
+      }
       real_t best_goodness = 0;
 
       std::array<real_t, n_class> proportion_left = {};
       std::array<real_t, n_class> proportion_right = {};
       for (size_t i=0; i<n; ++i) proportion_right[sample[i].y] += sample[i].weight;
       real_t no_split_score =gini(proportion_right);
-      for (size_t i=0; i<n; ) {
+      for (size_t i=0; i<n; ) {	
 	real_t current_x = sample[i].x;
 	while (i<n && sample[i].x == current_x) {
 	  size_t y=sample[i].y;
@@ -145,19 +165,19 @@ namespace d2 {
 		       real_t cutoff,
 		       size_t left_count) {
       struct sample *head, *end;
-      struct sample swap_cache;
       head = sample;
       end = sample + assignment.size - 1;
       while (head < end) {
 	while (head < end && head->x < cutoff) ++head;
 	while (head < end && end->x >= cutoff) --end;
 	if (head < end) {
+	  struct sample swap_cache;
 	  swap_cache = *head;
 	  *head      = *end;
 	  *end       = swap_cache;
 	}
       }
-      assert(head == sample + left_count);
+      assert(head - sample == left_count);
       for (size_t i=0; i<assignment.size; ++i)
 	assignment.ptr[i] = sample[i].index;      
     }
@@ -166,7 +186,8 @@ namespace d2 {
     _DTNode<dim, n_class> *build_dtnode(node_assignment &assignment,
 					node_assignment &aleft,
 					node_assignment &aright,
-					buf_tree_constructor<dim, n_class> &buf) {
+					buf_tree_constructor<dim, n_class> &buf,
+					const bool presort) {
       // default: return leaf node
       aleft.ptr = NULL;
       aright.ptr= NULL;
@@ -197,21 +218,41 @@ namespace d2 {
 	std::array<real_t, dim> goodness = {};
 	std::array<real_t, dim> cutoff   = {};
 	std::array<size_t, dim> left_count = {};
+	std::array<size_t, dim> min_index_cache = {};
 	// compute goodness split score across different dimensions
 	for (size_t ii = 0; ii < dim; ++ii) {
 	  sample * sample_cache = &buf.sample_cache[0] + assignment.cache_offset;
-	  for (size_t jj = 0; jj < assignment.size; ++jj) {
-	    size_t index = assignment.ptr[jj];
-	    sample &sample = sample_cache[jj];
-	    sample.x = buf.X[ii][index];
-	    sample.y = buf.y[index];
-	    sample.weight = buf.sample_weight[index];
-	    sample.index = index;
+	  if (!presort) {
+	    for (size_t jj = 0; jj < assignment.size; ++jj) {
+	      size_t index = assignment.ptr[jj];
+	      sample &sample = sample_cache[jj];
+	      sample.x = buf.X[ii][index];
+	      sample.y = buf.y[index];
+	      sample.weight = buf.sample_weight[index];
+	      sample.index = index;
+	    }
+	  } else {
+	    std::vector<size_t> &inv_ind_sorted = buf.inv_ind_sorted[ii];
+	    size_t *min_index = std::min_element(assignment.ptr, assignment.ptr + assignment.size,
+						 [&](const size_t &a, const size_t &b) -> bool
+						 {return inv_ind_sorted[a] < inv_ind_sorted[b];});
+	    min_index_cache[ii] = inv_ind_sorted[*min_index];
+	    sorted_sample *sorted_sample_ptr = &buf.sorted_samples[ii][min_index_cache[ii]];
+	    for (size_t jj = 0; jj < assignment.size; ++jj) {
+	      assert(sorted_sample_ptr);
+	      sample &sample = sample_cache[jj];
+	      sample.x = sorted_sample_ptr->x;
+	      sample.y = sorted_sample_ptr->y;
+	      sample.weight = sorted_sample_ptr->weight;
+	      sample.index  = sorted_sample_ptr->index;
+	      sorted_sample_ptr = sorted_sample_ptr->next;
+	    }
 	  }
 	  goodness[ii] = best_split<n_class>(sample_cache,
 					     assignment.size,
 					     cutoff[ii],
-					     left_count[ii]);
+					     left_count[ii],
+					     presort);
 	}
 	// pick the best goodness 
 	auto best_goodness = std::max_element(goodness.begin(), goodness.end());
@@ -245,6 +286,41 @@ namespace d2 {
 	  aright.ptr = assignment.ptr + left_count[ii];
 	  aright.size = assignment.size - left_count[ii];
 	  aright.cache_offset = assignment.cache_offset + left_count[ii];
+
+	  if (presort) {
+	    for (size_t i=0; i<aleft.size; ++i) {
+	      buf.sample_mask_cache[aleft.ptr[i]] = 'l';
+	    }
+	    for (size_t i=0; i<aright.size; ++i){
+	      buf.sample_mask_cache[aright.ptr[i]]= 'r';
+	    }
+
+	    for (size_t ii=0; ii<dim; ++ii) {
+	      sorted_sample *sorted_sample_ptr = &buf.sorted_samples[ii][min_index_cache[ii]];
+	      const std::vector<size_t> &inv_ind_sorted = buf.inv_ind_sorted[ii];
+	      sorted_sample *left=NULL;
+	      sorted_sample *right=NULL;
+	      for (size_t i=0; i<assignment.size; ++i) {
+		char mask = buf.sample_mask_cache[sorted_sample_ptr->index];
+		if (mask == 'l') {
+		  if (left) {
+		    left->next = sorted_sample_ptr;
+		    left = sorted_sample_ptr;
+		  } else {
+		    left = sorted_sample_ptr;
+		  }
+		} else if (mask == 'r') {
+		  if (right) {
+		    right->next = sorted_sample_ptr;
+		    right = sorted_sample_ptr;
+		  } else {
+		    right = sorted_sample_ptr;
+		  }
+		}
+		sorted_sample_ptr = sorted_sample_ptr->next;
+	      }
+	    }
+	  }	  
 	  return branch;
 	}
 	
@@ -253,7 +329,8 @@ namespace d2 {
 
     template <size_t dim, size_t n_class>
     _DTNode<dim, n_class>* build_tree(size_t sample_size,
-				      buf_tree_constructor<dim, n_class> &_buf) {
+				      buf_tree_constructor<dim, n_class> &_buf,
+				      const bool presort) {
       auto &tree_stack = _buf.tree_stack;
 
       // create index array at root node
@@ -261,8 +338,7 @@ namespace d2 {
       for (size_t i=0; i<sample_size; ++i) root_index[i] = i;
       // create the node_assignment at root node and push into stack
       node_assignment root_assignment = {&root_index[0], sample_size, 0};
-      tree_stack.push(std::make_tuple(root_assignment,
-				      nullptr));
+      tree_stack.push(std::make_tuple(root_assignment, nullptr));
 
       // allocate cache memory
       _buf.sample_cache.resize(sample_size);
@@ -279,7 +355,8 @@ namespace d2 {
 	_DTNode<dim, n_class> *node = build_dtnode(cur_assignment,
 						   assignment_left,
 						   assignment_right,
-						   _buf);
+						   _buf,
+						   presort);
 	if (!root) {
 	  root = node;
 	  assert(!cur_parent);
@@ -288,7 +365,7 @@ namespace d2 {
 	    cur_parent->right = node;
 	  else
 	    cur_parent->left = node;
-	}	
+	}
 	tree_stack.pop();
 	if (assignment_left.ptr && assignment_right.ptr) {// spanning the tree
 	  tree_stack.push(std::make_tuple(assignment_left,
@@ -299,7 +376,7 @@ namespace d2 {
       }
       return root;
     }
-
+    
   }
   
   /*! \brief the decision tree class that is currently used in marriage learning framework 
@@ -324,21 +401,58 @@ namespace d2 {
     void evals_alllabel(const real_t *X, const size_t n, real_t *loss, const size_t leading, const size_t stride) const {}
     void evals_min(const real_t *X, const size_t n, real_t *loss, const size_t leading) const {}
     
-    int fit(const real_t *X, const real_t *y, const real_t *sample_weight, const size_t n, bool sparse = false) {
+    int fit(const real_t *X, const real_t *y, const real_t *sample_weight, const size_t n,
+	    bool presort = false,
+	    bool sparse = false) {
       using namespace internal;
       sample_size = n;
       
       buf_tree_constructor<dim, n_class> buf;
       buf.max_depth = max_depth;
-      buf.X.resize(dim);
-      for (size_t i=0, j=0; i<sample_size; ++i) {
-	for (size_t k=0; k<dim; ++k, ++j) {
-	  buf.X[k].push_back(X[j]);
+      {	
+	buf.X.resize(dim);
+	for (size_t k=0; k<dim; ++k) buf.X[k].resize(sample_size);
+	buf.y.resize(sample_size);
+	buf.sample_weight.resize(sample_size);
+	for (size_t i=0, j=0; i<sample_size; ++i) {
+	  for (size_t k=0; k<dim; ++k, ++j) {
+	    buf.X[k][i]=X[j];
+	  }
+	  buf.y[i]=(size_t) y[i];
+	  buf.sample_weight[i]=sample_weight[i];	
 	}
-	buf.y.push_back((size_t) y[i]);
-	buf.sample_weight.push_back(sample_weight[i]);	
       }
-      root = build_tree(sample_size, buf);
+      if (presort) {
+	buf.sorted_samples.resize(dim);
+	buf.inv_ind_sorted.resize(dim);
+	buf.sample_mask_cache.resize(sample_size);
+	for (size_t k=0; k<dim; ++k) {
+	  auto &sorted_samples = buf.sorted_samples[k];
+	  auto &inv_ind_sorted = buf.inv_ind_sorted[k];
+	  sorted_samples.resize(sample_size);
+	  inv_ind_sorted.resize(sample_size);
+	  const real_t * XX = &buf.X[k][0];
+	  for (size_t i=0; i<sample_size; ++i) {
+	    auto &sample = sorted_samples[i];
+	    sample.x = XX[i];
+	    sample.y = (size_t) y[i];
+	    sample.weight = sample_weight[i];
+	    sample.index = i;
+	  }
+	  // presort
+	  std::sort(sorted_samples.begin(), sorted_samples.end(),
+		    [](const struct internal::sorted_sample &a,
+		       const struct internal::sorted_sample &b) -> bool {return a.x < b.x;});
+
+	  for (size_t i=0; i<sample_size; ++i) {
+	    inv_ind_sorted[sorted_samples[i].index] = i;
+	    if (i>0) {
+	      sorted_samples[i-1].next = &sorted_samples[i];
+	    }
+	  }
+	}
+      }
+      root = build_tree(sample_size, buf, presort);
       return 0;
     }
 
