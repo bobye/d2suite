@@ -1,10 +1,12 @@
 #include <rabit/rabit.h>
 #include "../common/d2.hpp"
 #include "../learn/logistic_regression.hpp"
+#include "../learn/decision_tree.hpp"
 
 #define _USE_SPARSE_ACCELERATE_
 #include "../learn/marriage_learner.hpp"
 
+#define ClassiferType Decision_Tree
 #define dim 100
 #define cls 2
 int main(int argc, char** argv) {
@@ -46,17 +48,16 @@ int main(int argc, char** argv) {
 
 
   // create and initialize the LR marriage learner 
-  Elem<def::Function<Logistic_Regression<dim, cls+1> >, dim> marriage_learner;
+  Elem<def::Function<ClassiferType<dim, cls+1> >, dim> marriage_learner;
   size_t num_of_classifers = 10;
   marriage_learner.len = num_of_classifers;
   marriage_learner.w = new real_t[num_of_classifers];
-  marriage_learner.supp = new Logistic_Regression<dim, cls+1>[num_of_classifers];
+  //marriage_learner.supp = new Logistic_Regression<dim, cls+1>[num_of_classifers];
+  marriage_learner.supp = new ClassiferType<dim, cls+1>[num_of_classifers];
   for (size_t i=0; i<marriage_learner.len; ++i) {
     marriage_learner.w[i] = 1. / num_of_classifers;
     marriage_learner.supp[i].init();
-    rabit::Broadcast(marriage_learner.supp[i].get_coeff(),
-		     marriage_learner.supp[i].get_coeff_size() * sizeof(real_t),
-		     i % rabit::GetWorldSize() );
+    marriage_learner.supp[i].sync(i % rabit::GetWorldSize() );
   }
 
   double startTime = getRealTime();

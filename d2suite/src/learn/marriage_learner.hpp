@@ -393,9 +393,7 @@ namespace d2 {
 	  }
 
 	  for (size_t ii=old_i; ii<=i; ++ii) {
-	    Broadcast(learner.supp[ii].get_coeff(),
-		      learner.supp[ii].get_coeff_size() * sizeof(real_t),
-		      ii % GetWorldSize() );
+	    learner.supp[ii].sync(ii % GetWorldSize());
 	  }
 	  old_i = i+1;	  
 	}

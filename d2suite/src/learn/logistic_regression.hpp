@@ -7,7 +7,6 @@
 #include "lbfgs.h"
 #include <random>
 #include <assert.h>
-#include <functional>
 
 namespace d2 {
 
@@ -207,14 +206,16 @@ namespace d2 {
       delete [] v;
       delete [] sv;
     }
+
+#ifdef RABIT_RABIT_H_    
+    void sync(const size_t rank) {
+      rabit::Broadcast(coeff, (n_class*dim+n_class) * sizeof(real_t), rank);      
+    }
+#endif
     
-    inline real_t* &get_coeff()  { return coeff_; }
-    inline real_t* get_coeff() const { return coeff_; }
-    inline size_t get_coeff_size() {return n_class*dim+n_class;}
     inline void set_communicate(bool bval) { communicate = bval; }
   private:
     real_t coeff[n_class*dim+n_class];
-    real_t* coeff_ = coeff;
     real_t *A = coeff, *b = coeff+n_class*dim;
     real_t *cache;
     const real_t *X, *y, *sample_weight;

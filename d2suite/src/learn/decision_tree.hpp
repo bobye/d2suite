@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <numeric>
 #include <cmath>
+#include <utility>
 
 namespace d2 {
   
@@ -24,8 +25,8 @@ namespace d2 {
     public:
       constexpr static real_t prior_class_weight = 0.;
       std::array<real_t, n_class> class_histogram = {}; ///< histogram of sample weights 
-      virtual real_t predict(const real_t *X); ///< recursive prediction function
-      virtual real_t get_score(const real_t *X);///< recursive score function
+      virtual size_t predict(const real_t *X) = 0; ///< recursive prediction function
+      virtual real_t get_score(const real_t *X) = 0;///< recursive score function
       real_t score;
       constexpr static real_t prior_weight = 0.;
     };    
@@ -35,7 +36,7 @@ namespace d2 {
     template <size_t dim, size_t n_class>
     class _DTLeaf : public _DTNode<dim, n_class> {
     public:
-      real_t predict(const real_t *X) {return label;}
+      size_t predict(const real_t *X) {return label;}
       real_t get_score(const real_t *X) {return this->score;}
       size_t label;
     };
@@ -43,13 +44,10 @@ namespace d2 {
     /*! \brief branch node in decision tree
      */
     template <size_t dim, size_t n_class>
-    class _DTBranch : public virtual _DTNode<dim, n_class> {
+    class _DTBranch : public _DTNode<dim, n_class> {
     public:
-      ~_DTBranch() {// recursive destructor
-	if (left) delete left;
-	if (right) delete right;
-      }
-      real_t predict(const real_t *X) {
+      size_t predict(const real_t *X) {
+	assert(left && right);
 	if (X[index]<cutoff) {
 	  return left->predict(X);
 	} else {
@@ -63,11 +61,11 @@ namespace d2 {
 	  return right->get_score(X);
 	}	
       }
-      _DTNode<dim, n_class> *left = nullptr, *right = nullptr;
+      _DTNode<dim, n_class> *left=nullptr, *right=nullptr;
+      int nleft = -1, nright = -1;
       size_t index;
       real_t cutoff;      
     };
-
 
     /*! \brief node assignment data structure stores
      * the indexes of sample data
@@ -106,8 +104,7 @@ namespace d2 {
       std::vector<real_t> sample_weight;
       size_t max_depth;
       std::vector<sample> sample_cache;
-      std::stack<std::tuple<node_assignment,
-			    _DTBranch<dim, n_class>*> > tree_stack;
+      std::stack<std::tuple<node_assignment, int> > tree_stack;
 
       // decision tree with presort
       std::vector<std::vector<sorted_sample> > sorted_samples;
@@ -338,14 +335,44 @@ namespace d2 {
 	    }
 	  }	  
 	  return branch;
-	}
-	
+	}	
       }
     }
 
+
+#define BIT_HIGH_POS 30
+    template <size_t dim, size_t n_class>
+    _DTNode<dim, n_class>*
+    post_process_node_arr(std::vector<internal::_DTLeaf<dim, n_class> > &leaf_arr,
+			  std::vector<internal::_DTBranch<dim, n_class> > &branch_arr) {
+      for (auto iter = branch_arr.begin(); iter < branch_arr.end(); ++iter) {
+	if (iter->nleft & 1<<BIT_HIGH_POS) {
+	  iter->left = &branch_arr[iter->nleft & ~(1<<BIT_HIGH_POS)];
+	} else {
+	  iter->left = &leaf_arr[iter->nleft];
+	}
+
+
+	if (iter->nright & 1<<BIT_HIGH_POS) {
+	  iter->right = &branch_arr[iter->nright & ~(1<<BIT_HIGH_POS)];
+	} else {
+	  iter->right = &leaf_arr[iter->nright];
+	}
+      }
+      _DTNode<dim, n_class>* root;
+      if (!branch_arr.empty()) {
+	root = &branch_arr[0];	
+      } else {
+	root = &leaf_arr[0];
+      }
+      return root;
+    }
+    
     template <size_t dim, size_t n_class>
     _DTNode<dim, n_class>* build_tree(size_t sample_size,
 				      buf_tree_constructor<dim, n_class> &_buf,
+				      std::vector<internal::_DTLeaf<dim, n_class> > &leaf_arr,
+				      std::vector<internal::_DTBranch<dim, n_class> > &branch_arr,
 				      const bool presort) {
       auto &tree_stack = _buf.tree_stack;
 
@@ -354,7 +381,7 @@ namespace d2 {
       for (size_t i=0; i<sample_size; ++i) root_index[i] = i;
       // create the node_assignment at root node and push into stack
       node_assignment root_assignment = {&root_index[0], sample_size, 0};
-      tree_stack.push(std::make_tuple(root_assignment, nullptr));
+      tree_stack.push(std::make_tuple(root_assignment, -1));
 
       // allocate cache memory
       _buf.sample_cache.resize(sample_size);
@@ -365,7 +392,7 @@ namespace d2 {
       while (!tree_stack.empty()) { 
 	auto cur_tree = tree_stack.top(); 
 	auto cur_assignment = std::get<0>(cur_tree);
-	auto cur_parent = std::get<1>(cur_tree);
+	int cur_parent = std::get<1>(cur_tree);
 
 	node_assignment assignment_left, assignment_right;
 	_DTNode<dim, n_class> *node = build_dtnode(cur_assignment,
@@ -373,24 +400,28 @@ namespace d2 {
 						   assignment_right,
 						   _buf,
 						   presort);
-	if (!root) {
-	  root = node;
-	  assert(!cur_parent);
-	} else if (cur_parent) {
-	  if (!cur_parent->right)
-	    cur_parent->right = node;
-	  else
-	    cur_parent->left = node;
-	}
 	tree_stack.pop();
+	bool is_branch;
 	if (assignment_left.ptr && assignment_right.ptr) {// spanning the tree
-	  tree_stack.push(std::make_tuple(assignment_left,
-					  dynamic_cast<_DTBranch<dim, n_class> *>(node)));
-	  tree_stack.push(std::make_tuple(assignment_right,
-					  dynamic_cast<_DTBranch<dim, n_class> *>(node)));
+	  is_branch = true;
+	  branch_arr.push_back(*std::move(static_cast<_DTBranch<dim, n_class>* > (node)));	  
+	  tree_stack.push(std::make_tuple(assignment_left, branch_arr.size()-1));
+	  tree_stack.push(std::make_tuple(assignment_right,branch_arr.size()-1));	  
+	} else {
+	  is_branch = false;
+	  leaf_arr.push_back(*std::move(static_cast<_DTLeaf<dim, n_class>* > (node))); 
 	}
+	if (cur_parent >= 0) {
+	  auto &parent = branch_arr[cur_parent];
+	  size_t ind = (is_branch)? ((branch_arr.size()-1) | 1<<BIT_HIGH_POS) : (leaf_arr.size()-1);
+	  if (parent.nright < 0)
+	    parent.nright = ind;
+	  else
+	    parent.nleft = ind;
+	}	
       }
-      return root;
+
+      return post_process_node_arr(leaf_arr, branch_arr);
     }    
   }
   
@@ -467,23 +498,21 @@ namespace d2 {
 	  }
 	}
       }
-      root = build_tree(sample_size, buf, presort);
+      root = build_tree(sample_size, buf, leaf_arr, branch_arr, presort);      
       return 0;
     }
 
-    inline real_t* &get_coeff()  { return coeff; }
-    inline real_t* get_coeff() const { return coeff; }
-    inline size_t get_coeff_size() {return n_class*dim+n_class;}
     inline void set_communicate(bool bval) { communicate = bval; }
 
-    ~Decision_Tree() {
-      if (root) {
-	delete root;
-      }
+#ifdef RABIT_RABIT_H_
+    void sync(size_t rank) {
     }
+#endif
+    
   private:
     internal::_DTNode<dim, n_class> *root = nullptr;
-    real_t *coeff;
+    std::vector<internal::_DTLeaf<dim, n_class> > leaf_arr; 
+    std::vector<internal::_DTBranch<dim, n_class> > branch_arr; 
     size_t sample_size;
     size_t max_depth = 12;
     bool communicate = true;    
