@@ -11,6 +11,7 @@
 #include <array>
 #include <algorithm>
 #include <numeric>
+#include <cmath>
 
 namespace d2 {
   
@@ -24,7 +25,10 @@ namespace d2 {
       constexpr static real_t prior_class_weight = 0.;
       std::array<real_t, n_class> class_histogram = {}; ///< histogram of sample weights 
       virtual real_t predict(const real_t *X); ///< recursive prediction function
-    };
+      virtual real_t get_score(const real_t *X);///< recursive score function
+      real_t score;
+      constexpr static real_t prior_weight = 0.;
+    };    
 
     /*! \brief lead node in decision tree
      */
@@ -32,7 +36,8 @@ namespace d2 {
     class _DTLeaf : public _DTNode<dim, n_class> {
     public:
       real_t predict(const real_t *X) {return label;}
-      real_t label;
+      real_t get_score(const real_t *X) {return this->score;}
+      size_t label;
     };
 
     /*! \brief branch node in decision tree
@@ -45,12 +50,18 @@ namespace d2 {
 	if (right) delete right;
       }
       real_t predict(const real_t *X) {
-	assert(left && right);
 	if (X[index]<cutoff) {
 	  return left->predict(X);
 	} else {
 	  return right->predict(X);
 	}
+      }
+      real_t get_score(const real_t *X) {
+	if (X[index]<cutoff) {
+	  return left->get_score(X);
+	} else {
+	  return right->get_score(X);
+	}	
       }
       _DTNode<dim, n_class> *left = nullptr, *right = nullptr;
       size_t index;
@@ -206,12 +217,15 @@ namespace d2 {
       auto max_class_w = std::max_element(class_hist.begin(), class_hist.end());
       auto all_class_w = std::accumulate(class_hist.begin(), class_hist.end(), 0);      
 
+      // get the probability score
+      real_t prob =  (*max_class_w + _DTNode<dim, n_class>::prior_weight) / (all_class_w + _DTNode<dim, n_class>::prior_weight);
       
       if (assignment.size == 1 || buf.tree_stack.size() > buf.max_depth || (1 - *max_class_w / all_class_w) < 0.01 ) {
 	// if the condtion to create a leaf node is satisfied
 	_DTLeaf<dim, n_class> *leaf = new _DTLeaf<dim, n_class>();
 	leaf->class_histogram = class_hist;
 	leaf->label = max_class_w - class_hist.begin();
+	leaf->score = - log (prob);
 	return leaf;
       } else {
 	// if it is possible to create a branch node
@@ -261,6 +275,7 @@ namespace d2 {
 	  _DTLeaf<dim, n_class> *leaf = new _DTLeaf<dim, n_class>();
 	  leaf->class_histogram = class_hist;
 	  leaf->label = max_class_w - class_hist.begin();
+	  leaf->score = -log(prob);
 	  return leaf;
 	} else {
 	  // otherwise, create a branch node subject to the picked dimension/goodness
@@ -268,6 +283,7 @@ namespace d2 {
 	  size_t ii = best_goodness - goodness.begin();
 	  branch->index = ii;
 	  branch->cutoff = cutoff[ii];
+	  branch->score = -log(prob);
 	  sample *sample_cache = &buf.sample_cache[0] + assignment.cache_offset;
 	  for (size_t jj=0; jj<assignment.size; ++jj) {
 	    sample_cache[jj].x = buf.X[ii][assignment.ptr[jj]];
@@ -375,8 +391,7 @@ namespace d2 {
 	}
       }
       return root;
-    }
-    
+    }    
   }
   
   /*! \brief the decision tree class that is currently used in marriage learning framework 
