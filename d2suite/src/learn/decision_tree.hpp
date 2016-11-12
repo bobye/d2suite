@@ -21,6 +21,10 @@
 namespace d2 {
   
   namespace internal {
+    template <size_t dim, size_t n_class> class _DTLeaf;
+    template <size_t dim, size_t n_class> class _DTBranch;
+    
+    
     /*! \brief base class for decision tree nodes
      * which includes shared functions and data members of both leaf and branch
     */
@@ -29,9 +33,9 @@ namespace d2 {
     public:
       constexpr static real_t prior_class_weight = 0.;
       std::array<real_t, n_class> class_histogram = {}; ///< histogram of sample weights 
-      virtual size_t predict(const real_t *X) = 0; ///< recursive prediction function
-      virtual real_t get_score(const real_t *X) = 0;///< recursive score function
+      virtual _DTLeaf<dim, n_class>* get_leafnode(const real_t *X) = 0;
       real_t score;
+      real_t weight;
       constexpr static real_t prior_weight = 0.;
     };    
 
@@ -40,8 +44,7 @@ namespace d2 {
     template <size_t dim, size_t n_class>
     class _DTLeaf : public _DTNode<dim, n_class> {
     public:
-      size_t predict(const real_t *X) {return label;}
-      real_t get_score(const real_t *X) {return this->score;}
+      _DTLeaf<dim, n_class>* get_leafnode(const real_t *X) {return this;}
       size_t label;
     };
 
@@ -50,20 +53,12 @@ namespace d2 {
     template <size_t dim, size_t n_class>
     class _DTBranch : public _DTNode<dim, n_class> {
     public:
-      size_t predict(const real_t *X) {
-	assert(left && right);
+      _DTLeaf<dim, n_class>* get_leafnode(const real_t *X) {
 	if (X[index]<cutoff) {
-	  return left->predict(X);
+	  return left->get_leafnode(X);
 	} else {
-	  return right->predict(X);
+	  return right->get_leafnode(X);
 	}
-      }
-      real_t get_score(const real_t *X) {
-	if (X[index]<cutoff) {
-	  return left->get_score(X);
-	} else {
-	  return right->get_score(X);
-	}	
       }
       _DTNode<dim, n_class> *left=nullptr, *right=nullptr;
       int nleft = -1, nright = -1;
@@ -219,7 +214,7 @@ namespace d2 {
       auto all_class_w = std::accumulate(class_hist.begin(), class_hist.end(), 0);      
 
       // get the probability score
-      real_t prob =  (*max_class_w + _DTNode<dim, n_class>::prior_weight) / (all_class_w + _DTNode<dim, n_class>::prior_weight);
+      real_t prob =  (*max_class_w + _DTNode<dim, n_class>::prior_weight) / (all_class_w + _DTNode<dim, n_class>::prior_weight * n_class);
       
       if (assignment.size == 1 || buf.tree_stack.size() > buf.max_depth || (1 - *max_class_w / all_class_w) < 0.01 ) {
 	// if the condtion to create a leaf node is satisfied
@@ -227,6 +222,7 @@ namespace d2 {
 	leaf->class_histogram = class_hist;
 	leaf->label = max_class_w - class_hist.begin();
 	leaf->score = - log (prob);
+	leaf->weight = all_class_w;
 	return leaf;
       } else {
 	// if it is possible to create a branch node
@@ -441,15 +437,46 @@ namespace d2 {
       const real_t* x = X;
       assert(root);
       for (size_t i=0; i<n; ++i, x+=dim) {
-	y[i] = root->predict(x);
+	auto leaf = root->get_leafnode(x);
+	y[i] = leaf->label;
       }
     };
-    real_t eval(const real_t *X, const real_t y) const { return 0.;}
-    void eval_alllabel(const real_t *X, real_t *loss, const size_t stride) const {}
-    real_t eval_min(const real_t *X) const {}
-    void evals(const real_t *X, const real_t *y, const size_t n, real_t *loss, const size_t leading, const size_t stride = 1) const {}
-    void evals_alllabel(const real_t *X, const size_t n, real_t *loss, const size_t leading, const size_t stride) const {}
-    void evals_min(const real_t *X, const size_t n, real_t *loss, const size_t leading) const {}
+    real_t eval(const real_t *X, const real_t y) const {
+      LeafNode *leaf = root->get_leafnode(X);
+      std::array<real_t, n_class> &histogram = leaf->class_histogram;
+      return -log((histogram[(size_t) y] + internal::_DTNode<dim,n_class>::prior_weight) / (leaf->weight + internal::_DTNode<dim, n_class>::prior_weight * n_class));
+    }
+    void eval_alllabel(const real_t *X, real_t *loss, const size_t stride) const {
+      LeafNode *leaf = root->get_leafnode(X);
+      std::array<real_t, n_class> &histogram = leaf->class_histogram;
+      for (size_t i=0; i<n_class; ++i) {
+	loss[i*stride] = -log((histogram[i] + internal::_DTNode<dim,n_class>::prior_weight) / (leaf->weight + internal::_DTNode<dim, n_class>::prior_weight * n_class));
+      }
+    }
+    real_t eval_min(const real_t *X) const {
+      return root->get_leafnode(X)->score;
+    }
+    void evals(const real_t *X, const real_t *y, const size_t n, real_t *loss, const size_t leading, const size_t stride = 1) const {
+      for (size_t i=0; i<n; ++i) {
+	LeafNode *leaf = root->get_leafnode(X + i*dim);	
+	std::array<real_t, n_class> &histogram = leaf->class_histogram;
+	loss[i*leading] = -log((histogram[(size_t) y[i*stride]] + internal::_DTNode<dim,n_class>::prior_weight) / (leaf->weight + internal::_DTNode<dim, n_class>::prior_weight * n_class));
+      }
+    }
+    void evals_alllabel(const real_t *X, const size_t n, real_t *loss, const size_t leading, const size_t stride) const {
+      for (size_t i=0; i<n; ++i) {
+	LeafNode *leaf = root->get_leafnode(X + i*dim);	
+	std::array<real_t, n_class> &histogram = leaf->class_histogram;
+	for (size_t j=0; j<n_class; ++j) {
+	  loss[i*leading + j*stride] = -log((histogram[j] + internal::_DTNode<dim,n_class>::prior_weight) / (leaf->weight + internal::_DTNode<dim, n_class>::prior_weight * n_class));
+	}
+      }
+    }
+    void evals_min(const real_t *X, const size_t n, real_t *loss, const size_t leading) const {
+      for (size_t i=0; i<n; ++i) {
+	loss[i*leading] = root->get_leafnode(X+i*dim)->score;
+      }
+    }
     
     int fit(const real_t *X, const real_t *y, const real_t *sample_weight, const size_t n,
 	    bool presort = false,
@@ -513,15 +540,19 @@ namespace d2 {
 
 #ifdef RABIT_RABIT_H_
     typedef rabit::utils::MemoryBufferStream MemoryBufferStream;
+
+    /*! \brief helper function that caches data to stream */
     inline void save(dmlc::Stream* fo) {
       fo->Read(dmlc::BeginPtr(leaf_arr),sizeof(LeafNode) * leaf_arr.size());
       fo->Read(dmlc::BeginPtr(branch_arr),sizeof(BranchNode) * branch_arr.size());
     }
+    /*! \brief helper function that restores data from stream */
     inline void load(dmlc::Stream* fi) {
       fi->Write(dmlc::BeginPtr(leaf_arr),sizeof(LeafNode) * leaf_arr.size());
       fi->Write(dmlc::BeginPtr(branch_arr),sizeof(BranchNode) * branch_arr.size());
     }
 
+    /*! \brief synchronize between multiple processors */
     void sync(size_t rank) {
       std::string s_model;
       MemoryBufferStream fs(&s_model);
