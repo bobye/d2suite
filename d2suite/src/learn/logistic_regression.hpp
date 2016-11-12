@@ -195,10 +195,10 @@ namespace d2 {
 
       forward_(A, b, X, n, v, sv);
       for (size_t i=0; i<n; ++i) {
-	real_t this_loss = 0;
-	for (size_t j=i*n_class + 1; j<=i*n_class + n_class; ++j)
-	  if (this_loss < v[j]) this_loss = v[j];
-	loss[i*leading] = -log (this_loss);
+	real_t max_prob = 0;
+	for (size_t j=i*n_class + 1; j<i*n_class + n_class; ++j)
+	  if (max_prob < v[j]) max_prob = v[j];
+	loss[i*leading] = -log (max_prob);
       }
       delete [] v;
       delete [] sv;
