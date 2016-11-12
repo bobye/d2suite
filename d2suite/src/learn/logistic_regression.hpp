@@ -129,7 +129,6 @@ namespace d2 {
       loss = - log(v[(size_t) y]) + log(exp_sum);
       return loss;
     }
-
     void eval_alllabel(const real_t *X, real_t *loss, const size_t stride) const {
 
       real_t v[n_class];
@@ -166,7 +165,6 @@ namespace d2 {
       loss = - log(loss) + log(exp_sum);
       return loss;      
     }
-    
     void evals(const real_t *X, const real_t *y, const size_t n, real_t *loss, const size_t leading, const size_t stride = 1) const {
       real_t *v = new real_t[n*n_class];
       real_t *sv= new real_t[n];
@@ -178,7 +176,6 @@ namespace d2 {
       delete [] v;
       delete [] sv;
     }
-
     void evals_alllabel(const real_t *X, const size_t n, real_t *loss, const size_t leading, const size_t stride) const {
       real_t *v = new real_t[n*n_class];
       real_t *sv= new real_t[n];
@@ -197,11 +194,11 @@ namespace d2 {
       real_t *sv= new real_t[n];
 
       forward_(A, b, X, n, v, sv);
-      for (size_t i=0; i<n; i+=leading) {
+      for (size_t i=0; i<n; ++i) {
 	real_t this_loss = 0;
 	for (size_t j=i*n_class + 1; j<=i*n_class + n_class; ++j)
 	  if (this_loss < v[j]) this_loss = v[j];
-	loss[i] = -log (this_loss);
+	loss[i*leading] = -log (this_loss);
       }
       delete [] v;
       delete [] sv;
