@@ -14,6 +14,10 @@
 #include <cmath>
 #include <utility>
 
+#ifdef RABIT_RABIT_H
+#include <dmlc/io.h>
+#endif
+
 namespace d2 {
   
   namespace internal {
@@ -504,15 +508,47 @@ namespace d2 {
 
     inline void set_communicate(bool bval) { communicate = bval; }
 
+    typedef internal::_DTLeaf<dim, n_class> LeafNode;
+    typedef internal::_DTBranch<dim, n_class> BranchNode;
+
 #ifdef RABIT_RABIT_H_
+    typedef rabit::utils::MemoryBufferStream MemoryBufferStream;
+    inline void save(dmlc::Stream* fo) {
+      fo->Read(dmlc::BeginPtr(leaf_arr),sizeof(LeafNode) * leaf_arr.size());
+      fo->Read(dmlc::BeginPtr(branch_arr),sizeof(BranchNode) * branch_arr.size());
+    }
+    inline void load(dmlc::Stream* fi) {
+      fi->Write(dmlc::BeginPtr(leaf_arr),sizeof(LeafNode) * leaf_arr.size());
+      fi->Write(dmlc::BeginPtr(branch_arr),sizeof(BranchNode) * branch_arr.size());
+    }
+
     void sync(size_t rank) {
+      std::string s_model;
+      MemoryBufferStream fs(&s_model);
+      size_t n_leaf = leaf_arr.size();
+      size_t n_branch = branch_arr.size();
+      rabit::Broadcast(&n_leaf, sizeof(size_t), rank);
+      rabit::Broadcast(&n_branch, sizeof(size_t), rank);
+      if (rabit::GetRank() != rank) {
+	leaf_arr.resize(n_leaf);
+	branch_arr.resize(n_branch);
+      }
+      if (rabit::GetRank() == rank) {
+	save(&fs);
+      }
+      fs.Seek(0);
+      rabit::Broadcast(&s_model, rank);
+      if (rabit::GetRank() != rank) {
+	load(&fs);
+	root = post_process_node_arr(leaf_arr, branch_arr);
+      }
     }
 #endif
     
   private:
     internal::_DTNode<dim, n_class> *root = nullptr;
-    std::vector<internal::_DTLeaf<dim, n_class> > leaf_arr; 
-    std::vector<internal::_DTBranch<dim, n_class> > branch_arr; 
+    std::vector<LeafNode> leaf_arr; 
+    std::vector<BranchNode> branch_arr;
     size_t sample_size;
     size_t max_depth = 12;
     bool communicate = true;    
