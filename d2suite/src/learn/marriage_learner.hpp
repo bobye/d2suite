@@ -206,6 +206,7 @@ namespace d2 {
    */
   struct ML_BADMM_PARAM {
     size_t max_iter = 50; ///< the maximum number of iterations
+    size_t badmm_iter = 50;
     real_t rho = 10.; ///< the BADMM parameter
     real_t beta = 1.; ///< the relative weight of non-above class
     size_t restart = -1; ///< the number of iterations fulfilled to restart BADMM; -1 means disabled
@@ -383,7 +384,7 @@ namespace d2 {
       for (size_t i=0; i<data.get_size();++i) {
 	const size_t matsize = data[i].len * learner.len;
 	real_t p_res, d_res;
-	EMD_BADMM(learner, data[i], badmm_cache_ptr, 50, &p_res, &d_res);
+	EMD_BADMM(learner, data[i], badmm_cache_ptr, param.badmm_iter, &p_res, &d_res);
 
 	badmm_cache_ptr.C += matsize;
 	badmm_cache_ptr.Ctmp += matsize;

@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
 
   // create and initialize the LR marriage learner 
   Elem<def::Function<ClassiferType<dim, cls+1> >, dim> marriage_learner;
-  size_t num_of_classifers = 20;
+  size_t num_of_classifers = 4;
   marriage_learner.len = num_of_classifers;
   marriage_learner.w = new real_t[num_of_classifers];
   //marriage_learner.supp = new Logistic_Regression<dim, cls+1>[num_of_classifers];
@@ -60,6 +60,7 @@ int main(int argc, char** argv) {
   validation.push_back(&test);
   ML_BADMM_PARAM param;
   param.bootstrap = true;
+  param.badmm_iter=2;
   ML_BADMM(train, marriage_learner, param, validation);
 
   if (rabit::GetRank() == 0)
