@@ -146,6 +146,7 @@ namespace d2 {
     return accuracy;    
   }
 
+  
   static real_t beta; /* an important parameter */
 
 #ifdef _USE_SPARSE_ACCELERATE_
@@ -199,21 +200,36 @@ namespace d2 {
 #endif
   }
 
+
+
+  /*! \brief all hyper parameters of ML_BADMM
+   */
+  struct ML_BADMM_PARAM {
+    size_t max_iter = 50; ///< the maximum number of iterations
+    real_t rho = 10.; ///< the BADMM parameter
+    real_t beta = 1.; ///< the relative weight of non-above class
+    size_t restart = -1; ///< the number of iterations fulfilled to restart BADMM; -1 means disabled
+    bool   bootstrap = false; ///< whether using bootstrap samples to initialize classifers
+  };
   /*!
    * \brief the marriage learning algorithm enabled by BADMM 
    * \param data a block of elements to train
    * \param learner a d2 element which has several classifiers of type FuncType
-   * \param max_iter the maximum number of iterations
    * \param rho the BADMM parameter
    * \param val_data a vector of validation data
    */
   template <typename ElemType1, typename FuncType, size_t dim>
   void ML_BADMM (Block<ElemType1> &data,
 		 Elem<def::Function<FuncType>, dim> &learner,
-		 const size_t max_iter,
-		 const real_t rho,
+		 const ML_BADMM_PARAM &param,
 		 std::vector<Block<ElemType1>* > &val_data) {    
     using namespace rabit;
+    // basic initialization
+    for (size_t i=0; i<learner.len; ++i) {
+      learner.w[i] = 1. / learner.len;
+      learner.supp[i].init();
+      learner.supp[i].sync(i % rabit::GetWorldSize() );
+    }
 
     size_t global_col = data.get_col();
     size_t global_size= data.get_size();    
@@ -228,7 +244,8 @@ namespace d2 {
 #endif
     
     internal::BADMMCache badmm_cache_arr;
-    beta = 1./(learner.len - 1);
+    real_t rho = param.rho;
+    beta = param.beta / (learner.len - 1);
     assert(learner.len > 1);
     allocate_badmm_cache(data, learner, badmm_cache_arr);
     
@@ -251,6 +268,34 @@ namespace d2 {
     internal::get_dense_if_need_ec(data, &X, &y);
 #endif
 
+
+    // initialize classifers using bootstrap samples
+    if (param.bootstrap) {
+      if (GetRank() == 0) {
+	std::cout << "Initializing parameters using bootstrap samples ... " << std::endl;
+      }  
+      const size_t sample_size = internal::_get_sample_size(data, FuncType::NUMBER_OF_CLASSES);
+      real_t *bootstrap_weight = new real_t[sample_size];
+      for (size_t j=0, old_j=0; j<learner.len; ++j) {
+	if (j % rabit::GetWorldSize() == rabit::GetRank()) {
+	  std::random_device rd;
+	  std::uniform_real_distribution<real_t>  unif(0., 1.);
+	  std::mt19937 rnd_gen(rd());
+	  for (size_t i=0; i<sample_size; ++i) {
+	    bootstrap_weight[i] = unif(rnd_gen);
+	  }
+	  learner.supp[j].fit(X, y, bootstrap_weight, sample_size);
+	}
+	if ((j+1) % rabit::GetWorldSize() == 0 || j+1 == learner.len) {
+	  for (size_t jj=old_j; jj <= j; ++jj) {
+	    learner.supp[jj].sync(jj % rabit::GetWorldSize() );
+	  }
+	  old_j = j+1;
+	}
+      }
+      delete [] bootstrap_weight;
+    }
+    
     if (GetRank() == 0) {
       std::cout << "\t"
 		<< "iter    " << "\t"
@@ -265,11 +310,10 @@ namespace d2 {
     real_t loss;
     real_t train_accuracy_1, train_accuracy_2, validate_accuracy_1, validate_accuracy_2;
     real_t old_totalC;
-    for (size_t iter=0; iter < max_iter; ++iter) {
+    for (size_t iter=0; iter < param.max_iter; ++iter) {
       /* ************************************************
        * compute cost matrix
        */
-
       _pdist2(learner.supp, learner.len,
 	      data.get_support_ptr(), data.get_col(),
 	      data.meta, badmm_cache_arr.C);
@@ -420,7 +464,6 @@ namespace d2 {
       Barrier();
       
       
-
       train_accuracy_1 = ML_Predict_ByWinnerTakeAll(data, learner);
       train_accuracy_2 = ML_Predict_ByVoting(data, learner);
 

@@ -1,7 +1,7 @@
 #include "../common/timer.h"
 #include "../learn/decision_tree.hpp"
 #include <random>
-#define N 200000
+#define N 1000000
 #define D 10
 using namespace d2;
 
@@ -35,7 +35,7 @@ int main() {
   auto classifier = new Decision_Tree<D, 2>();
   classifier->init();
   real_t start=getRealTime();
-  classifier->fit(X, y, w, N, true);
+  classifier->fit(X, y, w, N);
   printf("time: %lf seconds\n", getRealTime() - start);
   sample_naive_data(X, y, w);
   classifier->predict(X, N, y_pred);

@@ -31,12 +31,15 @@ namespace d2 {
     template <size_t dim, size_t n_class>
     class _DTNode {
     public:
-      constexpr static real_t prior_class_weight = 0.;
       std::array<real_t, n_class> class_histogram = {}; ///< histogram of sample weights 
       virtual _DTLeaf<dim, n_class>* get_leafnode(const real_t *X) = 0;
+#ifdef RABIT_RABIT_H_
+      virtual void write(dmlc::Stream *fo) const = 0;
+      virtual void read(dmlc::Stream *fi) = 0;
+#endif
       real_t score;
       real_t weight;
-      constexpr static real_t prior_weight = 0.;
+      constexpr static real_t prior_weight = 0.01;
     };    
 
     /*! \brief lead node in decision tree
@@ -44,7 +47,23 @@ namespace d2 {
     template <size_t dim, size_t n_class>
     class _DTLeaf : public _DTNode<dim, n_class> {
     public:
-      _DTLeaf<dim, n_class>* get_leafnode(const real_t *X) {return this;}
+      _DTLeaf<dim, n_class>* get_leafnode(const real_t *X) {
+	return this;
+      }
+#ifdef RABIT_RABIT_H_
+      void write(dmlc::Stream *fo) const {
+	fo->Write(&this->class_histogram[0], sizeof(real_t) * n_class);
+	fo->Write(&this->score, sizeof(real_t));
+	fo->Write(&this->weight, sizeof(real_t));
+	fo->Write(&this->label, sizeof(size_t));
+      }
+      void read(dmlc::Stream *fi) {
+	fi->Read(&this->class_histogram[0], sizeof(real_t) * n_class);
+	fi->Read(&this->score, sizeof(real_t));
+	fi->Read(&this->weight, sizeof(real_t));
+	fi->Read(&this->label, sizeof(size_t));
+      }
+#endif
       size_t label;
     };
 
@@ -54,12 +73,33 @@ namespace d2 {
     class _DTBranch : public _DTNode<dim, n_class> {
     public:
       _DTLeaf<dim, n_class>* get_leafnode(const real_t *X) {
+	assert(left && right);
 	if (X[index]<cutoff) {
 	  return left->get_leafnode(X);
 	} else {
 	  return right->get_leafnode(X);
 	}
       }
+#ifdef RABIT_RABIT_H_
+      void write(dmlc::Stream *fo) const {
+	fo->Write(&this->class_histogram[0], sizeof(real_t) * n_class);
+	fo->Write(&this->score, sizeof(real_t));
+	fo->Write(&this->weight, sizeof(real_t));
+	fo->Write(&this->nleft, sizeof(int));
+	fo->Write(&this->nright, sizeof(int));
+	fo->Write(&this->index, sizeof(size_t));
+	fo->Write(&this->cutoff, sizeof(real_t));
+      }
+      void read(dmlc::Stream *fi) {
+	fi->Read(&this->class_histogram[0], sizeof(real_t) * n_class);
+	fi->Read(&this->score, sizeof(real_t));
+	fi->Read(&this->weight, sizeof(real_t));
+	fi->Read(&this->nleft, sizeof(int));
+	fi->Read(&this->nright, sizeof(int));
+	fi->Read(&this->index, sizeof(size_t));
+	fi->Read(&this->cutoff, sizeof(real_t));
+      }
+#endif
       _DTNode<dim, n_class> *left=nullptr, *right=nullptr;
       int nleft = -1, nright = -1;
       size_t index;
@@ -102,6 +142,7 @@ namespace d2 {
       std::vector<size_t> y;
       std::vector<real_t> sample_weight;
       size_t max_depth;
+      real_t min_leaf_weight;
       std::vector<sample> sample_cache;
       std::stack<std::tuple<node_assignment, int> > tree_stack;
 
@@ -116,7 +157,7 @@ namespace d2 {
     template <size_t n_class>
     real_t gini(const std::array<real_t, n_class> &proportion) {
       real_t total_weight_sqr;
-      total_weight_sqr = std::accumulate(proportion.begin(), proportion.end(), 0);
+      total_weight_sqr = std::accumulate(proportion.begin(), proportion.end(), 0.);
       total_weight_sqr = total_weight_sqr * total_weight_sqr;
       if (total_weight_sqr <= 0) return 1.;
 
@@ -210,13 +251,13 @@ namespace d2 {
       }
 
       // basic statistics regarding class histogram
-      auto max_class_w = std::max_element(class_hist.begin(), class_hist.end());
-      auto all_class_w = std::accumulate(class_hist.begin(), class_hist.end(), 0);      
+      real_t* max_class_w = std::max_element(class_hist.begin(), class_hist.end());
+      real_t  all_class_w = std::accumulate(class_hist.begin(), class_hist.end(), 0.);      
 
       // get the probability score
       real_t prob =  (*max_class_w + _DTNode<dim, n_class>::prior_weight) / (all_class_w + _DTNode<dim, n_class>::prior_weight * n_class);
       
-      if (assignment.size == 1 || buf.tree_stack.size() > buf.max_depth || (1 - *max_class_w / all_class_w) < 0.01 ) {
+      if (assignment.size == 1 || buf.tree_stack.size() > buf.max_depth || (1 - *max_class_w / all_class_w) < 0.01 || all_class_w < buf.min_leaf_weight) {
 	// if the condtion to create a leaf node is satisfied
 	_DTLeaf<dim, n_class> *leaf = new _DTLeaf<dim, n_class>();
 	leaf->class_histogram = class_hist;
@@ -266,8 +307,8 @@ namespace d2 {
 					     presort);
 	}
 	// pick the best goodness 
-	auto best_goodness = std::max_element(goodness.begin(), goodness.end());
-	if (*best_goodness < 1E-3) {
+	real_t* best_goodness = std::max_element(goodness.begin(), goodness.end());
+	if (*best_goodness < 1E-5) {
 	  // if the best goodness is not good enough, a leaf node is still created
 	  _DTLeaf<dim, n_class> *leaf = new _DTLeaf<dim, n_class>();
 	  leaf->class_histogram = class_hist;
@@ -359,13 +400,14 @@ namespace d2 {
 	  iter->right = &leaf_arr[iter->nright];
 	}
       }
-      _DTNode<dim, n_class>* root;
+      _DTNode<dim, n_class>* r;
       if (!branch_arr.empty()) {
-	root = &branch_arr[0];	
+	r = &branch_arr[0];
+	//	printf("%zd\n", static_cast<_DTBranch<dim, n_class> *>(r)->nleft);
       } else {
-	root = &leaf_arr[0];
+	r = &leaf_arr[0];
       }
-      return root;
+      return r;
     }
     
     template <size_t dim, size_t n_class>
@@ -374,6 +416,9 @@ namespace d2 {
 				      std::vector<internal::_DTLeaf<dim, n_class> > &leaf_arr,
 				      std::vector<internal::_DTBranch<dim, n_class> > &branch_arr,
 				      const bool presort) {
+      leaf_arr.clear();
+      branch_arr.clear();
+
       auto &tree_stack = _buf.tree_stack;
 
       // create index array at root node
@@ -474,18 +519,47 @@ namespace d2 {
     }
     void evals_min(const real_t *X, const size_t n, real_t *loss, const size_t leading) const {
       for (size_t i=0; i<n; ++i) {
-	loss[i*leading] = root->get_leafnode(X+i*dim)->score;
+	LeafNode *leaf = root->get_leafnode(X+i*dim);
+	loss[i*leading] = leaf->score;
       }
     }
     
     int fit(const real_t *X, const real_t *y, const real_t *sample_weight, const size_t n,
-	    bool presort = false,
 	    bool sparse = false) {
+      assert(X && y && !(sparse && !sample_weight));
       using namespace internal;
-      sample_size = n;
+      
+      // convert sparse data to dense
+      const real_t *XX, *yy, *ss;
+      size_t sample_size;
+      if (sparse) {
+	size_t nz = 0;
+	for (size_t i = 0; i<n; ++i) nz += sample_weight[i] > 0;
+	real_t* XX_ = new real_t [nz * dim];
+	real_t* yy_ = new real_t [nz];
+	real_t* ss_ = new real_t [nz];
+	size_t count = 0;
+	for (size_t i = 0; i<n; ++i)
+	  if (sample_weight[i] > 0) {	  
+	    for (size_t j = 0; j<dim; ++j) XX_[count*dim + j] = X[i*dim + j];
+	    yy_[count] = y[i];
+	    ss_[count] = sample_weight[i];
+	    count ++;
+	  }
+	XX = XX_;
+	yy = yy_;
+	ss = ss_;
+	sample_size = nz;
+      } else {
+	XX = X;
+	yy = y;
+	ss = sample_weight;
+	sample_size = n;
+      }
       
       buf_tree_constructor<dim, n_class> buf;
       buf.max_depth = max_depth;
+      buf.min_leaf_weight = min_leaf_weight;
       {	
 	buf.X.resize(dim);
 	for (size_t k=0; k<dim; ++k) buf.X[k].resize(sample_size);
@@ -493,10 +567,13 @@ namespace d2 {
 	buf.sample_weight.resize(sample_size);
 	for (size_t i=0, j=0; i<sample_size; ++i) {
 	  for (size_t k=0; k<dim; ++k, ++j) {
-	    buf.X[k][i]=X[j];
+	    buf.X[k][i]=XX[j];
 	  }
-	  buf.y[i]=(size_t) y[i];
-	  buf.sample_weight[i]=sample_weight[i];	
+	  buf.y[i]=(size_t) yy[i];
+	  if (ss)
+	    buf.sample_weight[i]=ss[i];
+	  else
+	    buf.sample_weight[i]=1.;
 	}
       }
       if (presort) {
@@ -512,8 +589,11 @@ namespace d2 {
 	  for (size_t i=0; i<sample_size; ++i) {
 	    auto &sample = sorted_samples[i];
 	    sample.x = XX[i];
-	    sample.y = (size_t) y[i];
-	    sample.weight = sample_weight[i];
+	    sample.y = (size_t) yy[i];
+	    if (ss)
+	      sample.weight = ss[i];
+	    else
+	      sample.weight = 1.;
 	    sample.index = i;
 	  }
 	  // presort
@@ -529,7 +609,12 @@ namespace d2 {
 	  }
 	}
       }
-      root = build_tree(sample_size, buf, leaf_arr, branch_arr, presort);      
+      root = build_tree(sample_size, buf, leaf_arr, branch_arr, presort);
+      if (sparse) {
+	delete [] XX;
+	delete [] yy;
+	delete [] ss;
+      }
       return 0;
     }
 
@@ -543,45 +628,65 @@ namespace d2 {
 
     /*! \brief helper function that caches data to stream */
     inline void save(dmlc::Stream* fo) {
-      fo->Read(dmlc::BeginPtr(leaf_arr),sizeof(LeafNode) * leaf_arr.size());
-      fo->Read(dmlc::BeginPtr(branch_arr),sizeof(BranchNode) * branch_arr.size());
+      for (const LeafNode &leaf : leaf_arr) {
+	leaf.write(fo);
+      }
+      for (const BranchNode &branch : branch_arr) {
+	branch.write(fo);
+      }
     }
     /*! \brief helper function that restores data from stream */
     inline void load(dmlc::Stream* fi) {
-      fi->Write(dmlc::BeginPtr(leaf_arr),sizeof(LeafNode) * leaf_arr.size());
-      fi->Write(dmlc::BeginPtr(branch_arr),sizeof(BranchNode) * branch_arr.size());
+      for (LeafNode &leaf : leaf_arr) {
+	leaf.read(fi);
+      }
+      for (BranchNode &branch : branch_arr) {
+	branch.read(fi);
+      }
     }
 
     /*! \brief synchronize between multiple processors */
     void sync(size_t rank) {
+      bool no_model = false;
+      if (rabit::GetRank() == rank) { // check if model exists
+	if (leaf_arr.empty()) no_model = true;
+      }
+      rabit::Broadcast(&no_model, sizeof(bool), rank);
+      if (no_model) return;
+      
       std::string s_model;
       MemoryBufferStream fs(&s_model);
       size_t n_leaf = leaf_arr.size();
       size_t n_branch = branch_arr.size();
+
       rabit::Broadcast(&n_leaf, sizeof(size_t), rank);
       rabit::Broadcast(&n_branch, sizeof(size_t), rank);
       if (rabit::GetRank() != rank) {
-	leaf_arr.resize(n_leaf);
+        leaf_arr.resize(n_leaf);
 	branch_arr.resize(n_branch);
-      }
-      if (rabit::GetRank() == rank) {
+      } else if (rabit::GetRank() == rank) {	
 	save(&fs);
       }
       fs.Seek(0);
       rabit::Broadcast(&s_model, rank);
+      //      if (rabit::GetRank() == rank) printf("%zd: %zd\t %zd\n", rank, n_leaf, n_branch);
       if (rabit::GetRank() != rank) {
 	load(&fs);
-	root = post_process_node_arr(leaf_arr, branch_arr);
+	//	printf("%zd: load data from %zd\n", rabit::GetRank(), rank);
+	this->root = internal::post_process_node_arr(leaf_arr, branch_arr);
+	assert(root && !leaf_arr.empty());
       }
+      rabit::Barrier();	      
     }
 #endif
     
-  private:
     internal::_DTNode<dim, n_class> *root = nullptr;
+  private:
     std::vector<LeafNode> leaf_arr; 
     std::vector<BranchNode> branch_arr;
-    size_t sample_size;
     size_t max_depth = 12;
+    real_t min_leaf_weight = .1;
+    bool presort = true;
     bool communicate = true;    
   };    
 }

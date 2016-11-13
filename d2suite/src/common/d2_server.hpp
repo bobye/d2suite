@@ -78,8 +78,9 @@ namespace d2 {
 			 const def::Euclidean::type *s1, const size_t n1,
 			 const Meta<Elem<def::Euclidean, dim> > &meta,
 			 real_t *mat) {
-      for (size_t j=0; j<n2; ++j)
+      for (size_t j=0; j<n2; ++j) {
 	s2[j].evals_min(s1, n1, &mat[j], n2);
+      }
     }
 
     template <typename FuncType, size_t dim>

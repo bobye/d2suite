@@ -8,13 +8,13 @@
 
 #define ClassiferType Decision_Tree
 #define dim 100
-#define cls 2
+#define cls 4
 int main(int argc, char** argv) {
   using namespace d2;
   std::string prefix_name("data/20newsgroups/20newsgroups_clean/20newsgroups");
   const size_t start = 1;
   const real_t propo = 0.5;
-  const size_t len = 100, size=1000;    
+  const size_t len = 100, size=2000;    
   server::Init(argc, argv);
 
 
@@ -49,21 +49,18 @@ int main(int argc, char** argv) {
 
   // create and initialize the LR marriage learner 
   Elem<def::Function<ClassiferType<dim, cls+1> >, dim> marriage_learner;
-  size_t num_of_classifers = 10;
+  size_t num_of_classifers = 20;
   marriage_learner.len = num_of_classifers;
   marriage_learner.w = new real_t[num_of_classifers];
   //marriage_learner.supp = new Logistic_Regression<dim, cls+1>[num_of_classifers];
   marriage_learner.supp = new ClassiferType<dim, cls+1>[num_of_classifers];
-  for (size_t i=0; i<marriage_learner.len; ++i) {
-    marriage_learner.w[i] = 1. / num_of_classifers;
-    marriage_learner.supp[i].init();
-    marriage_learner.supp[i].sync(i % rabit::GetWorldSize() );
-  }
 
   double startTime = getRealTime();
   std::vector< Block<Elem<def::WordVec, dim> > * > validation;
   validation.push_back(&test);
-  ML_BADMM(train, marriage_learner, 50, 10., validation);
+  ML_BADMM_PARAM param;
+  param.bootstrap = true;
+  ML_BADMM(train, marriage_learner, param, validation);
 
   if (rabit::GetRank() == 0)
     std::cerr << getLogHeader() << " logging: marriage learning finished in " 
