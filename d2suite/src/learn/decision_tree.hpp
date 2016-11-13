@@ -31,15 +31,21 @@ namespace d2 {
     template <size_t dim, size_t n_class>
     class _DTNode {
     public:
-      std::array<real_t, n_class> class_histogram = {}; ///< histogram of sample weights 
+      std::array<real_t, n_class> class_histogram = {}; ///< histogram of sample weights
+      /*! \brief get pointer to the leaf node by a given sample */
       virtual _DTLeaf<dim, n_class>* get_leafnode(const real_t *X) = 0;
+      /*! \brief get resubstitution error */
+      virtual real_t get_R() = 0;
 #ifdef RABIT_RABIT_H_
+      /*! \brief write data into a stream buffer */
       virtual void write(dmlc::Stream *fo) const = 0;
+      /*! \brief read data from a stream buffer */
       virtual void read(dmlc::Stream *fi) = 0;
 #endif
-      real_t score;
-      real_t weight;
-      constexpr static real_t prior_weight = 0.01;
+      real_t score; ///< uncertainty score
+      real_t weight; ///< node sample weight
+      real_t r;///< resubstituion error
+      constexpr static real_t prior_weight = 0.1;
     };    
 
     /*! \brief lead node in decision tree
@@ -50,18 +56,21 @@ namespace d2 {
       _DTLeaf<dim, n_class>* get_leafnode(const real_t *X) {
 	return this;
       }
+      real_t get_R() {return this->r;}
 #ifdef RABIT_RABIT_H_
       void write(dmlc::Stream *fo) const {
 	fo->Write(&this->class_histogram[0], sizeof(real_t) * n_class);
 	fo->Write(&this->score, sizeof(real_t));
 	fo->Write(&this->weight, sizeof(real_t));
 	fo->Write(&this->label, sizeof(size_t));
+	fo->Write(&this->r, sizeof(real_t));
       }
       void read(dmlc::Stream *fi) {
 	fi->Read(&this->class_histogram[0], sizeof(real_t) * n_class);
 	fi->Read(&this->score, sizeof(real_t));
 	fi->Read(&this->weight, sizeof(real_t));
 	fi->Read(&this->label, sizeof(size_t));
+	fi->Read(&this->r, sizeof(real_t));
       }
 #endif
       size_t label;
@@ -80,6 +89,7 @@ namespace d2 {
 	  return right->get_leafnode(X);
 	}
       }
+      real_t get_R() {return left->get_R() + right->get_R();}
 #ifdef RABIT_RABIT_H_
       void write(dmlc::Stream *fo) const {
 	fo->Write(&this->class_histogram[0], sizeof(real_t) * n_class);
@@ -89,6 +99,8 @@ namespace d2 {
 	fo->Write(&this->nright, sizeof(int));
 	fo->Write(&this->index, sizeof(size_t));
 	fo->Write(&this->cutoff, sizeof(real_t));
+	fo->Write(&this->r, sizeof(real_t));
+	fo->Write(&this->R, sizeof(real_t));
       }
       void read(dmlc::Stream *fi) {
 	fi->Read(&this->class_histogram[0], sizeof(real_t) * n_class);
@@ -98,12 +110,15 @@ namespace d2 {
 	fi->Read(&this->nright, sizeof(int));
 	fi->Read(&this->index, sizeof(size_t));
 	fi->Read(&this->cutoff, sizeof(real_t));
+	fi->Read(&this->r, sizeof(real_t));
+	fi->Read(&this->R, sizeof(real_t));
       }
 #endif
       _DTNode<dim, n_class> *left=nullptr, *right=nullptr;
       int nleft = -1, nright = -1;
       size_t index;
-      real_t cutoff;      
+      real_t cutoff;
+      real_t R;
     };
 
     /*! \brief node assignment data structure stores
@@ -256,14 +271,15 @@ namespace d2 {
 
       // get the probability score
       real_t prob =  (*max_class_w + _DTNode<dim, n_class>::prior_weight) / (all_class_w + _DTNode<dim, n_class>::prior_weight * n_class);
-      
-      if (assignment.size == 1 || buf.tree_stack.size() > buf.max_depth || (1 - *max_class_w / all_class_w) < 0.01 || all_class_w < buf.min_leaf_weight) {
+      real_t r = (1 - *max_class_w / all_class_w);
+      if (assignment.size == 1 || buf.tree_stack.size() > buf.max_depth || r < 0.01 || all_class_w < buf.min_leaf_weight) {
 	// if the condtion to create a leaf node is satisfied
 	_DTLeaf<dim, n_class> *leaf = new _DTLeaf<dim, n_class>();
 	leaf->class_histogram = class_hist;
 	leaf->label = max_class_w - class_hist.begin();
 	leaf->score = - log (prob);
 	leaf->weight = all_class_w;
+	leaf->r = r * leaf->weight;
 	return leaf;
       } else {
 	// if it is possible to create a branch node
@@ -314,6 +330,8 @@ namespace d2 {
 	  leaf->class_histogram = class_hist;
 	  leaf->label = max_class_w - class_hist.begin();
 	  leaf->score = -log(prob);
+	  leaf->weight = all_class_w;
+	  leaf->r = r * leaf->weight;
 	  return leaf;
 	} else {
 	  // otherwise, create a branch node subject to the picked dimension/goodness
@@ -322,6 +340,8 @@ namespace d2 {
 	  branch->index = ii;
 	  branch->cutoff = cutoff[ii];
 	  branch->score = -log(prob);
+	  branch->weight = all_class_w;
+	  branch->r = r * branch->weight;
 	  sample *sample_cache = &buf.sample_cache[0] + assignment.cache_offset;
 	  for (size_t jj=0; jj<assignment.size; ++jj) {
 	    sample_cache[jj].x = buf.X[ii][assignment.ptr[jj]];
