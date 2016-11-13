@@ -13,7 +13,7 @@
 #include <numeric>
 #include <cmath>
 #include <utility>
-
+#include <iostream>
 #ifdef RABIT_RABIT_H
 #include <dmlc/io.h>
 #endif
@@ -36,6 +36,7 @@ namespace d2 {
       virtual _DTLeaf<dim, n_class>* get_leafnode(const real_t *X) = 0;
       /*! \brief get resubstitution error */
       virtual real_t get_R() = 0;
+      virtual size_t get_leaf_count() = 0;
 #ifdef RABIT_RABIT_H_
       /*! \brief write data into a stream buffer */
       virtual void write(dmlc::Stream *fo) const = 0;
@@ -45,6 +46,7 @@ namespace d2 {
       real_t score; ///< uncertainty score
       real_t weight; ///< node sample weight
       real_t r;///< resubstituion error
+      int parent;
       constexpr static real_t prior_weight = 0.1;
     };    
 
@@ -53,10 +55,21 @@ namespace d2 {
     template <size_t dim, size_t n_class>
     class _DTLeaf : public _DTNode<dim, n_class> {
     public:
+      _DTLeaf(){}
+      /*! \brief construct a new leaf node from a branch node */
+      _DTLeaf(const _DTBranch<dim, n_class> &that) {
+	this->class_histogram = that.class_histogram;
+	this->score = that.score;
+	this->weight = that.weight;
+	this->r = that.r;
+	this->parent = that.parent;
+	this->label = std::max_element(that.class_histogram.begin(), that.class_histogram.end()) - that.class_histogram.begin();
+      }
       _DTLeaf<dim, n_class>* get_leafnode(const real_t *X) {
 	return this;
       }
       real_t get_R() {return this->r;}
+      size_t get_leaf_count() {return 1.;}
 #ifdef RABIT_RABIT_H_
       void write(dmlc::Stream *fo) const {
 	fo->Write(&this->class_histogram[0], sizeof(real_t) * n_class);
@@ -64,6 +77,7 @@ namespace d2 {
 	fo->Write(&this->weight, sizeof(real_t));
 	fo->Write(&this->label, sizeof(size_t));
 	fo->Write(&this->r, sizeof(real_t));
+	fo->Write(&this->parent, sizeof(int));
       }
       void read(dmlc::Stream *fi) {
 	fi->Read(&this->class_histogram[0], sizeof(real_t) * n_class);
@@ -71,6 +85,7 @@ namespace d2 {
 	fi->Read(&this->weight, sizeof(real_t));
 	fi->Read(&this->label, sizeof(size_t));
 	fi->Read(&this->r, sizeof(real_t));
+	fi->Read(&this->parent, sizeof(int));
       }
 #endif
       size_t label;
@@ -89,7 +104,11 @@ namespace d2 {
 	  return right->get_leafnode(X);
 	}
       }
-      real_t get_R() {return left->get_R() + right->get_R();}
+      real_t get_R() { R=left->get_R() + right->get_R(); return R;}
+      size_t get_leaf_count() {
+	n_leafs = left->get_leaf_count() + right->get_leaf_count();
+	return n_leafs;
+      }
 #ifdef RABIT_RABIT_H_
       void write(dmlc::Stream *fo) const {
 	fo->Write(&this->class_histogram[0], sizeof(real_t) * n_class);
@@ -101,6 +120,8 @@ namespace d2 {
 	fo->Write(&this->cutoff, sizeof(real_t));
 	fo->Write(&this->r, sizeof(real_t));
 	fo->Write(&this->R, sizeof(real_t));
+	fo->Write(&this->parent, sizeof(int));
+	fo->Write(&this->n_leafs, sizeof(size_t));
       }
       void read(dmlc::Stream *fi) {
 	fi->Read(&this->class_histogram[0], sizeof(real_t) * n_class);
@@ -112,6 +133,8 @@ namespace d2 {
 	fi->Read(&this->cutoff, sizeof(real_t));
 	fi->Read(&this->r, sizeof(real_t));
 	fi->Read(&this->R, sizeof(real_t));
+	fi->Read(&this->parent, sizeof(int));
+	fi->Read(&this->n_leafs, sizeof(size_t));
       }
 #endif
       _DTNode<dim, n_class> *left=nullptr, *right=nullptr;
@@ -119,6 +142,7 @@ namespace d2 {
       size_t index;
       real_t cutoff;
       real_t R;
+      size_t n_leafs;
     };
 
     /*! \brief node assignment data structure stores
@@ -465,27 +489,86 @@ namespace d2 {
 						   assignment_right,
 						   _buf,
 						   presort);
+	node->parent = cur_parent; // set parent index
 	tree_stack.pop();
 	bool is_branch;
 	if (assignment_left.ptr && assignment_right.ptr) {// spanning the tree
 	  is_branch = true;
-	  branch_arr.push_back(*std::move(static_cast<_DTBranch<dim, n_class>* > (node)));	  
-	  tree_stack.push(std::make_tuple(assignment_left, branch_arr.size()-1));
-	  tree_stack.push(std::make_tuple(assignment_right,branch_arr.size()-1));	  
+	  tree_stack.push(std::make_tuple(assignment_left, branch_arr.size()));
+	  tree_stack.push(std::make_tuple(assignment_right,branch_arr.size()));	  
+	  branch_arr.push_back(std::move(*static_cast<_DTBranch<dim, n_class>* > (node)));	  
 	} else {
 	  is_branch = false;
-	  leaf_arr.push_back(*std::move(static_cast<_DTLeaf<dim, n_class>* > (node))); 
+	  leaf_arr.push_back(std::move(*static_cast<_DTLeaf<dim, n_class>* > (node))); 
 	}
 	if (cur_parent >= 0) {
+	  // set child node index
 	  auto &parent = branch_arr[cur_parent];
 	  size_t ind = (is_branch)? ((branch_arr.size()-1) | 1<<BIT_HIGH_POS) : (leaf_arr.size()-1);
 	  if (parent.nright < 0)
 	    parent.nright = ind;
 	  else
-	    parent.nleft = ind;
+	    parent.nleft = ind;	  
 	}	
       }
 
+
+      // start to pruning the constructed tree
+      bool pruning = false;      
+      if (pruning) {	  
+	root = post_process_node_arr(leaf_arr, branch_arr);
+	real_t error_before_pruning = root->get_R();
+	real_t weight = root->weight;	
+	size_t n_leafs = root->get_leaf_count();
+	real_t min_alpha = 0;
+	std::cerr << getLogHeader() << "initial terminal nodes: "<<  n_leafs << std::endl;
+	while (n_leafs > 1) {
+	  // find the min(r-R)
+	  std::stack<int> branch_ind_stack;
+	  branch_ind_stack.push(0);
+	  min_alpha = branch_arr[0].weight;
+	  int min_ind;
+	  while (!branch_ind_stack.empty()) {
+	    int ind = branch_ind_stack.top();
+	    real_t alpha = (branch_arr[ind].r - branch_arr[ind].R) / (branch_arr[ind].n_leafs - 1);
+	    if (alpha < min_alpha) {
+	      min_alpha = alpha;
+	      min_ind = ind;
+	    }
+	    branch_ind_stack.pop();
+	    if (branch_arr[ind].nleft & (1<<BIT_HIGH_POS))
+	      branch_ind_stack.push(branch_arr[ind].nleft & ~(1<<BIT_HIGH_POS));
+	    if (branch_arr[ind].nright& (1<<BIT_HIGH_POS))
+	      branch_ind_stack.push(branch_arr[ind].nright &~(1<<BIT_HIGH_POS));
+	  }
+	  if (branch_arr[min_ind].parent < 0 || (weight - branch_arr[0].R) < (weight - error_before_pruning) * 0.99999) {
+	    break; // terminate search
+	  }
+	  //	printf("%lf %d\n", min_alpha, min_ind);
+	  //record pruning branch candidate
+	  _DTLeaf<dim, n_class>* leaf = new _DTLeaf<dim, n_class>(branch_arr[min_ind]);
+	  _DTBranch<dim, n_class> &parent = branch_arr[branch_arr[min_ind].parent];
+	  if (parent.nleft == (min_ind | (1<<BIT_HIGH_POS))) {
+	    parent.nleft = leaf_arr.size();
+	    leaf_arr.push_back(std::move(*leaf));
+	  } else if (parent.nright == (min_ind | (1<<BIT_HIGH_POS))) {
+	    parent.nright = leaf_arr.size();
+	    leaf_arr.push_back(std::move(*leaf));
+	  } else {
+	    assert(false);
+	  }
+	  // update R of ancestor of pruned branch
+	  int ind = min_ind;
+	  n_leafs -= (branch_arr[min_ind].n_leafs - 1);
+	  while (branch_arr[ind].parent >= 0) {
+	    ind = branch_arr[ind].parent;
+	    branch_arr[ind].R += (branch_arr[min_ind].r - branch_arr[min_ind].R);
+	    branch_arr[ind].n_leafs -= (branch_arr[min_ind].n_leafs - 1);
+	  }
+	}
+	std::cerr << getLogHeader() << "remaining terminal nodes: "<<  n_leafs << std::endl;
+      }
+      
       return post_process_node_arr(leaf_arr, branch_arr);
     }    
   }
