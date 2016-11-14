@@ -4,3 +4,4 @@ DEFINE_EXTRA=
 BLAS_LIB=-lblas
 RABIT=../rabit
 LBFGS=src/liblbfgs
+TCLAP=src/tclap

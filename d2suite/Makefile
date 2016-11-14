@@ -8,7 +8,7 @@ ARCH_FLAGS=-m64 -D _D2_DOUBLE $(DEFINE_EXTRA)
 CFLAGS=-O3 $(ARCH_FLAGS)
 LDFLAGS=$(ARCH_FLAGS)
 DEFINES=
-INCLUDES=-I$(RABIT)/include -I$(MOSEK)/h -I$(LBFGS)/include
+INCLUDES=-I$(RABIT)/include -I$(MOSEK)/h -I$(LBFGS)/include -I$(TCLAP)/include
 LIBRARIES=\
 	-L./lib -ld2suite\
 	$(RABIT)/lib/librabit_mpi.a\

@@ -6,15 +6,39 @@
 #define _USE_SPARSE_ACCELERATE_
 #include "../learn/marriage_learner.hpp"
 
-#define ClassiferType Decision_Tree
-#define dim 100
-#define cls 4
+#include <tclap/CmdLine.h>
+
+/***********************************************************************************/
+// problem setup for specific dataset
+#define ClassiferType Decision_Tree ///< type of classifer
+#define dim 100 ///< feature dimension
+#define cls 4 ///< number of classes
+/***********************************************************************************/
+
 int main(int argc, char** argv) {
+/***********************************************************************************/
+// command line parameters parsing
+  TCLAP::CmdLine cmd("Marriage Learning Client", ' ', "0.1");
+  TCLAP::ValueArg<std::string>
+    nameArg("f","prefix","prefix of d2s filename to read",true,"","string");
+  cmd.add(nameArg);
+  TCLAP::ValueArg<size_t>
+    sizeArg("n","size","number of samples to read",true,1000,"size_t");
+  cmd.add(sizeArg);
+  TCLAP::ValueArg<size_t>
+    cnumArg("c","cnum","number of classifiers",true,4,"size_t");
+  cmd.add(cnumArg);
+  try {
+    cmd.parse( argc, argv );
+  } catch (TCLAP::ArgException &e)  // catch any exceptions
+    { std::cerr << "error: " << e.error() << " for arg " << e.argId() << std::endl; }
+/***********************************************************************************/
+
   using namespace d2;
-  std::string prefix_name("data/20newsgroups/20newsgroups_clean/20newsgroups");
+  std::string prefix_name(nameArg.getValue());
   const size_t start = 1;
   const real_t propo = 0.5;
-  const size_t len = 100, size=2000;    
+  const size_t len = 100, size=sizeArg.getValue();    
   server::Init(argc, argv);
 
 
@@ -49,7 +73,7 @@ int main(int argc, char** argv) {
 
   // create and initialize the LR marriage learner 
   Elem<def::Function<ClassiferType<dim, cls+1> >, dim> marriage_learner;
-  size_t num_of_classifers = 4;
+  size_t num_of_classifers = cnumArg.getValue();
   marriage_learner.len = num_of_classifers;
   marriage_learner.w = new real_t[num_of_classifers];
   //marriage_learner.supp = new Logistic_Regression<dim, cls+1>[num_of_classifers];
@@ -60,7 +84,7 @@ int main(int argc, char** argv) {
   validation.push_back(&test);
   ML_BADMM_PARAM param;
   param.bootstrap = true;
-  param.badmm_iter=2;
+  param.badmm_iter=5;
   ML_BADMM(train, marriage_learner, param, validation);
 
   if (rabit::GetRank() == 0)

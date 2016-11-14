@@ -4,3 +4,6 @@
 [submodule "d2suite/src/liblbfgs"]
 	path = d2suite/src/liblbfgs
 	url = https://github.com/chokkan/liblbfgs.git
+[submodule "d2suite/src/tclap"]
+	path = d2suite/src/tclap
+	url = https://github.com/eile/tclap.git
