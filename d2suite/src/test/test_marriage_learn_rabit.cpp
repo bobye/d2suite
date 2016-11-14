@@ -13,6 +13,11 @@
 #define ClassiferType Decision_Tree ///< type of classifer
 #define dim 100 ///< feature dimension
 #define cls 4 ///< number of classes
+static d2::ML_BADMM_PARAM param;
+inline void set_param() {
+  param.badmm_iter = 5;
+  param.bootstrap = true; // has to be set true for Decision_Tree<>
+};
 /***********************************************************************************/
 
 int main(int argc, char** argv) {
@@ -33,8 +38,8 @@ int main(int argc, char** argv) {
   } catch (TCLAP::ArgException &e)  // catch any exceptions
     { std::cerr << "error: " << e.error() << " for arg " << e.argId() << std::endl; }
 /***********************************************************************************/
-
   using namespace d2;
+  set_param();
   std::string prefix_name(nameArg.getValue());
   const size_t start = 1;
   const real_t propo = 0.5;
@@ -82,9 +87,6 @@ int main(int argc, char** argv) {
   double startTime = getRealTime();
   std::vector< Block<Elem<def::WordVec, dim> > * > validation;
   validation.push_back(&test);
-  ML_BADMM_PARAM param;
-  param.bootstrap = true;
-  param.badmm_iter=5;
   ML_BADMM(train, marriage_learner, param, validation);
 
   if (rabit::GetRank() == 0)
