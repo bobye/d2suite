@@ -206,7 +206,7 @@ namespace d2 {
    */
   struct ML_BADMM_PARAM {
     size_t max_iter = 50; ///< the maximum number of iterations
-    size_t badmm_iter = 50;
+    size_t badmm_iter = 50;///< the number of iterations used in badmm per update
     real_t rho = 10.; ///< the BADMM parameter
     real_t beta = 1.; ///< the relative weight of non-above class
     size_t restart = -1; ///< the number of iterations fulfilled to restart BADMM; -1 means disabled
