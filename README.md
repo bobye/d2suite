@@ -13,7 +13,7 @@ of typical d2 data, such as images, sequences, documents. Contributions are welc
 Dependencies
  - BLAS
  - [rabit](https://github.com/dmlc/rabit): the use of generic parallel infrastructure
- - [mosek](https://www.mosek.com) 7.1: fast LP/QP solvers, academic license available.
+ - [mosek](https://www.mosek.com) (version 7.1): fast LP/QP solvers, academic license available.
 
 Make sure you have those pre-compiled libraries installed and
 configured in the [d2suite/make.inc](d2suite/make.inc).
@@ -34,6 +34,7 @@ Checkout the main [API](d2suite/src/common/d2.hpp) and [tests](d2suite/src/test)
  - `def::NGram`: n-gram data with cross-term distance
  - `def::Histogram`: dense histogram with cross-term distance
  - `def::SparseHistogram`: sparse histogram with cross-term distance
+ - `def::Function<>`: a bag of functions that operate on vectors
 
 ### Basic Functions
  - distributed/serial IO 
@@ -44,10 +45,5 @@ Checkout the main [API](d2suite/src/common/d2.hpp) and [tests](d2suite/src/test)
 ### Learnings
  - K nearest neighbors [ongoing]
  - D2-clustering [TBA]
- - Latent Support Measure Machine (NIPS 2014) [TBA]
-
-## Other Tools
- - document analysis: from bag-of-words to .d2s format [TBA]
- - [WMD code](http://matthewkusner.com/#page2), ICML 2015
- - [Sinkhorn Distances](http://www.iip.ist.i.kyoto-u.ac.jp/member/cuturi/SI.html): entropic regularized optimal transport, NIPS 2014
-
+ - Wasserstein Mixed Membership Model
+ - Marriage Learning
