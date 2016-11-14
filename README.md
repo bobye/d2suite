@@ -13,7 +13,7 @@ of typical d2 data, such as images, sequences, documents. Contributions are welc
 Dependencies
  - BLAS
  - [rabit](https://github.com/dmlc/rabit): the use of generic parallel infrastructure
- - [mosek](https://www.mosek.com): fast LP/QP solvers, academic license available.
+ - [mosek](https://www.mosek.com) 7.1: fast LP/QP solvers, academic license available.
 
 Make sure you have those pre-compiled libraries installed and
 configured in the [d2suite/make.inc](d2suite/make.inc).
