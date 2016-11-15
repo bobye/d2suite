@@ -24,7 +24,10 @@ namespace d2 {
     template <size_t dim, size_t n_class> class _DTLeaf;
     template <size_t dim, size_t n_class> class _DTBranch;
     
-    
+
+    struct _DT {
+      constexpr static real_t prior_weight = 0.1;
+    };
     /*! \brief base class for decision tree nodes
      * which includes shared functions and data members of both leaf and branch
     */
@@ -47,7 +50,6 @@ namespace d2 {
       real_t weight; ///< node sample weight
       real_t r;///< resubstituion error
       int parent;
-      constexpr static real_t prior_weight = 0.1;
     };    
 
     /*! \brief lead node in decision tree
@@ -191,25 +193,46 @@ namespace d2 {
       std::vector<char> sample_mask_cache;
     };    
 
+    
     /*! \brief gini function used in make splits
-     */ 
+     */    
     template <size_t n_class>
-    real_t gini(const std::array<real_t, n_class> &proportion) {
-      real_t total_weight_sqr;
-      total_weight_sqr = std::accumulate(proportion.begin(), proportion.end(), 0.);
-      total_weight_sqr = total_weight_sqr * total_weight_sqr;
-      if (total_weight_sqr <= 0) return 1.;
+    struct gini {
+      static real_t op(const std::array<real_t, n_class+1> &proportion) {
+	real_t total_weight_sqr;
+	total_weight_sqr = proportion.back();
+	total_weight_sqr = total_weight_sqr * total_weight_sqr;
+	if (total_weight_sqr <= 0) return 1.;
 
-      real_t gini = 1.;
-      for (size_t i = 0; i<n_class; ++i)
-	gini -= (proportion[i] * proportion[i]) / total_weight_sqr ;
+	real_t gini = 1.;
+	for (size_t i = 0; i<n_class; ++i)
+	  gini -= (proportion[i] * proportion[i]) / total_weight_sqr ;
 
-      return gini;
-    }
+	return gini;
+      }
+    };
 
-    /*! \brief find the best split (cutoff) for a given feature
+    /*! \brief entropy function used in make splits
      */
     template <size_t n_class>
+    struct entropy {
+      static real_t op(const std::array<real_t, n_class+1> &proportion) {
+	real_t total_weight;
+	total_weight = proportion.back();
+	if (total_weight <= 0) return 1.;
+
+	real_t entropy = 0.;
+	for (size_t i = 0; i<n_class; ++i) {
+	  if (proportion[i] > 0)
+	    entropy -= log(proportion[i] / total_weight) * (proportion[i] / total_weight) ;
+	}
+      
+	return entropy;
+      }
+    };
+    /*! \brief find the best split (cutoff) for a given feature
+     */
+    template <size_t n_class, typename split_criterion>
     real_t best_split(sample *sample,
 		      size_t n,
 		      real_t &cutoff,
@@ -221,22 +244,37 @@ namespace d2 {
       }
       real_t best_goodness = 0;
 
-      std::array<real_t, n_class> proportion_left = {};
-      std::array<real_t, n_class> proportion_right = {};
+      std::array<real_t, n_class+1> proportion_left = {};
+      std::array<real_t, n_class+1> proportion_right = {};
       for (size_t i=0; i<n; ++i) proportion_right[sample[i].y] += sample[i].weight;
-      real_t no_split_score =gini(proportion_right);
+      for (size_t i=0; i<n_class; ++i) {
+	proportion_left[i] += _DT::prior_weight;
+	proportion_right[i] += _DT::prior_weight;
+      }
+      for (size_t i=0; i<n_class; ++i) {
+	proportion_left.back() += proportion_left[i];
+	proportion_right.back() += proportion_right[i];
+      }
+      real_t no_split_score =split_criterion::op(proportion_right);
+      real_t total_weight = proportion_right.back() - n_class * _DT::prior_weight;
       for (size_t i=0; i<n; ) {	
 	real_t current_x = sample[i].x;
-	while (i<n && sample[i].x == current_x) {
+	while (i<n && (sample[i].x == current_x || sample[i].weight == 0)) {
 	  size_t y=sample[i].y;
 	  real_t w=sample[i].weight;
 	  proportion_left[y]  += w;
+	  proportion_left.back() += w;
 	  proportion_right[y] -= w;
+	  proportion_right.back() -= w;
 	  i++;
 	};
 	if (i<n) {
 	  real_t goodness = no_split_score -
-	    ( gini(proportion_left) * i + gini(proportion_right) * (n-i) ) / n;
+	    ( split_criterion::op(proportion_left)  * (proportion_left.back()
+						       - n_class * _DT::prior_weight) +
+	      split_criterion::op(proportion_right) * (proportion_right.back()
+						       - n_class * _DT::prior_weight))
+	    / total_weight;
 	  if (goodness > best_goodness) {
 	    best_goodness = goodness;
 	    cutoff = sample[i].x;
@@ -294,7 +332,7 @@ namespace d2 {
       real_t  all_class_w = std::accumulate(class_hist.begin(), class_hist.end(), 0.);      
 
       // get the probability score
-      real_t prob =  (*max_class_w + _DTNode<dim, n_class>::prior_weight) / (all_class_w + _DTNode<dim, n_class>::prior_weight * n_class);
+      real_t prob =  (*max_class_w + _DT::prior_weight) / (all_class_w + _DT::prior_weight * n_class);
       real_t r = (1 - *max_class_w / all_class_w);
       if (assignment.size == 1 || buf.tree_stack.size() > buf.max_depth || r < 0.01 || all_class_w < buf.min_leaf_weight) {
 	// if the condtion to create a leaf node is satisfied
@@ -340,11 +378,8 @@ namespace d2 {
 	      sorted_sample_ptr = sorted_sample_ptr->next;
 	    }
 	  }
-	  goodness[ii] = best_split<n_class>(sample_cache,
-					     assignment.size,
-					     cutoff[ii],
-					     left_count[ii],
-					     presort);
+	  goodness[ii] = best_split<n_class, entropy<n_class>>
+	    (sample_cache, assignment.size, cutoff[ii], left_count[ii], presort);
 	}
 	// pick the best goodness 
 	real_t* best_goodness = std::max_element(goodness.begin(), goodness.end());
@@ -514,8 +549,8 @@ namespace d2 {
 
 
       // start to pruning the constructed tree
-      bool pruning = false;      
-      if (pruning) {	  
+      bool pruning = true;      
+      if (false) {	  
 	root = post_process_node_arr(leaf_arr, branch_arr);
 	real_t error_before_pruning = root->get_R();
 	real_t weight = root->weight;	
@@ -592,13 +627,13 @@ namespace d2 {
     real_t eval(const real_t *X, const real_t y) const {
       LeafNode *leaf = root->get_leafnode(X);
       std::array<real_t, n_class> &histogram = leaf->class_histogram;
-      return -log((histogram[(size_t) y] + internal::_DTNode<dim,n_class>::prior_weight) / (leaf->weight + internal::_DTNode<dim, n_class>::prior_weight * n_class));
+      return -log((histogram[(size_t) y] + internal::_DT::prior_weight) / (leaf->weight + internal::_DT::prior_weight * n_class));
     }
     void eval_alllabel(const real_t *X, real_t *loss, const size_t stride) const {
       LeafNode *leaf = root->get_leafnode(X);
       std::array<real_t, n_class> &histogram = leaf->class_histogram;
       for (size_t i=0; i<n_class; ++i) {
-	loss[i*stride] = -log((histogram[i] + internal::_DTNode<dim,n_class>::prior_weight) / (leaf->weight + internal::_DTNode<dim, n_class>::prior_weight * n_class));
+	loss[i*stride] = -log((histogram[i] + internal::_DT::prior_weight) / (leaf->weight + internal::_DT::prior_weight * n_class));
       }
     }
     real_t eval_min(const real_t *X) const {
@@ -608,7 +643,7 @@ namespace d2 {
       for (size_t i=0; i<n; ++i) {
 	LeafNode *leaf = root->get_leafnode(X + i*dim);	
 	std::array<real_t, n_class> &histogram = leaf->class_histogram;
-	loss[i*leading] = -log((histogram[(size_t) y[i*stride]] + internal::_DTNode<dim,n_class>::prior_weight) / (leaf->weight + internal::_DTNode<dim, n_class>::prior_weight * n_class));
+	loss[i*leading] = -log((histogram[(size_t) y[i*stride]] + internal::_DT::prior_weight) / (leaf->weight + internal::_DT::prior_weight * n_class));
       }
     }
     void evals_alllabel(const real_t *X, const size_t n, real_t *loss, const size_t leading, const size_t stride) const {
@@ -616,7 +651,7 @@ namespace d2 {
 	LeafNode *leaf = root->get_leafnode(X + i*dim);	
 	std::array<real_t, n_class> &histogram = leaf->class_histogram;
 	for (size_t j=0; j<n_class; ++j) {
-	  loss[i*leading + j*stride] = -log((histogram[j] + internal::_DTNode<dim,n_class>::prior_weight) / (leaf->weight + internal::_DTNode<dim, n_class>::prior_weight * n_class));
+	  loss[i*leading + j*stride] = -log((histogram[j] + internal::_DT::prior_weight) / (leaf->weight + internal::_DT::prior_weight * n_class));
 	}
       }
     }

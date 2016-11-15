@@ -15,7 +15,6 @@
 #define cls 4 ///< number of classes
 static d2::ML_BADMM_PARAM param;
 inline void set_param() {
-  param.badmm_iter = 5;
   param.bootstrap = true; // has to be set true for Decision_Tree<>
 };
 /***********************************************************************************/

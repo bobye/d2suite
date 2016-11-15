@@ -260,7 +260,8 @@ namespace d2 {
 	badmm_cache_arr.Pi1[l] = badmm_cache_arr.Pi2[l];
       }
 
-    real_t prim_res, dual_res, totalC = 0.;
+    real_t prim_res = 1., dual_res = 1., totalC = 0.;
+    real_t old_prim_res, old_dual_res, old_totalC;
     real_t *X, *y;
 
 #ifdef _USE_SPARSE_ACCELERATE_    
@@ -310,7 +311,6 @@ namespace d2 {
 
     real_t loss;
     real_t train_accuracy_1, train_accuracy_2, validate_accuracy_1, validate_accuracy_2;
-    real_t old_totalC;
     for (size_t iter=0; iter < param.max_iter; ++iter) {
       /* ************************************************
        * compute cost matrix
@@ -336,10 +336,11 @@ namespace d2 {
 	Allreduce<op::Sum>(&totalC, 1);
 	totalC /= global_col * learner.len;
       }
-      if (iter % 10 == 0) {
+      if (param.restart > 0 && iter % param.restart == 0) {
 	// restart badmm
-	// old_totalC = 0;
+	old_totalC = 0;
       }
+      
       _D2_CBLAS_FUNC(scal)(data.get_col() * learner.len, 1./ (rho*totalC), badmm_cache_arr.C, 1);
       _D2_CBLAS_FUNC(scal)(data.get_col() * learner.len, old_totalC / totalC, badmm_cache_arr.Lambda, 1);
 
@@ -358,7 +359,8 @@ namespace d2 {
        */
       if (iter > 0) {
 	if (GetRank() == 0) {
-	  printf("\t%zd\t\t%.6lf\t%.6lf\t%.6lf\t%.6lf\t", iter, loss, totalC * rho, prim_res, dual_res);
+	  printf("\t%zd", iter);
+	  printf("\t\t%.6lf\t%.6lf\t%.6lf\t%.6lf\t", loss, totalC * rho, prim_res, dual_res);
 	  printf("%.3lf/", train_accuracy_1);
 	  printf("%.3lf\t", train_accuracy_2);
 	}
@@ -378,6 +380,9 @@ namespace d2 {
       /* ************************************************
        * start badmm iterations
        */
+      old_prim_res = prim_res;
+      old_dual_res = dual_res;
+      while (prim_res >= old_prim_res || dual_res >= old_dual_res) {
       prim_res = 0;
       dual_res = 0;
       internal::BADMMCache badmm_cache_ptr = badmm_cache_arr;
@@ -404,8 +409,7 @@ namespace d2 {
 
       prim_res /= global_size;
       dual_res /= global_size;
-
-      
+      }      
       /* ************************************************
        * re-fit classifiers
        */
@@ -450,8 +454,7 @@ namespace d2 {
 	}	
 #endif	
 
-
-	if (GetRank() == 0)
+	if (GetRank() == 0)	  
 	{
 	  printf("\b\b\b\b\b\b\b%3zd/%3zd", (i+1), learner.len);
 	  fflush(stdout);
