@@ -26,7 +26,7 @@ namespace d2 {
     
 
     struct _DT {
-      constexpr static real_t prior_weight = 0.1;
+      constexpr static real_t prior_weight = 0.001;
     };
     /*! \brief base class for decision tree nodes
      * which includes shared functions and data members of both leaf and branch
@@ -219,7 +219,7 @@ namespace d2 {
       static real_t op(const std::array<real_t, n_class+1> &proportion) {
 	real_t total_weight;
 	total_weight = proportion.back();
-	if (total_weight <= 0) return 1.;
+	assert(total_weight > 0);
 
 	real_t entropy = 0.;
 	for (size_t i = 0; i<n_class; ++i) {
@@ -328,7 +328,7 @@ namespace d2 {
       }
 
       // basic statistics regarding class histogram
-      real_t* max_class_w = std::max_element(class_hist.begin(), class_hist.end());
+      real_t* max_class_w = std::max_element(class_hist.begin()+1, class_hist.end()); // (skip the 0th class)
       real_t  all_class_w = std::accumulate(class_hist.begin(), class_hist.end(), 0.);      
 
       // get the probability score
@@ -338,7 +338,7 @@ namespace d2 {
 	// if the condtion to create a leaf node is satisfied
 	_DTLeaf<dim, n_class> *leaf = new _DTLeaf<dim, n_class>();
 	leaf->class_histogram = class_hist;
-	leaf->label = max_class_w - class_hist.begin();
+	leaf->label = std::max_element(class_hist.begin(), class_hist.end()) - class_hist.begin();
 	leaf->score = - log (prob);
 	leaf->weight = all_class_w;
 	leaf->r = r * leaf->weight;
@@ -387,7 +387,7 @@ namespace d2 {
 	  // if the best goodness is not good enough, a leaf node is still created
 	  _DTLeaf<dim, n_class> *leaf = new _DTLeaf<dim, n_class>();
 	  leaf->class_histogram = class_hist;
-	  leaf->label = max_class_w - class_hist.begin();
+	  leaf->label = std::max_element(class_hist.begin(), class_hist.end()) - class_hist.begin();
 	  leaf->score = -log(prob);
 	  leaf->weight = all_class_w;
 	  leaf->r = r * leaf->weight;
@@ -822,8 +822,8 @@ namespace d2 {
   private:
     std::vector<LeafNode> leaf_arr; 
     std::vector<BranchNode> branch_arr;
-    size_t max_depth = 12;
-    real_t min_leaf_weight = .1;
+    size_t max_depth = 100;
+    real_t min_leaf_weight = .0;
     bool presort = true;
     bool communicate = true;    
   };    

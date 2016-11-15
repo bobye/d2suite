@@ -278,15 +278,24 @@ namespace d2 {
       }  
       const size_t sample_size = internal::_get_sample_size(data, FuncType::NUMBER_OF_CLASSES);
       real_t *bootstrap_weight = new real_t[sample_size];
+      real_t *sample_weight = new real_t[sample_size];
+      internal::_get_sample_weight(data, badmm_cache_arr.Pi2, learner.len, sample_weight, sample_size);
       for (size_t j=0, old_j=0; j<learner.len; ++j) {
 	if (j % rabit::GetWorldSize() == rabit::GetRank()) {
 	  std::random_device rd;
 	  std::uniform_real_distribution<real_t>  unif(0., 1.);
 	  std::mt19937 rnd_gen(rd());
 	  for (size_t i=0; i<sample_size; ++i) {
-	    bootstrap_weight[i] = unif(rnd_gen);
+	    if (sample_weight[i] > 0)
+	      bootstrap_weight[i] = unif(rnd_gen);
+	    else
+	      bootstrap_weight[i] = 0.;
 	  }
-	  learner.supp[j].fit(X, y, bootstrap_weight, sample_size);
+#ifdef _USE_SPARSE_ACCELERATE_	  
+	  learner.supp[j].fit(X, y, bootstrap_weight, sample_size, sparse);
+#else
+	  learner.supp[j].fit(X, y, bootstrap_weight, sample_size);	  
+#endif
 	}
 	if ((j+1) % rabit::GetWorldSize() == 0 || j+1 == learner.len) {
 	  for (size_t jj=old_j; jj <= j; ++jj) {
@@ -295,6 +304,7 @@ namespace d2 {
 	  old_j = j+1;
 	}
       }
+      delete [] sample_weight;
       delete [] bootstrap_weight;
     }
     
@@ -331,7 +341,9 @@ namespace d2 {
        * rescale badmm parameters
        */
       if (iter == 0 || true) {
-	old_totalC = totalC;
+	old_totalC = totalC * rho;
+	if (prim_res < 0.1 *dual_res) { rho /=2;}
+	if (dual_res < 0.1 *prim_res) { rho *=2;}
 	totalC = _D2_CBLAS_FUNC(asum)(data.get_col() * learner.len, badmm_cache_arr.C, 1);
 	Allreduce<op::Sum>(&totalC, 1);
 	totalC /= global_col * learner.len;
@@ -342,7 +354,7 @@ namespace d2 {
       }
       
       _D2_CBLAS_FUNC(scal)(data.get_col() * learner.len, 1./ (rho*totalC), badmm_cache_arr.C, 1);
-      _D2_CBLAS_FUNC(scal)(data.get_col() * learner.len, old_totalC / totalC, badmm_cache_arr.Lambda, 1);
+      _D2_CBLAS_FUNC(scal)(data.get_col() * learner.len, old_totalC / (totalC * rho), badmm_cache_arr.Lambda, 1);
 
       /* ************************************************
        * compute current loss
@@ -382,7 +394,7 @@ namespace d2 {
        */
       old_prim_res = prim_res;
       old_dual_res = dual_res;
-      while (prim_res >= old_prim_res || dual_res >= old_dual_res) {
+      //      while (prim_res >= old_prim_res || dual_res >= old_dual_res) {
       prim_res = 0;
       dual_res = 0;
       internal::BADMMCache badmm_cache_ptr = badmm_cache_arr;
@@ -409,7 +421,8 @@ namespace d2 {
 
       prim_res /= global_size;
       dual_res /= global_size;
-      }      
+      //      }
+
       /* ************************************************
        * re-fit classifiers
        */
