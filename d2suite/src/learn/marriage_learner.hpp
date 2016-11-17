@@ -201,17 +201,18 @@ namespace d2 {
   }
 
 
-
-  /*! \brief all hyper parameters of ML_BADMM
-   */
-  struct ML_BADMM_PARAM {
-    size_t max_iter = 50; ///< the maximum number of iterations
-    size_t badmm_iter = 50;///< the number of iterations used in badmm per update
-    real_t rho = 10.; ///< the BADMM parameter
-    real_t beta = 1.; ///< the relative weight of non-above class
-    size_t restart = -1; ///< the number of iterations fulfilled to restart BADMM; -1 means disabled
-    bool   bootstrap = false; ///< whether using bootstrap samples to initialize classifers
-  };
+  namespace def {
+    /*! \brief all hyper parameters of ML_BADMM
+     */
+    struct ML_BADMM_PARAM {
+      size_t max_iter = 50; ///< the maximum number of iterations
+      size_t badmm_iter = 50;///< the number of iterations used in badmm per update
+      real_t rho = 10.; ///< the BADMM parameter
+      real_t beta = 1.; ///< the relative weight of non-above class
+      size_t restart = -1; ///< the number of iterations fulfilled to restart BADMM; -1 means disabled
+      bool   bootstrap = false; ///< whether using bootstrap samples to initialize classifers
+    };
+  }
   /*!
    * \brief the marriage learning algorithm enabled by BADMM 
    * \param data a block of elements to train
@@ -222,7 +223,7 @@ namespace d2 {
   template <typename ElemType1, typename FuncType, size_t dim>
   void ML_BADMM (Block<ElemType1> &data,
 		 Elem<def::Function<FuncType>, dim> &learner,
-		 const ML_BADMM_PARAM &param,
+		 const def::ML_BADMM_PARAM &param,
 		 std::vector<Block<ElemType1>* > &val_data) {    
     using namespace rabit;
     // basic initialization

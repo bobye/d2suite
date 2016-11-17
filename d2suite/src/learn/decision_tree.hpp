@@ -19,45 +19,46 @@
 #endif
 
 namespace d2 {
-  /*! \brief gini function used in make splits
-   */    
-  struct gini {
-    template <size_t n_class_plusone>
-    static inline real_t op(const std::array<real_t, n_class_plusone> &proportion) {
-      real_t total_weight_sqr;
-      total_weight_sqr = proportion.back();
-      total_weight_sqr = total_weight_sqr * total_weight_sqr;
-      if (total_weight_sqr <= 0) return 1.;
+  namespace def {
+    /*! \brief gini function used in make splits
+     */    
+    struct gini {
+      template <size_t n_class_plusone>
+      static inline real_t op(const std::array<real_t, n_class_plusone> &proportion) {
+	real_t total_weight_sqr;
+	total_weight_sqr = proportion.back();
+	total_weight_sqr = total_weight_sqr * total_weight_sqr;
+	if (total_weight_sqr <= 0) return 1.;
 
-      real_t gini = 1.;
-      for (size_t i = 0; i<n_class_plusone - 1; ++i)
-	gini -= (proportion[i] * proportion[i]) / total_weight_sqr ;
+	real_t gini = 1.;
+	for (size_t i = 0; i<n_class_plusone - 1; ++i)
+	  gini -= (proportion[i] * proportion[i]) / total_weight_sqr ;
 
-      return gini;
-    }
-    static inline real_t loss(const real_t &x) {return 1-x;}
-  };
-
-  /*! \brief entropy function used in make splits
-   */
-  struct entropy {
-    template <size_t n_class_plusone>
-    static inline real_t op(const std::array<real_t, n_class_plusone> &proportion) {
-      real_t total_weight;
-      total_weight = proportion.back();
-      assert(total_weight > 0);
-
-      real_t entropy = 0.;
-      for (size_t i = 0; i<n_class_plusone - 1; ++i) {
-	if (proportion[i] > 0)
-	  entropy -= log(proportion[i] / total_weight) * (proportion[i] / total_weight) ;
+	return gini;
       }
+      static inline real_t loss(const real_t &x) {return 1-x;}
+    };
+
+    /*! \brief entropy function used in make splits
+     */
+    struct entropy {
+      template <size_t n_class_plusone>
+      static inline real_t op(const std::array<real_t, n_class_plusone> &proportion) {
+	real_t total_weight;
+	total_weight = proportion.back();
+	assert(total_weight > 0);
+
+	real_t entropy = 0.;
+	for (size_t i = 0; i<n_class_plusone - 1; ++i) {
+	  if (proportion[i] > 0)
+	    entropy -= log(proportion[i] / total_weight) * (proportion[i] / total_weight) ;
+	}
       
-      return entropy;
-    }
-    static inline real_t loss(const real_t &x) {return -log(x);}
-  };
-  
+	return entropy;
+      }
+      static inline real_t loss(const real_t &x) {return -log(x);}
+    };
+  }  
   namespace internal {
     template <size_t dim, size_t n_class> class _DTLeaf;
     template <size_t dim, size_t n_class> class _DTBranch;

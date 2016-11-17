@@ -12,9 +12,9 @@
 // problem setup for specific dataset
 #define dim 100 ///< feature dimension
 #define cls 4 ///< number of classes
-#define ClassiferType Decision_Tree<dim, cls+1, d2::gini> ///< type of classifer
+#define ClassiferType Decision_Tree<dim, cls+1, d2::def::gini> ///< type of classifer
 //#define ClassiferType Logistic_Regression<dim, cls+1> ///< type of classifer
-static d2::ML_BADMM_PARAM param;
+static d2::def::ML_BADMM_PARAM param;
 inline void set_param() {
   param.bootstrap = true; // has to be set true for Decision_Tree<>
 };
