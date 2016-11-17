@@ -19,6 +19,44 @@
 #endif
 
 namespace d2 {
+  /*! \brief gini function used in make splits
+   */    
+  struct gini {
+    template <size_t n_class_plusone>
+    static inline real_t op(const std::array<real_t, n_class_plusone> &proportion) {
+      real_t total_weight_sqr;
+      total_weight_sqr = proportion.back();
+      total_weight_sqr = total_weight_sqr * total_weight_sqr;
+      if (total_weight_sqr <= 0) return 1.;
+
+      real_t gini = 1.;
+      for (size_t i = 0; i<n_class_plusone - 1; ++i)
+	gini -= (proportion[i] * proportion[i]) / total_weight_sqr ;
+
+      return gini;
+    }
+    static inline real_t loss(const real_t &x) {return 1-x;}
+  };
+
+  /*! \brief entropy function used in make splits
+   */
+  struct entropy {
+    template <size_t n_class_plusone>
+    static inline real_t op(const std::array<real_t, n_class_plusone> &proportion) {
+      real_t total_weight;
+      total_weight = proportion.back();
+      assert(total_weight > 0);
+
+      real_t entropy = 0.;
+      for (size_t i = 0; i<n_class_plusone - 1; ++i) {
+	if (proportion[i] > 0)
+	  entropy -= log(proportion[i] / total_weight) * (proportion[i] / total_weight) ;
+      }
+      
+      return entropy;
+    }
+    static inline real_t loss(const real_t &x) {return -log(x);}
+  };
   
   namespace internal {
     template <size_t dim, size_t n_class> class _DTLeaf;
@@ -26,7 +64,7 @@ namespace d2 {
     
 
     struct _DT {
-      constexpr static real_t prior_weight = 0.001;
+      constexpr static real_t prior_weight = 0.1;
     };
     /*! \brief base class for decision tree nodes
      * which includes shared functions and data members of both leaf and branch
@@ -154,6 +192,7 @@ namespace d2 {
       size_t * ptr; ///< index array
       size_t size; ///< size of index array      
       size_t cache_offset; ///< offset to the cache array head, aka (ptr - cache_offset) should be constant
+      int idx_cache_index;
     };
 
     /*! \brief data structure for a single sample
@@ -175,6 +214,12 @@ namespace d2 {
       sorted_sample *next;
     };
 
+    struct index_cache {
+      size_t index;
+      int nleft;
+      int nright;
+    };
+
     /*! \brief the whole data structure used in building the decision trees
      */
     template <size_t dim, size_t n_class>    
@@ -184,6 +229,7 @@ namespace d2 {
       std::vector<real_t> sample_weight;
       size_t max_depth;
       real_t min_leaf_weight;
+      bool warm_start = false;
       std::vector<sample> sample_cache;
       std::stack<std::tuple<node_assignment, int> > tree_stack;
 
@@ -194,45 +240,9 @@ namespace d2 {
     };    
 
     
-    /*! \brief gini function used in make splits
-     */    
-    template <size_t n_class>
-    struct gini {
-      static real_t op(const std::array<real_t, n_class+1> &proportion) {
-	real_t total_weight_sqr;
-	total_weight_sqr = proportion.back();
-	total_weight_sqr = total_weight_sqr * total_weight_sqr;
-	if (total_weight_sqr <= 0) return 1.;
-
-	real_t gini = 1.;
-	for (size_t i = 0; i<n_class; ++i)
-	  gini -= (proportion[i] * proportion[i]) / total_weight_sqr ;
-
-	return gini;
-      }
-    };
-
-    /*! \brief entropy function used in make splits
-     */
-    template <size_t n_class>
-    struct entropy {
-      static real_t op(const std::array<real_t, n_class+1> &proportion) {
-	real_t total_weight;
-	total_weight = proportion.back();
-	assert(total_weight > 0);
-
-	real_t entropy = 0.;
-	for (size_t i = 0; i<n_class; ++i) {
-	  if (proportion[i] > 0)
-	    entropy -= log(proportion[i] / total_weight) * (proportion[i] / total_weight) ;
-	}
-      
-	return entropy;
-      }
-    };
     /*! \brief find the best split (cutoff) for a given feature
      */
-    template <size_t n_class, typename split_criterion>
+    template <size_t n_class, typename criterion>
     real_t best_split(sample *sample,
 		      size_t n,
 		      real_t &cutoff,
@@ -255,7 +265,7 @@ namespace d2 {
 	proportion_left.back() += proportion_left[i];
 	proportion_right.back() += proportion_right[i];
       }
-      real_t no_split_score =split_criterion::op(proportion_right);
+      real_t no_split_score =criterion::op(proportion_right);
       real_t total_weight = proportion_right.back() - n_class * _DT::prior_weight;
       for (size_t i=0; i<n; ) {	
 	real_t current_x = sample[i].x;
@@ -270,11 +280,7 @@ namespace d2 {
 	};
 	if (i<n) {
 	  real_t goodness = no_split_score -
-	    ( split_criterion::op(proportion_left)  * (proportion_left.back()
-						       - n_class * _DT::prior_weight) +
-	      split_criterion::op(proportion_right) * (proportion_right.back()
-						       - n_class * _DT::prior_weight))
-	    / total_weight;
+	    ( criterion::op(proportion_left)  * (proportion_left.back()  - n_class * _DT::prior_weight) +         criterion::op(proportion_right) * (proportion_right.back() - n_class * _DT::prior_weight)) / total_weight;
 	  if (goodness > best_goodness) {
 	    best_goodness = goodness;
 	    cutoff = sample[i].x;
@@ -307,12 +313,13 @@ namespace d2 {
 	assignment.ptr[i] = sample[i].index;      
     }
     
-    template <size_t dim, size_t n_class>
+    template <size_t dim, size_t n_class, typename criterion>
     _DTNode<dim, n_class> *build_dtnode(node_assignment &assignment,
 					node_assignment &aleft,
 					node_assignment &aright,
 					buf_tree_constructor<dim, n_class> &buf,
-					const bool presort) {
+					const bool presort,
+					const int dim_index = -1) {
       // default: return leaf node
       aleft.ptr = NULL;
       aright.ptr= NULL;
@@ -339,7 +346,7 @@ namespace d2 {
 	_DTLeaf<dim, n_class> *leaf = new _DTLeaf<dim, n_class>();
 	leaf->class_histogram = class_hist;
 	leaf->label = std::max_element(class_hist.begin(), class_hist.end()) - class_hist.begin();
-	leaf->score = - log (prob);
+	leaf->score = criterion::loss(prob);
 	leaf->weight = all_class_w;
 	leaf->r = r * leaf->weight;
 	return leaf;
@@ -350,7 +357,9 @@ namespace d2 {
 	std::array<size_t, dim> left_count = {};
 	std::array<size_t, dim> min_index_cache = {};
 	// compute goodness split score across different dimensions
-	for (size_t ii = 0; ii < dim; ++ii) {
+	//	if (dim_index >= 0) printf("cached index: %d\n", dim_index);
+	for (size_t ii = 0; ii < dim; ++ii)
+	{
 	  sample * sample_cache = &buf.sample_cache[0] + assignment.cache_offset;
 	  if (!presort) {
 	    for (size_t jj = 0; jj < assignment.size; ++jj) {
@@ -367,28 +376,33 @@ namespace d2 {
 						 [&](const size_t &a, const size_t &b) -> bool
 						 {return inv_ind_sorted[a] < inv_ind_sorted[b];});
 	    min_index_cache[ii] = inv_ind_sorted[*min_index];
-	    sorted_sample *sorted_sample_ptr = &buf.sorted_samples[ii][min_index_cache[ii]];
-	    for (size_t jj = 0; jj < assignment.size; ++jj) {
-	      assert(sorted_sample_ptr);
-	      sample &sample = sample_cache[jj];
-	      sample.x = sorted_sample_ptr->x;
-	      sample.y = sorted_sample_ptr->y;
-	      sample.weight = sorted_sample_ptr->weight;
-	      sample.index  = sorted_sample_ptr->index;
-	      sorted_sample_ptr = sorted_sample_ptr->next;
+	    if (dim_index < 0 || ii == dim_index) {
+	      sorted_sample *sorted_sample_ptr = &buf.sorted_samples[ii][min_index_cache[ii]];	    
+	      for (size_t jj = 0; jj < assignment.size; ++jj) {
+		assert(sorted_sample_ptr);
+		sample &sample = sample_cache[jj];
+		sample.x = sorted_sample_ptr->x;
+		sample.y = sorted_sample_ptr->y;
+		sample.weight = sorted_sample_ptr->weight;
+		sample.index  = sorted_sample_ptr->index;
+		sorted_sample_ptr = sorted_sample_ptr->next;
+	      }
 	    }
 	  }
-	  goodness[ii] = best_split<n_class, entropy<n_class>>
-	    (sample_cache, assignment.size, cutoff[ii], left_count[ii], presort);
+	  if (dim_index < 0 || ii == dim_index) {
+	    goodness[ii] = best_split<n_class, criterion>
+	      (sample_cache, assignment.size, cutoff[ii], left_count[ii], presort);
+	  }
 	}
 	// pick the best goodness 
 	real_t* best_goodness = std::max_element(goodness.begin(), goodness.end());
+	if (dim_index >= 0) assert(best_goodness - goodness.begin() == dim_index || *best_goodness == 0);
 	if (*best_goodness < 1E-5) {
 	  // if the best goodness is not good enough, a leaf node is still created
 	  _DTLeaf<dim, n_class> *leaf = new _DTLeaf<dim, n_class>();
 	  leaf->class_histogram = class_hist;
 	  leaf->label = std::max_element(class_hist.begin(), class_hist.end()) - class_hist.begin();
-	  leaf->score = -log(prob);
+	  leaf->score = criterion::loss(prob);
 	  leaf->weight = all_class_w;
 	  leaf->r = r * leaf->weight;
 	  return leaf;
@@ -489,12 +503,33 @@ namespace d2 {
       return r;
     }
     
-    template <size_t dim, size_t n_class>
+    template <size_t dim, size_t n_class, typename criterion>
     _DTNode<dim, n_class>* build_tree(size_t sample_size,
 				      buf_tree_constructor<dim, n_class> &_buf,
 				      std::vector<internal::_DTLeaf<dim, n_class> > &leaf_arr,
 				      std::vector<internal::_DTBranch<dim, n_class> > &branch_arr,
 				      const bool presort) {
+      std::vector<index_cache> index_arr;
+      if (_buf.warm_start && branch_arr.size() > 0) {
+	for (size_t ii = 0; ii < branch_arr.size(); ++ii) {
+	  size_t index = branch_arr[ii].index;
+	  int nleft, nright;
+	  if (branch_arr[ii].nleft & (1<<BIT_HIGH_POS))
+	    nleft = branch_arr[ii].nleft & ~(1<<BIT_HIGH_POS);
+	  else
+	    nleft = -1;
+
+	  if (branch_arr[ii].nright& (1<<BIT_HIGH_POS))
+	    nright = branch_arr[ii].nright & ~(1<<BIT_HIGH_POS);
+	  else
+	    nright = -1;
+
+	  index_cache idc = {index, nleft, nright};
+	  index_arr.push_back(idc);
+	}
+      } else {
+	_buf.warm_start = false;
+      }
       leaf_arr.clear();
       branch_arr.clear();
 
@@ -504,7 +539,11 @@ namespace d2 {
       std::vector<size_t> root_index(sample_size);
       for (size_t i=0; i<sample_size; ++i) root_index[i] = i;
       // create the node_assignment at root node and push into stack
-      node_assignment root_assignment = {&root_index[0], sample_size, 0};
+      node_assignment root_assignment;
+      if (_buf.warm_start)
+	root_assignment = {&root_index[0], sample_size, 0, 0};
+      else
+	root_assignment = {&root_index[0], sample_size, 0, -1};
       tree_stack.push(std::make_tuple(root_assignment, -1));
 
       // allocate cache memory
@@ -519,15 +558,32 @@ namespace d2 {
 	int cur_parent = std::get<1>(cur_tree);
 
 	node_assignment assignment_left, assignment_right;
-	_DTNode<dim, n_class> *node = build_dtnode(cur_assignment,
-						   assignment_left,
-						   assignment_right,
-						   _buf,
-						   presort);
+	_DTNode<dim, n_class> *node;
+	if (_buf.warm_start && cur_assignment.idx_cache_index >= 0)
+	  node = build_dtnode<dim, n_class, criterion>(cur_assignment,
+						       assignment_left,
+						       assignment_right,
+						       _buf,
+						       presort,
+						       index_arr[cur_assignment.idx_cache_index].index);
+	else
+	  node = build_dtnode<dim, n_class, criterion>(cur_assignment,
+						       assignment_left,
+						       assignment_right,
+						       _buf,
+						       presort);	  
 	node->parent = cur_parent; // set parent index
 	tree_stack.pop();
 	bool is_branch;
-	if (assignment_left.ptr && assignment_right.ptr) {// spanning the tree
+	if (assignment_left.ptr && assignment_right.ptr) {// spanning the tree	  
+	  if (_buf.warm_start && cur_assignment.idx_cache_index >= 0) {
+	    assignment_left.idx_cache_index   = index_arr[cur_assignment.idx_cache_index].nleft;
+	    assignment_right.idx_cache_index= index_arr[cur_assignment.idx_cache_index].nright;
+	  } else {
+	    assignment_left.idx_cache_index = -1;
+	    assignment_right.idx_cache_index = -1;
+	  }
+	    
 	  is_branch = true;
 	  tree_stack.push(std::make_tuple(assignment_left, branch_arr.size()));
 	  tree_stack.push(std::make_tuple(assignment_right,branch_arr.size()));	  
@@ -544,7 +600,7 @@ namespace d2 {
 	    parent.nright = ind;
 	  else
 	    parent.nleft = ind;	  
-	}	
+	}
       }
 
 
@@ -610,7 +666,7 @@ namespace d2 {
   
   /*! \brief the decision tree class that is currently used in marriage learning framework 
    */
-  template <size_t dim, size_t n_class>
+  template <size_t dim, size_t n_class, typename criterion>
   class Decision_Tree {
   public:
     static const size_t NUMBER_OF_CLASSES = n_class;
@@ -627,13 +683,13 @@ namespace d2 {
     real_t eval(const real_t *X, const real_t y) const {
       LeafNode *leaf = root->get_leafnode(X);
       std::array<real_t, n_class> &histogram = leaf->class_histogram;
-      return -log((histogram[(size_t) y] + internal::_DT::prior_weight) / (leaf->weight + internal::_DT::prior_weight * n_class));
+      return criterion::loss((histogram[(size_t) y] + internal::_DT::prior_weight) / (leaf->weight + internal::_DT::prior_weight * n_class));
     }
     void eval_alllabel(const real_t *X, real_t *loss, const size_t stride) const {
       LeafNode *leaf = root->get_leafnode(X);
       std::array<real_t, n_class> &histogram = leaf->class_histogram;
       for (size_t i=0; i<n_class; ++i) {
-	loss[i*stride] = -log((histogram[i] + internal::_DT::prior_weight) / (leaf->weight + internal::_DT::prior_weight * n_class));
+	loss[i*stride] = criterion::loss((histogram[i] + internal::_DT::prior_weight) / (leaf->weight + internal::_DT::prior_weight * n_class));
       }
     }
     real_t eval_min(const real_t *X) const {
@@ -643,7 +699,7 @@ namespace d2 {
       for (size_t i=0; i<n; ++i) {
 	LeafNode *leaf = root->get_leafnode(X + i*dim);	
 	std::array<real_t, n_class> &histogram = leaf->class_histogram;
-	loss[i*leading] = -log((histogram[(size_t) y[i*stride]] + internal::_DT::prior_weight) / (leaf->weight + internal::_DT::prior_weight * n_class));
+	loss[i*leading] = criterion::loss((histogram[(size_t) y[i*stride]] + internal::_DT::prior_weight) / (leaf->weight + internal::_DT::prior_weight * n_class));
       }
     }
     void evals_alllabel(const real_t *X, const size_t n, real_t *loss, const size_t leading, const size_t stride) const {
@@ -651,7 +707,7 @@ namespace d2 {
 	LeafNode *leaf = root->get_leafnode(X + i*dim);	
 	std::array<real_t, n_class> &histogram = leaf->class_histogram;
 	for (size_t j=0; j<n_class; ++j) {
-	  loss[i*leading + j*stride] = -log((histogram[j] + internal::_DT::prior_weight) / (leaf->weight + internal::_DT::prior_weight * n_class));
+	  loss[i*leading + j*stride] = criterion::loss((histogram[j] + internal::_DT::prior_weight) / (leaf->weight + internal::_DT::prior_weight * n_class));
 	}
       }
     }
@@ -698,6 +754,7 @@ namespace d2 {
       buf_tree_constructor<dim, n_class> buf;
       buf.max_depth = max_depth;
       buf.min_leaf_weight = min_leaf_weight;
+      buf.warm_start = true;
       {	
 	buf.X.resize(dim);
 	for (size_t k=0; k<dim; ++k) buf.X[k].resize(sample_size);
@@ -747,7 +804,7 @@ namespace d2 {
 	  }
 	}
       }
-      root = build_tree(sample_size, buf, leaf_arr, branch_arr, presort);
+      root = build_tree<dim, n_class, criterion>(sample_size, buf, leaf_arr, branch_arr, presort);
       if (sparse) {
 	delete [] XX;
 	delete [] yy;

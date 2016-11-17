@@ -342,8 +342,8 @@ namespace d2 {
        */
       if (iter == 0 || true) {
 	old_totalC = totalC * rho;
-	if (prim_res < 0.1 *dual_res) { rho /=2;}
-	if (dual_res < 0.1 *prim_res) { rho *=2;}
+	if (prim_res < 0.5 *dual_res) { rho /=2;}
+	if (dual_res < 0.5 *prim_res) { rho *=2;}
 	totalC = _D2_CBLAS_FUNC(asum)(data.get_col() * learner.len, badmm_cache_arr.C, 1);
 	Allreduce<op::Sum>(&totalC, 1);
 	totalC /= global_col * learner.len;

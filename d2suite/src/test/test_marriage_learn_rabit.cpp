@@ -10,9 +10,10 @@
 
 /***********************************************************************************/
 // problem setup for specific dataset
-#define ClassiferType Decision_Tree ///< type of classifer
 #define dim 100 ///< feature dimension
 #define cls 4 ///< number of classes
+#define ClassiferType Decision_Tree<dim, cls+1, d2::gini> ///< type of classifer
+//#define ClassiferType Logistic_Regression<dim, cls+1> ///< type of classifer
 static d2::ML_BADMM_PARAM param;
 inline void set_param() {
   param.bootstrap = true; // has to be set true for Decision_Tree<>
@@ -76,12 +77,12 @@ int main(int argc, char** argv) {
 
 
   // create and initialize the LR marriage learner 
-  Elem<def::Function<ClassiferType<dim, cls+1> >, dim> marriage_learner;
+  Elem<def::Function<ClassiferType >, dim> marriage_learner;
   size_t num_of_classifers = cnumArg.getValue();
   marriage_learner.len = num_of_classifers;
   marriage_learner.w = new real_t[num_of_classifers];
   //marriage_learner.supp = new Logistic_Regression<dim, cls+1>[num_of_classifers];
-  marriage_learner.supp = new ClassiferType<dim, cls+1>[num_of_classifers];
+  marriage_learner.supp = new ClassiferType[num_of_classifers];
 
   double startTime = getRealTime();
   std::vector< Block<Elem<def::WordVec, dim> > * > validation;
