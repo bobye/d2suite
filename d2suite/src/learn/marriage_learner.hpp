@@ -17,14 +17,22 @@ namespace d2 {
   template <typename ElemType1, typename FuncType, size_t dim>
   real_t ML_Predict_ByWinnerTakeAll(Block<ElemType1> &data,
 				    const Elem<def::Function<FuncType>, dim> &learner,
-				    bool write_label = false) {
+				    bool write_label = false,
+				    std::vector<real_t> *scores = NULL) {
     using namespace rabit;
     real_t *y;
     y = new real_t[data.get_size()];
     for (size_t i=0; i<data.get_size(); ++i) y[i] = data[i].label[0];
 
     real_t *C = new real_t [data.get_col() * learner.len];
-    real_t *emds = new real_t [data.get_size() * FuncType::NUMBER_OF_CLASSES];
+    real_t *emds;
+    if (write_label && scores) {
+      scores->resize(data.get_col() * learner.len);
+      emds = &(*scores)[0];
+    } else {
+      assert((write_label && scores) || !write_label);
+      emds = new real_t [data.get_size() * FuncType::NUMBER_OF_CLASSES];
+    }
     for (size_t i=0; i<FuncType::NUMBER_OF_CLASSES; ++i) {
       _pdist2_label(learner.supp, learner.len,
 		    data.get_support_ptr(), i, data.get_col(),
@@ -32,18 +40,22 @@ namespace d2 {
       EMD(learner, data, emds + data.get_size() * i, C, NULL, NULL, true);
     }
 
+
     real_t accuracy = 0.0;    
-    if (write_label) {
+    if (false) {
       
     } else {
       for (size_t i=0; i<data.get_size(); ++i) {
-	bool is_correct = true;
 	real_t *emd = emds + i;
-	for (size_t j=1; j<FuncType::NUMBER_OF_CLASSES; ++j)
-	  if (j != y[i]) {
-	    is_correct &= emd[j*data.get_size()] > emd[(size_t)y[i]*data.get_size()];
+	size_t label = 1;
+	real_t min_emd = emd[data.get_size()];
+	for (size_t j=2; j<FuncType::NUMBER_OF_CLASSES; ++j) {
+	  if (emd[j*data.get_size()] < min_emd) {
+	    min_emd = emd[j*data.get_size()];
+	    label = j;
 	  }
-	accuracy += is_correct;
+	}
+	accuracy += label == (size_t) y[i];
       }
       size_t global_size = data.get_size();
       Allreduce<op::Sum>(&global_size, 1);
@@ -54,7 +66,8 @@ namespace d2 {
     
     delete [] y;
     delete [] C;
-    delete [] emds;
+    if (!(write_label && scores))
+      delete [] emds;
     
     return accuracy;    
   }
@@ -68,9 +81,14 @@ namespace d2 {
   template <typename ElemType1, typename FuncType, size_t dim>
   real_t ML_Predict_ByVoting(Block<ElemType1> &data,
 			     const Elem<def::Function<FuncType>, dim> &learner,
-			     bool write_label = false) {
+			     bool write_label = false,
+			     std::vector<real_t> *class_proportion = NULL) {
     using namespace rabit;
-    
+    if (write_label && class_proportion) {
+      class_proportion->resize(data.get_size() * FuncType::NUMBER_OF_CLASSES);
+    } else {
+      assert((write_label && class_proportion) || !write_label);
+    }
     real_t *y, *label_cache;
     y = new real_t[data.get_size()];
     label_cache = new real_t[data.get_col()];
@@ -102,7 +120,7 @@ namespace d2 {
     EMD(learner, data, NULL, minC, Pi, NULL, true);        
 
     real_t accuracy = 0.0;    
-    if (write_label) {
+    if (false) {
       
     } else {
       real_t *Pi_ptr = Pi;
@@ -111,18 +129,17 @@ namespace d2 {
 	const size_t ms = learner.len * data[i].len;
 	real_t thislabel[FuncType::NUMBER_OF_CLASSES] ={};
 	for (size_t j=0; j<ms; ++j) {
-	  thislabel[index_ptr[j]] += Pi_ptr[j];
+	  thislabel[index_ptr[j]] += Pi_ptr[j];	  
 	}
 	index_ptr += ms;
 	Pi_ptr    += ms;
 
-	bool is_correct = true;
 	const real_t w = thislabel[(size_t) y[i]];
-	for (size_t j=1; j<FuncType::NUMBER_OF_CLASSES; ++j)
-	  if (j!= (size_t) y[i]) {
-	    is_correct &= (thislabel[j] < w);
-	  }
-	accuracy += is_correct;
+	size_t label = std::max_element(thislabel+1, thislabel+FuncType::NUMBER_OF_CLASSES) - thislabel;
+	if (write_label && class_proportion) {
+	  memcpy(&class_proportion[i*FuncType::NUMBER_OF_CLASSES], thislabel, sizeof(real_t) * FuncType::NUMBER_OF_CLASSES);
+	}
+	accuracy += label == (size_t) y[i];
       }
       size_t global_size = data.get_size();
 
