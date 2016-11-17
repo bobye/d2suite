@@ -304,10 +304,7 @@ namespace d2 {
 	  std::uniform_real_distribution<real_t>  unif(0., 1.);
 	  std::mt19937 rnd_gen(rd());
 	  for (size_t i=0; i<sample_size; ++i) {
-	    if (sample_weight[i] > 0)
-	      bootstrap_weight[i] = unif(rnd_gen);
-	    else
-	      bootstrap_weight[i] = 0.;
+	    bootstrap_weight[i] = unif(rnd_gen) * sample_weight[i];
 	  }
 #ifdef _USE_SPARSE_ACCELERATE_	  
 	  learner.supp[j].fit(X, y, bootstrap_weight, sample_size, sparse);
