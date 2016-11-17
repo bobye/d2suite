@@ -222,12 +222,13 @@ namespace d2 {
     /*! \brief all hyper parameters of ML_BADMM
      */
     struct ML_BADMM_PARAM {
-      size_t max_iter = 50; ///< the maximum number of iterations
+      size_t max_iter = 100; ///< the maximum number of iterations
       size_t badmm_iter = 50;///< the number of iterations used in badmm per update
       real_t rho = 10.; ///< the BADMM parameter
       real_t beta = 1.; ///< the relative weight of non-above class
       size_t restart = -1; ///< the number of iterations fulfilled to restart BADMM; -1 means disabled
-      bool   bootstrap = false; ///< whether using bootstrap samples to initialize classifers
+      real_t termination_tol = 1E-6;
+      bool   bootstrap = false; ///< whether using bootstrap samples to initialize classifers      
     };
   }
   /*!
@@ -402,6 +403,7 @@ namespace d2 {
 	  printf("%.3lf", validate_accuracy_2);
 	  std::cout << std::endl;
 	}
+	if (prim_res < param.termination_tol && dual_res < param.termination_tol) break;
       }
 
       /* ************************************************
