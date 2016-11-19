@@ -108,7 +108,7 @@ namespace d2 {
     for (size_t i=0; i<mat_size; ++i) {
       real_t minC_value = std::numeric_limits<real_t>::max();
       size_t minC_index = -1;
-      for (size_t j=1; j<FuncType::NUMBER_OF_CLASSES; ++j) {
+      for (size_t j=0; j<FuncType::NUMBER_OF_CLASSES; ++j) {
 	if (minC_value > C[i+j*mat_size]) {
 	  minC_value = C[i+j*mat_size];
 	  minC_index = j;
@@ -228,7 +228,8 @@ namespace d2 {
       real_t beta = 1.; ///< the relative weight of non-above class
       size_t restart = -1; ///< the number of iterations fulfilled to restart BADMM; -1 means disabled
       real_t termination_tol = 1E-6;
-      bool   bootstrap = false; ///< whether using bootstrap samples to initialize classifers      
+      bool   bootstrap = false; ///< whether using bootstrap samples to initialize classifers
+      bool   communicate = false;
     };
   }
   /*!
@@ -249,6 +250,7 @@ namespace d2 {
       learner.w[i] = 1. / learner.len;
       learner.supp[i].init();
       learner.supp[i].sync(i % rabit::GetWorldSize() );
+      learner.supp[i].set_communicate(param.communicate);
     }
 
     size_t global_col = data.get_col();
