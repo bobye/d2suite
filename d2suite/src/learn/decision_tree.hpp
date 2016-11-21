@@ -681,6 +681,9 @@ namespace d2 {
 	y[i] = leaf->label;
       }
     };
+    real_t predict(const real_t *X) const {
+      return root->get_leafnode(X)->label;
+    }
     real_t eval(const real_t *X, const real_t y) const {
       LeafNode *leaf = root->get_leafnode(X);
       std::array<real_t, n_class> &histogram = leaf->class_histogram;
