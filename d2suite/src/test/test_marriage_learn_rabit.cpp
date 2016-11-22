@@ -12,8 +12,8 @@
 // problem setup for specific dataset
 #define dim 100 ///< feature dimension
 #define cls 4 ///< number of classes
-#define ClassiferType Decision_Tree<dim, cls+1, d2::def::gini> ///< type of classifer
-//#define ClassiferType Logistic_Regression<dim, cls+1> ///< type of classifer
+#define LR Logistic_Regression<dim, cls+1> ///< type of classifer
+#define DT Decision_Tree<dim, cls+1, d2::def::gini> ///< type of classifer
 static d2::def::ML_BADMM_PARAM param;
 inline void set_param() {
   param.bootstrap = true; // has to be set true for Decision_Tree<>
@@ -76,22 +76,34 @@ int main(int argc, char** argv) {
   Block<Elem<def::WordVec, dim> > test (test_,  subblock_size * rabit::GetRank(), subblock_size);
 
 
-  // create and initialize the LR marriage learner 
-  Elem<def::Function<ClassiferType >, dim> marriage_learner;
   size_t num_of_classifers = cnumArg.getValue();
-  marriage_learner.len = num_of_classifers;
-  marriage_learner.w = new real_t[num_of_classifers];
-  //marriage_learner.supp = new Logistic_Regression<dim, cls+1>[num_of_classifers];
-  marriage_learner.supp = new ClassiferType[num_of_classifers];
+  // create and initialize the LR marriage learner 
+  Elem<def::Function<LR >, dim> lr;
+  lr.len = num_of_classifers;
+  lr.w = new real_t[num_of_classifers];
+  lr.supp = new LR[num_of_classifers];
+
+  // create and initialize the DT marriage predictor 
+  Elem<def::Function<DT >, dim> dt;
+  dt.len = num_of_classifers;
+  dt.w = new real_t[num_of_classifers];
+  dt.supp = new DT[num_of_classifers];
 
   double startTime = getRealTime();
   std::vector< Block<Elem<def::WordVec, dim> > * > validation;
   validation.push_back(&test);
-  ML_BADMM(train, marriage_learner, param, validation);
+  auto & marriage_learner = dt;
+  auto & marriage_predictor = dt;
+  ML_BADMM(train, marriage_learner, marriage_predictor, param, validation);
 
-  if (rabit::GetRank() == 0)
+  if (rabit::GetRank() == 0) {
+    std::cout << "learner.w: ";
+    for (size_t i=0; i<marriage_learner.len; ++i)
+      std::cout << marriage_learner.w[i] << " ";
+    std::cout << std::endl;
     std::cerr << getLogHeader() << " logging: marriage learning finished in " 
 	      << (getRealTime() - startTime) << " seconds." << std::endl;
+  }
   server::Finalize();
 
   delete [] marriage_learner.w;

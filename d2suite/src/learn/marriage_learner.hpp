@@ -108,7 +108,7 @@ namespace d2 {
     for (size_t i=0; i<mat_size; ++i) {
       real_t minC_value = std::numeric_limits<real_t>::max();
       size_t minC_index = -1;
-      for (size_t j=0; j<FuncType::NUMBER_OF_CLASSES; ++j) {
+      for (size_t j=1; j<FuncType::NUMBER_OF_CLASSES; ++j) {
 	if (minC_value > C[i+j*mat_size]) {
 	  minC_value = C[i+j*mat_size];
 	  minC_index = j;
@@ -239,11 +239,12 @@ namespace d2 {
    * \param rho the BADMM parameter
    * \param val_data a vector of validation data
    */
-  template <typename ElemType1, typename FuncType, size_t dim>
-  void ML_BADMM (Block<ElemType1> &data,
-		 Elem<def::Function<FuncType>, dim> &learner,
+  template <typename ElemType, typename LearnerType, typename PredictorType, size_t dim>
+  void ML_BADMM (Block<ElemType> &data,
+		 Elem<def::Function<LearnerType>, dim> &learner,
+		 Elem<def::Function<PredictorType>, dim> &predictor,
 		 const def::ML_BADMM_PARAM &param,
-		 std::vector<Block<ElemType1>* > &val_data) {    
+		 std::vector<Block<ElemType>* > &val_data) {    
     using namespace rabit;
     // basic initialization
     for (size_t i=0; i<learner.len; ++i) {
@@ -251,6 +252,14 @@ namespace d2 {
       learner.supp[i].init();
       learner.supp[i].sync(i % rabit::GetWorldSize() );
       learner.supp[i].set_communicate(param.communicate);
+      if (std::is_same<LearnerType, PredictorType>::value) {
+	assert( (void *) &learner == (void *) &predictor);
+      } else {
+	predictor.w[i] = 1. / learner.len;
+	predictor.supp[i].init();
+	predictor.supp[i].sync(i % rabit::GetWorldSize() );
+	predictor.supp[i].set_communicate(param.communicate);
+      }
     }
 
     size_t global_col = data.get_col();
@@ -269,7 +278,7 @@ namespace d2 {
     real_t rho = param.rho;
     beta = param.beta / (learner.len - 1);
     assert(learner.len > 1);
-    allocate_badmm_cache(data, learner, badmm_cache_arr);
+    allocate_badmm_cache(learner, data, badmm_cache_arr);
     
     // initialization
     for (size_t j=0; j<data.get_col() * learner.len; ++j)
@@ -286,7 +295,7 @@ namespace d2 {
     real_t *X, *y;
 
 #ifdef _USE_SPARSE_ACCELERATE_    
-    internal::get_dense_if_need_mapped(data, &X, &y, FuncType::NUMBER_OF_CLASSES);
+    internal::get_dense_if_need_mapped(data, &X, &y, LearnerType::NUMBER_OF_CLASSES);
 #else
     internal::get_dense_if_need_ec(data, &X, &y);
 #endif
@@ -297,7 +306,7 @@ namespace d2 {
       if (GetRank() == 0) {
 	std::cout << "Initializing parameters using bootstrap samples ... " << std::endl;
       }  
-      const size_t sample_size = internal::_get_sample_size(data, FuncType::NUMBER_OF_CLASSES);
+      const size_t sample_size = internal::_get_sample_size(data, LearnerType::NUMBER_OF_CLASSES);
       real_t *bootstrap_weight = new real_t[sample_size];
       real_t *sample_weight = new real_t[sample_size];
       internal::_get_sample_weight(data, badmm_cache_arr.Pi2, learner.len, sample_weight, sample_size);
@@ -396,8 +405,8 @@ namespace d2 {
 	}
 	if (val_data.size() > 0) {
 	  for (size_t i=0; i<val_data.size(); ++i) {
-	    validate_accuracy_1 = ML_Predict_ByWinnerTakeAll(*val_data[i], learner);
-	    validate_accuracy_2 = ML_Predict_ByVoting(*val_data[i], learner);
+	    validate_accuracy_1 = ML_Predict_ByWinnerTakeAll(*val_data[i], predictor);
+	    validate_accuracy_2 = ML_Predict_ByVoting(*val_data[i], predictor);
 	  }	
 	}	
 	if (GetRank() == 0) {
@@ -416,36 +425,54 @@ namespace d2 {
       //      while (prim_res >= old_prim_res || dual_res >= old_dual_res) {
       prim_res = 0;
       dual_res = 0;
-      internal::BADMMCache badmm_cache_ptr = badmm_cache_arr;
-      for (size_t i=0; i<data.get_size();++i) {
-	const size_t matsize = data[i].len * learner.len;
-	real_t p_res, d_res;
-	EMD_BADMM(learner, data[i], badmm_cache_ptr, param.badmm_iter, &p_res, &d_res);
+      for (size_t badmm_ii = 0; badmm_ii < param.badmm_iter; ++badmm_ii) {
+	internal::BADMMCache badmm_cache_ptr = badmm_cache_arr;
+	for (size_t i=0; i<data.get_size();++i) {
+	  const size_t matsize = data[i].len * learner.len;
+	  real_t p_res, d_res;
+	  EMD_BADMM(learner, data[i], badmm_cache_ptr, 1, &p_res, &d_res);
 
-	badmm_cache_ptr.C += matsize;
-	badmm_cache_ptr.Ctmp += matsize;
-	badmm_cache_ptr.Pi1 += matsize;
-	badmm_cache_ptr.Pi2 += matsize;
-	badmm_cache_ptr.Lambda += matsize;
-	badmm_cache_ptr.Ltmp += matsize;
-	badmm_cache_ptr.buffer += matsize;
-	badmm_cache_ptr.Pi_buffer += matsize;
+	  badmm_cache_ptr.C += matsize;
+	  badmm_cache_ptr.Ctmp += matsize;
+	  badmm_cache_ptr.Pi1 += matsize;
+	  badmm_cache_ptr.Pi2 += matsize;
+	  badmm_cache_ptr.Lambda += matsize;
+	  badmm_cache_ptr.Ltmp += matsize;
+	  badmm_cache_ptr.buffer += matsize;
+	  badmm_cache_ptr.Pi_buffer += matsize;
+	  badmm_cache_ptr.w_sync += learner.len;
 
-	prim_res += p_res;
-	dual_res += d_res;
+	  prim_res += p_res;
+	  dual_res += d_res;
+	}
+
+	// w update by rule 2
+	for (size_t i=0; i<data.get_size() * learner.len; ++i) {
+	  badmm_cache_arr.w_sync[i] = sqrt(badmm_cache_arr.w_sync[i]);
+	}
+	_D2_FUNC(rsum)(learner.len, data.get_size(), badmm_cache_arr.w_sync, learner.w);
+	Allreduce<op::Sum>(learner.w, learner.len);
+	real_t w_sum = 0;
+	for (size_t i=0; i<learner.len; ++i) {
+	  learner.w[i] = learner.w[i] * learner.w[i];
+	  w_sum += learner.w[i];
+	}
+	for (size_t i=0; i<learner.len; ++i) {
+	  learner.w[i] /= w_sum;
+	  predictor.w[i] = learner.w[i];
+	}
       }
-
       Allreduce<op::Sum>(&prim_res, 1);
       Allreduce<op::Sum>(&dual_res, 1);
 
-      prim_res /= global_size;
-      dual_res /= global_size;
+      prim_res /= global_size * param.badmm_iter;
+      dual_res /= global_size * param.badmm_iter;
       //      }
 
       /* ************************************************
        * re-fit classifiers
        */
-      const size_t sample_size = internal::_get_sample_size(data, FuncType::NUMBER_OF_CLASSES);
+      const size_t sample_size = internal::_get_sample_size(data, LearnerType::NUMBER_OF_CLASSES);
 #ifdef _USE_SPARSE_ACCELERATE_      
       real_t *sample_weight_local = new real_t[sample_size];
 #endif
@@ -470,11 +497,18 @@ namespace d2 {
 	      int err_code = 0;
 	      err_code = learner.supp[ii].fit(X, y, sample_weight_local, sample_size, sparse);
 	      assert(err_code >= 0);
+	      if (!std::is_same<LearnerType, PredictorType>::value) {
+		err_code = predictor.supp[ii].fit(X, y, sample_weight_local, sample_size, sparse);
+		assert(err_code >= 0);
+	      }
 	    }
 	  }
 
 	  for (size_t ii=old_i; ii<=i; ++ii) {
 	    learner.supp[ii].sync(ii % GetWorldSize());
+	    if (!std::is_same<LearnerType, PredictorType>::value) {
+	      predictor.supp[ii].sync(ii % GetWorldSize());
+	    }
 	  }
 	  old_i = i+1;	  
 	}
@@ -483,6 +517,10 @@ namespace d2 {
 	  int err_code = 0;
 	  err_code = learner.supp[i].fit(X, y, sample_weight, sample_size);
 	  assert(err_code >= 0);
+	  if (!std::is_same<LearnerType, PredictorType>::value) {
+	    err_code = predictor.supp[i].fit(X, y, sample_weight_local, sample_size, sparse);
+	    assert(err_code >= 0);
+	  }
 	}	
 #endif	
 
@@ -500,8 +538,8 @@ namespace d2 {
       Barrier();
       
       
-      train_accuracy_1 = ML_Predict_ByWinnerTakeAll(data, learner);
-      train_accuracy_2 = ML_Predict_ByVoting(data, learner);
+      train_accuracy_1 = ML_Predict_ByWinnerTakeAll(data, predictor);
+      train_accuracy_2 = ML_Predict_ByVoting(data, predictor);
 
     }
 

@@ -20,12 +20,13 @@ namespace d2 {
       real_t *Ltmp;
       real_t *buffer;
       real_t *Pi_buffer;
+      real_t *w_sync;
     };
 
     template <typename ElemType1, typename ElemType2>
-    void allocate_badmm_cache(const Block<ElemType1> &a, const ElemType2 &b,
+    void allocate_badmm_cache(const ElemType2 &a, const Block<ElemType1> &b,
 			      BADMMCache &cache) {
-      const size_t n = a.get_col() * b.len;
+      const size_t n = b.get_col() * a.len;
       cache.C      = new real_t[n];
       cache.Ctmp   = new real_t[n];
       cache.Pi1    = new real_t[n];
@@ -34,6 +35,7 @@ namespace d2 {
       cache.Ltmp   = new real_t[n];
       cache.buffer = new real_t[n];
       cache.Pi_buffer = new real_t[n];
+      cache.w_sync = new real_t[a.len * b.get_size()];
     }
 
     void deallocate_badmm_cache(BADMMCache &cache) {
@@ -45,6 +47,7 @@ namespace d2 {
       delete [] cache.Ltmp;
       delete [] cache.buffer;
       delete [] cache.Pi_buffer;
+      delete [] cache.w_sync;
     }
   }
 
@@ -77,6 +80,12 @@ namespace d2 {
       for (size_t i=0; i<mat_size; ++i) {
 	cache.Pi1[i] = cache.Pi2[i] / (cache.Ltmp[i]) + eps;
       }
+      /*********************************************************/
+      real_t w_sync_sum;
+      _D2_FUNC(rsum)(a.len, b.len, cache.Pi1, cache.w_sync);
+      _D2_FUNC(cnorm)(a.len, 1, cache.w_sync, &w_sync_sum);
+      /*********************************************************/
+
       _D2_FUNC(rnorm)(a.len, b.len, cache.Pi1, cache.buffer);
       _D2_FUNC(gcms)(a.len, b.len, cache.Pi1, a.w);
 
