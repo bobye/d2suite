@@ -192,7 +192,7 @@ namespace d2 {
       real_t label;
       fs >> label;
       for (size_t j=0; j<vec_[i].len; ++j)
-	vec_[i].label[j] = label - start + 1;
+	vec_[i].label[j] = label - start;
     }
   }
 
@@ -366,10 +366,10 @@ namespace d2 {
 	assert(fs_train.is_open() && fs_test.is_open());
 
 	for (size_t i=0; i<train_size; ++i) {
-	  fs_train << block[rand_ind[i]].label[0] + start - 1 << std::endl;
+	  fs_train << block[rand_ind[i]].label[0] + start << std::endl;
 	}
 	for (size_t i=train_size; i<size; ++i) {
-	  fs_test << block[rand_ind[i]].label[0] + start -1 << std::endl;
+	  fs_test << block[rand_ind[i]].label[0] + start << std::endl;
 	}
 
 	fs_train.close();

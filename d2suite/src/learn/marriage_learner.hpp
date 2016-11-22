@@ -47,15 +47,15 @@ namespace d2 {
     } else {
       for (size_t i=0; i<data.get_size(); ++i) {
 	real_t *emd = emds + i;
-	size_t label = 1;
-	real_t min_emd = emd[data.get_size()];
-	for (size_t j=2; j<FuncType::NUMBER_OF_CLASSES; ++j) {
+	int label = -1;
+	real_t min_emd = std::numeric_limits<real_t>::max();
+	for (size_t j=0; j<FuncType::NUMBER_OF_CLASSES; ++j) {
 	  if (emd[j*data.get_size()] < min_emd) {
 	    min_emd = emd[j*data.get_size()];
 	    label = j;
 	  }
 	}
-	accuracy += label == (size_t) y[i];
+	accuracy += label == (int) y[i];
       }
       size_t global_size = data.get_size();
       Allreduce<op::Sum>(&global_size, 1);
@@ -108,7 +108,7 @@ namespace d2 {
     for (size_t i=0; i<mat_size; ++i) {
       real_t minC_value = std::numeric_limits<real_t>::max();
       size_t minC_index = -1;
-      for (size_t j=1; j<FuncType::NUMBER_OF_CLASSES; ++j) {
+      for (size_t j=0; j<FuncType::NUMBER_OF_CLASSES; ++j) {
 	if (minC_value > C[i+j*mat_size]) {
 	  minC_value = C[i+j*mat_size];
 	  minC_index = j;
@@ -163,8 +163,6 @@ namespace d2 {
     return accuracy;    
   }
 
-  
-  static real_t beta; /* an important parameter */
 
 #ifdef _USE_SPARSE_ACCELERATE_
   const static bool sparse = true; /* only possible for def::WordVec */
@@ -176,17 +174,9 @@ namespace d2 {
 			    const real_t *Pi, size_t leading,
 			    real_t *sample_weight, size_t sample_size) {
       for (size_t ii=0; ii<data.get_col(); ++ii) sample_weight[ii] = 0;
-      _D2_CBLAS_FUNC(axpy)(data.get_col(),
-			   - beta,
-			   Pi, leading,
-			   sample_weight, 1);
-      _D2_CBLAS_FUNC(axpy)(data.get_col(),
-			   beta,
-			   data.get_weight_ptr(), 1,
-			   sample_weight, 1);
       _D2_CBLAS_FUNC(copy)(data.get_col(),
 			   Pi, leading,
-			   sample_weight + data.get_col(), 1);    
+			   sample_weight, 1);    
     }
 
 #ifdef _USE_SPARSE_ACCELERATE_
@@ -200,7 +190,6 @@ namespace d2 {
 	real_t cur_w = Pi[ii*leading];
 	sample_weight[data.get_support_ptr()[ii] +
 		      data.meta.size * (size_t) data.get_label_ptr()[ii]] += cur_w;
-	sample_weight[data.get_support_ptr()[ii]] += beta * (data.get_weight_ptr()[ii] - cur_w);
       }
       Allreduce<op::Sum>(sample_weight, sample_size);
     }
@@ -208,7 +197,7 @@ namespace d2 {
 
     template <typename ElemType>
     size_t _get_sample_size(const Block<ElemType> &data, size_t num_of_copies)
-    {return data.get_col() * 2;}
+    {return data.get_col();}
 
 #ifdef _USE_SPARSE_ACCELERATE_
     template <size_t D>
@@ -276,7 +265,6 @@ namespace d2 {
     
     internal::BADMMCache badmm_cache_arr;
     real_t rho = param.rho;
-    beta = param.beta / (learner.len - 1);
     assert(learner.len > 1);
     allocate_badmm_cache(learner, data, badmm_cache_arr);
     
@@ -355,14 +343,6 @@ namespace d2 {
       _pdist2(learner.supp, learner.len,
 	      data.get_support_ptr(), data.get_col(),
 	      data.meta, badmm_cache_arr.C);
-
-      _pdist2_label(learner.supp, learner.len,
-		    data.get_support_ptr(), (real_t) 0, data.get_col(),
-		    data.meta, badmm_cache_arr.Ctmp);
-
-      for (size_t i=0; i<data.get_col() * learner.len; ++i)
-	badmm_cache_arr.C[i] -= beta * badmm_cache_arr.Ctmp[i];      
-
       
       /* ************************************************
        * rescale badmm parameters
