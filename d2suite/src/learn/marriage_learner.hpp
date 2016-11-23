@@ -228,10 +228,15 @@ namespace d2 {
    * \param rho the BADMM parameter
    * \param val_data a vector of validation data
    */
-  template <typename ElemType, typename LearnerType, typename PredictorType, size_t dim>
+  template <typename ElemType,
+	    typename LearnerType,
+	    typename PredictorType,
+	    //	    typename MatchmakerType,
+	    size_t dim>
   void ML_BADMM (Block<ElemType> &data,
 		 Elem<def::Function<LearnerType>, dim> &learner,
 		 Elem<def::Function<PredictorType>, dim> &predictor,
+		 //		 def::Function<MatchmakerType> &matchmaker,
 		 const def::ML_BADMM_PARAM &param,
 		 std::vector<Block<ElemType>* > &val_data) {    
     using namespace rabit;

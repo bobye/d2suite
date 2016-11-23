@@ -162,7 +162,7 @@ namespace d2 {
       _D2_FUNC(exp)(n_class, v);
       real_t exp_sum=_D2_CBLAS_FUNC(asum)(n_class, v, 1);
       loss = 0;
-      for (size_t j=1; j<n_class; ++j)
+      for (size_t j=0; j<n_class; ++j)
 	if (loss < v[j]) loss = v[j];
       loss = - log(loss) + log(exp_sum);
       return loss;      
@@ -198,7 +198,7 @@ namespace d2 {
       forward_(A, b, X, n, v, sv);
       for (size_t i=0; i<n; ++i) {
 	real_t max_prob = 0;
-	for (size_t j=i*n_class + 1; j<i*n_class + n_class; ++j)
+	for (size_t j=i*n_class; j<i*n_class + n_class; ++j)
 	  if (max_prob < v[j]) max_prob = v[j];
 	loss[i*leading] = -log (max_prob);
       }

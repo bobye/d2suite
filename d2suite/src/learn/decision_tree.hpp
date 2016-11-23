@@ -336,7 +336,7 @@ namespace d2 {
       }
 
       // basic statistics regarding class histogram
-      real_t* max_class_w = std::max_element(class_hist.begin()+1, class_hist.end()); // (skip the 0th class)
+      real_t* max_class_w = std::max_element(class_hist.begin(), class_hist.end()); 
       real_t  all_class_w = std::accumulate(class_hist.begin(), class_hist.end(), 0.);      
 
       // get the probability score
@@ -346,7 +346,7 @@ namespace d2 {
 	// if the condtion to create a leaf node is satisfied
 	_DTLeaf<dim, n_class> *leaf = new _DTLeaf<dim, n_class>();
 	leaf->class_histogram = class_hist;
-	leaf->label = std::max_element(class_hist.begin(), class_hist.end()) - class_hist.begin();
+	leaf->label = max_class_w - class_hist.begin();
 	leaf->score = criterion::loss(prob);
 	leaf->weight = all_class_w;
 	leaf->r = r * leaf->weight;
@@ -402,7 +402,7 @@ namespace d2 {
 	  // if the best goodness is not good enough, a leaf node is still created
 	  _DTLeaf<dim, n_class> *leaf = new _DTLeaf<dim, n_class>();
 	  leaf->class_histogram = class_hist;
-	  leaf->label = std::max_element(class_hist.begin(), class_hist.end()) - class_hist.begin();
+	  leaf->label = max_class_w - class_hist.begin();
 	  leaf->score = criterion::loss(prob);
 	  leaf->weight = all_class_w;
 	  leaf->r = r * leaf->weight;
