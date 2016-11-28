@@ -231,12 +231,12 @@ namespace d2 {
   template <typename ElemType,
 	    typename LearnerType,
 	    typename PredictorType,
-	    //	    typename MatchmakerType,
+	    typename MatchmakerType,
 	    size_t dim>
   void ML_BADMM (Block<ElemType> &data,
 		 Elem<def::Function<LearnerType>, dim> &learner,
 		 Elem<def::Function<PredictorType>, dim> &predictor,
-		 //		 def::Function<MatchmakerType> &matchmaker,
+		 MatchmakerType &matchmaker,
 		 const def::ML_BADMM_PARAM &param,
 		 std::vector<Block<ElemType>* > &val_data) {    
     using namespace rabit;
@@ -285,12 +285,18 @@ namespace d2 {
 
     real_t prim_res = 1., dual_res = 1., totalC = 0.;
     real_t old_prim_res, old_dual_res, old_totalC;
-    real_t *X, *y;
-
+    real_t *X, *y; // dense data for training learner and predictor
+    real_t *X_mm, *y_mm; // dense data for training matchmaker
 #ifdef _USE_SPARSE_ACCELERATE_    
     internal::get_dense_if_need_mapped(data, &X, &y, LearnerType::NUMBER_OF_CLASSES);
+    internal::get_dense_if_need_mapped(data, &X_mm, &y_mm, learner.len);
 #else
-    internal::get_dense_if_need_ec(data, &X, &y);
+    internal::get_dense_if_need(data, &X);
+    internal::get_dense_if_need(data, &X_mm, learner.len);
+    y = new real_t[data.get_col()];
+    y_mm = new real_t[data.get_col() * learner.len];
+    for (size_t i=0; i<data.get_col(); ++i) y[i] = data.get_label_ptr()[i];
+    for (size_t i=0; i<data.get_col() * learner.len; ++i) y_mm[i] = i % learner.len;
 #endif
 
 
@@ -503,7 +509,7 @@ namespace d2 {
 	  err_code = learner.supp[i].fit(X, y, sample_weight, sample_size);
 	  assert(err_code >= 0);
 	  if (!std::is_same<LearnerType, PredictorType>::value) {
-	    err_code = predictor.supp[i].fit(X, y, sample_weight_local, sample_size, sparse);
+	    err_code = predictor.supp[i].fit(X, y, sample_weight, sample_size);
 	    assert(err_code >= 0);
 	  }
 	}	
@@ -531,8 +537,12 @@ namespace d2 {
     
 #ifdef _USE_SPARSE_ACCELERATE_    
     internal::release_dense_if_need_mapped(data, &X, &y);
+    internal::release_dense_if_need_mapped(data, &X_mm, &y_mm);
 #else
-    internal::release_dense_if_need_ec(data, &X, &y);
+    internal::release_dense_if_need(data, &X);
+    internal::release_dense_if_need(data, &X_mm, learner.len);
+    delete [] y;
+    delete [] y_mm;
 #endif
     
     deallocate_badmm_cache(badmm_cache_arr);

@@ -12,8 +12,11 @@
 // problem setup for specific dataset
 #define dim 100 ///< feature dimension
 #define cls 4 ///< number of classes
+#define clen 4 ///< number of learners
 #define LR Logistic_Regression<dim, cls> ///< type of classifer
 #define DT Decision_Tree<dim, cls, d2::def::gini> ///< type of classifer
+#define LRMM Logistic_Regression<dim, clen> ///< type of classifer
+#define DTMM Decision_Tree<dim, clen, d2::def::gini> ///< type of classifer
 static d2::def::ML_BADMM_PARAM param;
 inline void set_param() {
   param.bootstrap = true; // has to be set true for Decision_Tree<>
@@ -30,9 +33,9 @@ int main(int argc, char** argv) {
   TCLAP::ValueArg<size_t>
     sizeArg("n","size","number of samples to read",true,1000,"size_t");
   cmd.add(sizeArg);
-  TCLAP::ValueArg<size_t>
-    cnumArg("c","cnum","number of classifiers",true,4,"size_t");
-  cmd.add(cnumArg);
+  //  TCLAP::ValueArg<size_t>
+  //    cnumArg("c","cnum","number of classifiers",true,4,"size_t");
+  //  cmd.add(cnumArg);
   try {
     cmd.parse( argc, argv );
   } catch (TCLAP::ArgException &e)  // catch any exceptions
@@ -76,25 +79,32 @@ int main(int argc, char** argv) {
   Block<Elem<def::WordVec, dim> > test (test_,  subblock_size * rabit::GetRank(), subblock_size);
 
 
-  size_t num_of_classifers = cnumArg.getValue();
+  size_t num_of_classifers = clen; //cnumArg.getValue();
   // create and initialize the LR marriage learner 
   Elem<def::Function<LR >, dim> lr;
   lr.len = num_of_classifers;
   lr.w = new real_t[num_of_classifers];
   lr.supp = new LR[num_of_classifers];
 
-  // create and initialize the DT marriage predictor 
+  // create and initialize the LR marriage matchmaker
+  LRMM lr_mm;
+
+  // create and initialize the DT marriage learner
   Elem<def::Function<DT >, dim> dt;
   dt.len = num_of_classifers;
   dt.w = new real_t[num_of_classifers];
   dt.supp = new DT[num_of_classifers];
-
+ 
+  // create and initialize the DT marriage matchmaker
+  DTMM dt_mm;
+ 
   double startTime = getRealTime();
   std::vector< Block<Elem<def::WordVec, dim> > * > validation;
   validation.push_back(&test);
-  auto & marriage_learner = dt;
-  auto & marriage_predictor = dt;
-  ML_BADMM(train, marriage_learner, marriage_predictor, param, validation);
+  auto & marriage_learner = lr;
+  auto & marriage_predictor = lr;
+  auto & marriage_matchmaker = lr_mm;
+  ML_BADMM(train, marriage_learner, marriage_predictor, marriage_matchmaker, param, validation);
 
   if (rabit::GetRank() == 0) {
     std::cout << "learner.w: ";
