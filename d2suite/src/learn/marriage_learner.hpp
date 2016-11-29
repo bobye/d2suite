@@ -325,7 +325,7 @@ namespace d2 {
     
     internal::BADMMCache badmm_cache_arr;
     real_t rho = param.rho;
-    assert(learner.len > 1);
+    //assert(learner.len > 1);
     allocate_badmm_cache(learner, data, badmm_cache_arr);
     
     // initialization
