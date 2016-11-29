@@ -65,7 +65,7 @@ namespace d2 {
     
 
     struct _DT {
-      constexpr static real_t prior_weight = 1.;
+      constexpr static real_t prior_weight = 0.1;
     };
     /*! \brief base class for decision tree nodes
      * which includes shared functions and data members of both leaf and branch
@@ -606,7 +606,7 @@ namespace d2 {
 
 
       // start to pruning the constructed tree
-      bool pruning = true;      
+      bool pruning = true;
       if (false) {	  
 	root = post_process_node_arr(leaf_arr, branch_arr);
 	real_t error_before_pruning = root->get_R();
@@ -614,7 +614,7 @@ namespace d2 {
 	size_t n_leafs = root->get_leaf_count();
 	real_t min_alpha = 0;
 	std::cerr << getLogHeader() << "initial terminal nodes: "<<  n_leafs << std::endl;
-	while (n_leafs > 1) {
+	while (n_leafs > 512) {
 	  // find the min(r-R)
 	  std::stack<int> branch_ind_stack;
 	  branch_ind_stack.push(0);
@@ -687,6 +687,7 @@ namespace d2 {
     real_t predict(const real_t *X) const {
       return root->get_leafnode(X)->label;
     }
+    /*
     real_t eval(const real_t *X, const real_t y) const {
       LeafNode *leaf = root->get_leafnode(X);
       std::array<real_t, n_class> &histogram = leaf->class_histogram;
@@ -702,6 +703,7 @@ namespace d2 {
     real_t eval_min(const real_t *X) const {
       return root->get_leafnode(X)->score;
     }
+    */
     void evals(const real_t *X, const real_t *y, const size_t n, real_t *loss, const size_t leading, const size_t stride = 1) const {
       for (size_t i=0; i<n; ++i) {
 	LeafNode *leaf = root->get_leafnode(X + i*dim);	

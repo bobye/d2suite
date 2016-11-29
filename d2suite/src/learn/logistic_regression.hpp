@@ -115,6 +115,7 @@ namespace d2 {
       delete [] v;
       delete [] sv;
     }
+    /*
     real_t eval(const real_t *X, const real_t y) const {
       real_t loss;
       real_t v[n_class];
@@ -167,6 +168,7 @@ namespace d2 {
       loss = - log(loss) + log(exp_sum);
       return loss;      
     }
+    */
     void evals(const real_t *X, const real_t *y, const size_t n, real_t *loss, const size_t leading, const size_t stride = 1) const {
       real_t *v = new real_t[n*n_class];
       real_t *sv= new real_t[n];

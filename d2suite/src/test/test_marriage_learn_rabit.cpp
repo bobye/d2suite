@@ -12,7 +12,7 @@
 // problem setup for specific dataset
 #define dim 100 ///< feature dimension
 #define cls 4 ///< number of classes
-#define clen 8 ///< number of learners
+#define clen 24 ///< number of learners
 #define LR Logistic_Regression<dim, cls> ///< type of classifer
 #define DT Decision_Tree<dim, cls, d2::def::gini> ///< type of classifer
 #define LRMM Logistic_Regression<dim, clen> ///< type of classifer
@@ -102,9 +102,9 @@ int main(int argc, char** argv) {
   double startTime = getRealTime();
   std::vector< Block<Elem<def::WordVec, dim> > * > validation;
   validation.push_back(&test);
-  auto & marriage_learner = dt;
-  auto & marriage_predictor = dt;
-  auto & marriage_matchmaker = dt_mm;
+  auto & marriage_learner = lr;
+  auto & marriage_predictor = lr;
+  auto & marriage_matchmaker = lr_mm;
   ML_BADMM(train, marriage_learner, marriage_predictor, marriage_matchmaker, param, validation);
 
   if (rabit::GetRank() == 0) {
