@@ -8,15 +8,33 @@
 #include "../common/d2_badmm.hpp"
 
 namespace d2 {
+  namespace def {
+    /*! \brief all hyper parameters of ML_BADMM
+     */
+    struct ML_BADMM_PARAM {
+      size_t max_iter = 100; ///< the maximum number of iterations
+      size_t badmm_iter = 50;///< the number of iterations used in badmm per update
+      real_t rho = 10.; ///< the BADMM parameter
+      real_t beta = 1.; ///< the relative weight of non-above class
+      size_t restart = -1; ///< the number of iterations fulfilled to restart BADMM; -1 means disabled
+      real_t termination_tol = 5E-5;
+      bool   bootstrap = false; ///< whether using bootstrap samples to initialize classifers
+      bool   communicate = false;
+    };
+  }
+
   /*!
    * \brief The predicting utility of marriage learning using the winner-take-all method
    * \param data the data block to be predicted
    * \param learner the set of classifiers learnt via marriage learning
+   * \param matchmaker the mm classifier learnt via marriage learning
    * \param write_label if false, compute the accuracy, otherwise overwrite labels to data
    */
-  template <typename ElemType1, typename FuncType, size_t dim>
-  real_t ML_Predict_ByWinnerTakeAll(Block<ElemType1> &data,
-				    const Elem<def::Function<FuncType>, dim> &learner,
+  template <typename ElemType, typename LearnerType, typename MatchmakerType, size_t dim>
+  real_t ML_Predict_ByWinnerTakeAll(Block<ElemType> &data,
+				    const Elem<def::Function<LearnerType>, dim> &learner,
+				    const MatchmakerType &matchmaker,
+				    const def::ML_BADMM_PARAM &param,
 				    bool write_label = false,
 				    std::vector<real_t> *scores = NULL) {
     using namespace rabit;
@@ -25,18 +43,24 @@ namespace d2 {
     for (size_t i=0; i<data.get_size(); ++i) y[i] = data[i].label[0];
 
     real_t *C = new real_t [data.get_col() * learner.len];
+    real_t *Ctmp = new real_t [data.get_col() * learner.len];
     real_t *emds;
     if (write_label && scores) {
       scores->resize(data.get_col() * learner.len);
       emds = &(*scores)[0];
     } else {
       assert((write_label && scores) || !write_label);
-      emds = new real_t [data.get_size() * FuncType::NUMBER_OF_CLASSES];
+      emds = new real_t [data.get_size() * LearnerType::NUMBER_OF_CLASSES];
     }
-    for (size_t i=0; i<FuncType::NUMBER_OF_CLASSES; ++i) {
+    _pdist2_alllabel(&matchmaker, 1, data.get_support_ptr(), data.get_col(), data.meta, Ctmp);
+    for (size_t i=0; i<LearnerType::NUMBER_OF_CLASSES; ++i) {
       _pdist2_label(learner.supp, learner.len,
 		    data.get_support_ptr(), i, data.get_col(),
 		    data.meta, C);
+      for (size_t ii=0; ii<learner.len; ++ii)
+	for (size_t jj=0; jj<data.get_col(); ++jj) {
+	  C[ii + jj*learner.len] += param.beta * Ctmp[jj + ii*data.get_col()];
+	}
       EMD(learner, data, emds + data.get_size() * i, C, NULL, NULL, true);
     }
 
@@ -49,7 +73,7 @@ namespace d2 {
 	real_t *emd = emds + i;
 	int label = -1;
 	real_t min_emd = std::numeric_limits<real_t>::max();
-	for (size_t j=0; j<FuncType::NUMBER_OF_CLASSES; ++j) {
+	for (size_t j=0; j<LearnerType::NUMBER_OF_CLASSES; ++j) {
 	  if (emd[j*data.get_size()] < min_emd) {
 	    min_emd = emd[j*data.get_size()];
 	    label = j;
@@ -66,6 +90,7 @@ namespace d2 {
     
     delete [] y;
     delete [] C;
+    delete [] Ctmp;
     if (!(write_label && scores))
       delete [] emds;
     
@@ -76,16 +101,19 @@ namespace d2 {
    * \brief The predicting utility of marriage learning using the (multimarginal) voting method
    * \param data the data block to be predicted
    * \param learner the set of classifiers learnt via marriage learning
+   * \param matchmaker the mm classifier learnt via marriage learning
    * \param write_label if false, compute the accuracy, otherwise overwrite labels to data
    */
-  template <typename ElemType1, typename FuncType, size_t dim>
-  real_t ML_Predict_ByVoting(Block<ElemType1> &data,
-			     const Elem<def::Function<FuncType>, dim> &learner,
+  template <typename ElemType, typename LearnerType, typename MatchmakerType, size_t dim>
+  real_t ML_Predict_ByVoting(Block<ElemType> &data,
+			     const Elem<def::Function<LearnerType>, dim> &learner,
+			     const MatchmakerType &matchmaker,
+			     const def::ML_BADMM_PARAM &param,
 			     bool write_label = false,
 			     std::vector<real_t> *class_proportion = NULL) {
     using namespace rabit;
     if (write_label && class_proportion) {
-      class_proportion->resize(data.get_size() * FuncType::NUMBER_OF_CLASSES);
+      class_proportion->resize(data.get_size() * LearnerType::NUMBER_OF_CLASSES);
     } else {
       assert((write_label && class_proportion) || !write_label);
     }
@@ -96,7 +124,8 @@ namespace d2 {
     for (size_t i=0; i<data.get_size(); ++i) y[i] = data[i].label[0];
 
     const size_t mat_size = data.get_col() * learner.len;
-    real_t *C    = new real_t [mat_size * FuncType::NUMBER_OF_CLASSES];
+    real_t *C    = new real_t [mat_size * LearnerType::NUMBER_OF_CLASSES];
+    real_t *Ctmp = new real_t [mat_size];
     real_t *minC = new real_t [mat_size];
     real_t *Pi   = new real_t [mat_size];
     size_t *index= new size_t [mat_size];
@@ -104,17 +133,22 @@ namespace d2 {
     _pdist2_alllabel(learner.supp, learner.len,
 		     data.get_support_ptr(), data.get_col(),
 		     data.meta, C);
+    _pdist2_alllabel(&matchmaker, 1,
+		     data.get_support_ptr(), data.get_col(),
+		     data.meta, Ctmp);
 
     for (size_t i=0; i<mat_size; ++i) {
       real_t minC_value = std::numeric_limits<real_t>::max();
       size_t minC_index = -1;
-      for (size_t j=0; j<FuncType::NUMBER_OF_CLASSES; ++j) {
-	if (minC_value > C[i+j*mat_size]) {
-	  minC_value = C[i+j*mat_size];
+      real_t addC_value = param.beta * Ctmp[i/learner.len + (i%learner.len)*data.get_col()];
+      for (size_t j=0; j<LearnerType::NUMBER_OF_CLASSES; ++j) {
+	real_t actual_C = C[i+j*mat_size] + addC_value;
+	if (minC_value > actual_C) {
+	  minC_value = actual_C;
 	  minC_index = j;
 	}
       }
-      minC[i] = minC_value - C[i];
+      minC[i] = minC_value;
       index[i] = minC_index;
     }
     EMD(learner, data, NULL, minC, Pi, NULL, true);        
@@ -127,7 +161,7 @@ namespace d2 {
       size_t *index_ptr = index;
       for (size_t i=0; i<data.get_size(); ++i) {
 	const size_t ms = learner.len * data[i].len;
-	real_t thislabel[FuncType::NUMBER_OF_CLASSES] ={};
+	real_t thislabel[LearnerType::NUMBER_OF_CLASSES] ={};
 	for (size_t j=0; j<ms; ++j) {
 	  thislabel[index_ptr[j]] += Pi_ptr[j];	  
 	}
@@ -135,9 +169,9 @@ namespace d2 {
 	Pi_ptr    += ms;
 
 	const real_t w = thislabel[(size_t) y[i]];
-	size_t label = std::max_element(thislabel+1, thislabel+FuncType::NUMBER_OF_CLASSES) - thislabel;
+	size_t label = std::max_element(thislabel, thislabel+LearnerType::NUMBER_OF_CLASSES) - thislabel;
 	if (write_label && class_proportion) {
-	  memcpy(&class_proportion[i*FuncType::NUMBER_OF_CLASSES], thislabel, sizeof(real_t) * FuncType::NUMBER_OF_CLASSES);
+	  memcpy(&class_proportion[i*LearnerType::NUMBER_OF_CLASSES], thislabel, sizeof(real_t) * LearnerType::NUMBER_OF_CLASSES);
 	}
 	accuracy += label == (size_t) y[i];
       }
@@ -156,6 +190,7 @@ namespace d2 {
     delete [] y;
     delete [] label_cache;
     delete [] C;
+    delete [] Ctmp;
     delete [] minC;
     delete [] index;
     delete [] Pi;
@@ -173,12 +208,20 @@ namespace d2 {
     void _get_sample_weight(const Block<ElemType> &data,
 			    const real_t *Pi, size_t leading,
 			    real_t *sample_weight, size_t sample_size) {
-      for (size_t ii=0; ii<data.get_col(); ++ii) sample_weight[ii] = 0;
       _D2_CBLAS_FUNC(copy)(data.get_col(),
 			   Pi, leading,
 			   sample_weight, 1);    
     }
 
+    template <typename ElemType>
+    void _get_sample_weight_mm(const Block<ElemType> &data,
+			       const real_t *Pi, size_t leading,
+			       real_t *sample_weight, size_t sample_size) {
+      _D2_CBLAS_FUNC(copy)(sample_size,
+			   Pi, 1,
+			   sample_weight, 1);    
+    }
+    
 #ifdef _USE_SPARSE_ACCELERATE_
     template <size_t D>
     void _get_sample_weight(const Block<Elem<def::WordVec, D> > &data,
@@ -193,34 +236,42 @@ namespace d2 {
       }
       Allreduce<op::Sum>(sample_weight, sample_size);
     }
+
+    template <size_t D>
+    void _get_sample_weight_mm(const Block<Elem<def::WordVec, D> > &data,
+			       const real_t *Pi, size_t leading,
+			       real_t *sample_weight, size_t sample_size) {
+      using namespace rabit;
+      for (size_t ii=0; ii<sample_size; ++ii) sample_weight[ii] = 0;
+      for (size_t ii=0; ii<data.get_col()*leading; ++ii) {
+	real_t cur_w = Pi[ii];
+	sample_weight[data.get_support_ptr()[ii / leading] +
+		      data.meta.size * (ii % leading)] += cur_w;
+      }
+      Allreduce<op::Sum>(sample_weight, sample_size);
+    }
 #endif
 
     template <typename ElemType>
     size_t _get_sample_size(const Block<ElemType> &data, size_t num_of_copies)
     {return data.get_col();}
+    
+    template <typename ElemType>
+    size_t _get_sample_size_mm(const Block<ElemType> &data, size_t num_of_copies)
+    {return data.get_col() * num_of_copies;}
 
 #ifdef _USE_SPARSE_ACCELERATE_
     template <size_t D>
     size_t _get_sample_size(const Block<Elem<def::WordVec, D> > &data, size_t num_of_copies)
     {return data.meta.size * num_of_copies;}
+
+    template <size_t D>
+    size_t _get_sample_size_mm(const Block<Elem<def::WordVec, D> > &data, size_t num_of_copies)
+    {return data.meta.size * num_of_copies;}
 #endif
   }
 
 
-  namespace def {
-    /*! \brief all hyper parameters of ML_BADMM
-     */
-    struct ML_BADMM_PARAM {
-      size_t max_iter = 100; ///< the maximum number of iterations
-      size_t badmm_iter = 50;///< the number of iterations used in badmm per update
-      real_t rho = 10.; ///< the BADMM parameter
-      real_t beta = 1.; ///< the relative weight of non-above class
-      size_t restart = -1; ///< the number of iterations fulfilled to restart BADMM; -1 means disabled
-      real_t termination_tol = 1E-6;
-      bool   bootstrap = false; ///< whether using bootstrap samples to initialize classifers
-      bool   communicate = false;
-    };
-  }
   /*!
    * \brief the marriage learning algorithm enabled by BADMM 
    * \param data a block of elements to train
@@ -238,9 +289,13 @@ namespace d2 {
 		 Elem<def::Function<PredictorType>, dim> &predictor,
 		 MatchmakerType &matchmaker,
 		 const def::ML_BADMM_PARAM &param,
-		 std::vector<Block<ElemType>* > &val_data) {    
+		 std::vector<Block<ElemType>* > &val_data) {
+    assert(MatchmakerType::NUMBER_OF_CLASSES == learner.len);
     using namespace rabit;
     // basic initialization
+    matchmaker.init();
+    matchmaker.sync(0);
+    matchmaker.set_communicate(param.communicate);
     for (size_t i=0; i<learner.len; ++i) {
       learner.w[i] = 1. / learner.len;
       learner.supp[i].init();
@@ -289,14 +344,15 @@ namespace d2 {
     real_t *X_mm, *y_mm; // dense data for training matchmaker
 #ifdef _USE_SPARSE_ACCELERATE_    
     internal::get_dense_if_need_mapped(data, &X, &y, LearnerType::NUMBER_OF_CLASSES);
-    internal::get_dense_if_need_mapped(data, &X_mm, &y_mm, learner.len);
+    internal::get_dense_if_need_mapped(data, &X_mm, &y_mm, MatchmakerType::NUMBER_OF_CLASSES);
 #else
     internal::get_dense_if_need(data, &X);
-    internal::get_dense_if_need(data, &X_mm, learner.len);
+    internal::get_dense_if_need(data, &X_mm, MatchmakerType::NUMBER_OF_CLASSES);
     y = new real_t[data.get_col()];
-    y_mm = new real_t[data.get_col() * learner.len];
+    y_mm = new real_t[data.get_col() * MatchmakerType::NUMBER_OF_CLASSES];
     for (size_t i=0; i<data.get_col(); ++i) y[i] = data.get_label_ptr()[i];
-    for (size_t i=0; i<data.get_col() * learner.len; ++i) y_mm[i] = i % learner.len;
+    for (size_t i=0; i<data.get_col() * MatchmakerType::NUMBER_OF_CLASSES; ++i)
+      y_mm[i] = i % MatchmakerType::NUMBER_OF_CLASSES;
 #endif
 
 
@@ -354,7 +410,20 @@ namespace d2 {
       _pdist2(learner.supp, learner.len,
 	      data.get_support_ptr(), data.get_col(),
 	      data.meta, badmm_cache_arr.C);
-      
+
+      if (iter > 0) {
+	real_t *X_tmp;
+	internal::get_dense_if_need(data, &X_tmp);
+	matchmaker.evals_alllabel(X_tmp, data.get_col(), badmm_cache_arr.Ctmp,
+				  MatchmakerType::NUMBER_OF_CLASSES, 1);
+	internal::release_dense_if_need(data, &X_tmp);
+
+	for (size_t i=0; i<data.get_col() * learner.len; ++i)
+	  badmm_cache_arr.C[i] += param.beta * badmm_cache_arr.Ctmp[i];
+      } else {
+	for (size_t i=0; i<data.get_col() * learner.len; ++i)
+	  badmm_cache_arr.C[i] -= param.beta * log(1./learner.len);
+      }
       /* ************************************************
        * rescale badmm parameters
        */
@@ -396,8 +465,8 @@ namespace d2 {
 	}
 	if (val_data.size() > 0) {
 	  for (size_t i=0; i<val_data.size(); ++i) {
-	    validate_accuracy_1 = ML_Predict_ByWinnerTakeAll(*val_data[i], predictor);
-	    validate_accuracy_2 = ML_Predict_ByVoting(*val_data[i], predictor);
+	    validate_accuracy_1 = ML_Predict_ByWinnerTakeAll(*val_data[i], predictor, matchmaker, param);
+	    validate_accuracy_2 = ML_Predict_ByVoting(*val_data[i], predictor, matchmaker, param);
 	  }	
 	}	
 	if (GetRank() == 0) {
@@ -461,7 +530,23 @@ namespace d2 {
       //      }
 
       /* ************************************************
-       * re-fit classifiers
+       * re-fit classifiers (matchmaker)
+       */
+      const size_t sample_size_mm = internal::_get_sample_size_mm(data, MatchmakerType::NUMBER_OF_CLASSES);
+      real_t *sample_weight_mm = new real_t[sample_size_mm];
+      internal::_get_sample_weight_mm(data, badmm_cache_arr.Pi2, learner.len, sample_weight_mm, sample_size_mm);
+      int err_code = 0;
+#ifdef _USE_SPARSE_ACCELERATE_	
+      err_code = matchmaker.fit(X_mm, y_mm, sample_weight_mm, sample_size_mm, sparse);
+#else
+      err_code = matchmaker.fit(X_mm, y_mm, sample_weight_mm, sample_size_mm);
+#endif
+      assert(err_code >= 0);
+      delete [] sample_weight_mm;
+
+      
+      /* ************************************************
+       * re-fit classifiers (learner and predictor)
        */
       const size_t sample_size = internal::_get_sample_size(data, LearnerType::NUMBER_OF_CLASSES);
 #ifdef _USE_SPARSE_ACCELERATE_      
@@ -486,6 +571,7 @@ namespace d2 {
 	    if (ii % GetWorldSize() == GetRank())
 	    {
 	      int err_code = 0;
+	      if (iter == 0) learner.supp[ii].init();
 	      err_code = learner.supp[ii].fit(X, y, sample_weight_local, sample_size, sparse);
 	      assert(err_code >= 0);
 	      if (!std::is_same<LearnerType, PredictorType>::value) {
@@ -529,8 +615,8 @@ namespace d2 {
       Barrier();
       
       
-      train_accuracy_1 = ML_Predict_ByWinnerTakeAll(data, predictor);
-      train_accuracy_2 = ML_Predict_ByVoting(data, predictor);
+      train_accuracy_1 = ML_Predict_ByWinnerTakeAll(data, predictor, matchmaker, param);
+      train_accuracy_2 = ML_Predict_ByVoting(data, predictor, matchmaker, param);
 
     }
 

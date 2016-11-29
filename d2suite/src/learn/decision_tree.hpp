@@ -65,7 +65,7 @@ namespace d2 {
     
 
     struct _DT {
-      constexpr static real_t prior_weight = 0.1;
+      constexpr static real_t prior_weight = 1.;
     };
     /*! \brief base class for decision tree nodes
      * which includes shared functions and data members of both leaf and branch
@@ -672,7 +672,10 @@ namespace d2 {
   public:
     static const size_t NUMBER_OF_CLASSES = n_class;
 
-    void init() {}
+    void init() {
+      leaf_arr.clear();
+      branch_arr.clear();
+    }
     void predict(const real_t *X, const size_t n, real_t *y) const {
       const real_t* x = X;
       assert(root);
