@@ -536,10 +536,13 @@ namespace d2 {
       real_t *sample_weight_mm = new real_t[sample_size_mm];
       internal::_get_sample_weight_mm(data, badmm_cache_arr.Pi2, learner.len, sample_weight_mm, sample_size_mm);
       int err_code = 0;
-#ifdef _USE_SPARSE_ACCELERATE_	
-      err_code = matchmaker.fit(X_mm, y_mm, sample_weight_mm, sample_size_mm, sparse);
+#ifdef _USE_SPARSE_ACCELERATE_
+      if (GetRank() == 0) 
+	err_code = matchmaker.fit(X_mm, y_mm, sample_weight_mm, sample_size_mm, sparse);
+      matchmaker.sync(0);
 #else
       err_code = matchmaker.fit(X_mm, y_mm, sample_weight_mm, sample_size_mm);
+      matchmaker.sync(0);
 #endif
       assert(err_code >= 0);
       delete [] sample_weight_mm;
