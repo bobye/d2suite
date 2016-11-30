@@ -762,30 +762,17 @@ namespace d2 {
 	sample_size = n;
       }
       
-      buf_tree_constructor<dim, n_class> buf;
       buf.max_depth = max_depth;
       buf.min_leaf_weight = min_leaf_weight;
       buf.warm_start = true;
-      {	
-	buf.X.resize(dim);
-	for (size_t k=0; k<dim; ++k) buf.X[k].resize(sample_size);
-	buf.y.resize(sample_size);
-	buf.sample_weight.resize(sample_size);
-	for (size_t i=0, j=0; i<sample_size; ++i) {
-	  for (size_t k=0; k<dim; ++k, ++j) {
-	    buf.X[k][i]=XX[j];
-	  }
-	  buf.y[i]=(size_t) yy[i];
-	  if (ss)
-	    buf.sample_weight[i]=ss[i];
-	  else
-	    buf.sample_weight[i]=1.;
-	}
-      }
-      if (presort) {
+
+      if (!presorted) {
 	prepare_presort(XX, yy, ss, sample_size, buf);
+	presorted = true;
+      } else {
+	update_weight(XX, yy, ss, sample_size, buf);
       }
-      root = build_tree<dim, n_class, criterion>(sample_size, buf, leaf_arr, branch_arr, presort);
+      root = build_tree<dim, n_class, criterion>(sample_size, buf, leaf_arr, branch_arr, true);
       if (sparse) {
 	delete [] XX;
 	delete [] yy;
@@ -838,11 +825,12 @@ namespace d2 {
     
     internal::_DTNode<dim, n_class> *root = nullptr;
   private:
+    internal::buf_tree_constructor<dim, n_class> buf;
     std::vector<LeafNode> leaf_arr; 
     std::vector<BranchNode> branch_arr;
     size_t max_depth = 100;
     real_t min_leaf_weight = .0;
-    bool presort = true;
+    bool presorted = false;
     bool communicate = true;
 
     
@@ -869,6 +857,22 @@ namespace d2 {
     void prepare_presort(const real_t *XX, const real_t *yy, const real_t* ss,
 			 const size_t sample_size,
 			 internal::buf_tree_constructor<dim, n_class> &buf) {
+
+      buf.X.resize(dim);
+      for (size_t k=0; k<dim; ++k) buf.X[k].resize(sample_size);
+      buf.y.resize(sample_size);
+      buf.sample_weight.resize(sample_size);
+      for (size_t i=0, j=0; i<sample_size; ++i) {
+	for (size_t k=0; k<dim; ++k, ++j) {
+	  buf.X[k][i]=XX[j];
+	}
+	buf.y[i]=(size_t) yy[i];
+	if (ss)
+	  buf.sample_weight[i]=ss[i];
+	else
+	  buf.sample_weight[i]=1.;
+      }
+
       buf.sorted_samples.resize(dim);
       buf.inv_ind_sorted.resize(dim);
       buf.sample_mask_cache.resize(sample_size);
@@ -900,6 +904,47 @@ namespace d2 {
 	  }
 	}
       }      
+    }
+
+    void update_weight(const real_t *XX, const real_t *yy, const real_t *ss,
+		       const size_t sample_size,
+		       internal::buf_tree_constructor<dim, n_class> &buf) {
+      if (!ss) return;
+      assert(buf.X.size() == dim);
+      for (size_t k=0; k<dim; ++k) assert(buf.X[k].size() == sample_size);
+      assert(buf.y.size() == sample_size);
+      assert(buf.sample_weight.size() == sample_size);
+      for (size_t i=0, j=0; i<sample_size; ++i) {
+	for (size_t k=0; k<dim; ++k, ++j) {
+	  assert(buf.X[k][i] == XX[j]);
+	}
+	assert(buf.y[i] == (size_t) yy[i]);
+	buf.sample_weight[i] = ss[i];
+      }
+      
+      assert(buf.sorted_samples.size() == dim);
+      assert(buf.inv_ind_sorted.size() == dim);
+      assert(buf.sample_mask_cache.size() == sample_size);
+      for (size_t k=0; k<dim; ++k) {
+	auto &sorted_samples = buf.sorted_samples[k];
+	auto &inv_ind_sorted = buf.inv_ind_sorted[k];
+	assert(sorted_samples.size() == sample_size);
+	assert(inv_ind_sorted.size() == sample_size);
+	const real_t * XX = &buf.X[k][0];
+	for (size_t i=0; i<sample_size; ++i) {
+	  auto &sample = sorted_samples[i];
+	  size_t index = sample.index;
+	  assert(sample.x == XX[index]);
+	  assert(sample.y == (size_t) yy[index]);
+	  sample.weight = ss[index];
+	}
+	for (size_t i=0; i<sample_size; ++i) {
+	  assert(inv_ind_sorted[sorted_samples[i].index] == i);
+	  if (i>0) {
+	    sorted_samples[i-1].next = &sorted_samples[i];
+	  }
+	}
+      }
     }
 
   };    
