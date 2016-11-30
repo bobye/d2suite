@@ -22,7 +22,7 @@ namespace d2 {
       bool   communicate = false;
     };
   }
-
+  
   /*!
    * \brief The predicting utility of marriage learning using the winner-take-all method
    * \param data the data block to be predicted
@@ -118,6 +118,79 @@ namespace d2 {
     return accuracy;    
   }
 
+  /*!
+   * \brief The predicting utility of marriage learning using the winner-take-all method
+   * \param data the data block to be predicted
+   * \param learner the set of classifiers learnt via marriage learning
+   * \param matchmaker the mm classifier learnt via marriage learning
+   * \param write_label if false, compute the accuracy, otherwise overwrite labels to data
+   */
+  template <typename ElemType, typename LearnerType, typename MatchmakerType, size_t dim>
+  real_t ML_Predict_ByWinnerTakeAll_v2(Block<ElemType> &data,
+				    const Elem<def::Function<LearnerType>, dim> &learner,
+				    const MatchmakerType &matchmaker,
+				    const def::ML_BADMM_PARAM &param,
+				    bool write_label = false,
+				    std::vector<real_t> *scores = NULL) {
+    using namespace rabit;
+    real_t *y;
+    y = new real_t[data.get_size()];
+    for (size_t i=0; i<data.get_size(); ++i) y[i] = data[i].label[0];
+
+    real_t *C = new real_t [data.get_col() * learner.len];
+    real_t *Ctmp = new real_t [data.get_col() * learner.len];
+    real_t *emds;
+    if (write_label && scores) {
+      scores->resize(data.get_col() * learner.len);
+      emds = &(*scores)[0];
+    } else {
+      assert((write_label && scores) || !write_label);
+      emds = new real_t [data.get_size() * LearnerType::NUMBER_OF_CLASSES];
+    }
+    _pdist2_alllabel(&matchmaker, 1, data.get_support_ptr(), data.get_col(), data.meta, Ctmp);
+    for (size_t i=0; i<LearnerType::NUMBER_OF_CLASSES; ++i) {
+      _pdist2_label(learner.supp, learner.len,
+		    data.get_support_ptr(), i, data.get_col(),
+		    data.meta, C);
+      for (size_t ii=0; ii<learner.len; ++ii)
+	for (size_t jj=0; jj<data.get_col(); ++jj) {
+	  C[ii + jj*learner.len] += param.beta * Ctmp[jj + ii*data.get_col()];
+	}
+      EMD(learner, data, emds + data.get_size() * i, C, NULL, NULL, true);
+    }
+
+
+    real_t accuracy = 0.0;    
+    if (false) {
+      
+    } else {
+      for (size_t i=0; i<data.get_size(); ++i) {
+	real_t *emd = emds + i;
+	int label = -1;
+	real_t min_emd = std::numeric_limits<real_t>::max();
+	for (size_t j=0; j<LearnerType::NUMBER_OF_CLASSES; ++j) {
+	  if (emd[j*data.get_size()] < min_emd) {
+	    min_emd = emd[j*data.get_size()];
+	    label = j;
+	  }
+	}
+	accuracy += label == (int) y[i];
+      }
+      size_t global_size = data.get_size();
+      Allreduce<op::Sum>(&global_size, 1);
+      Allreduce<op::Sum>(&accuracy, 1);
+      accuracy /= global_size;      
+    }
+
+    
+    delete [] y;
+    delete [] C;
+    delete [] Ctmp;
+    if (!(write_label && scores))
+      delete [] emds;
+    
+    return accuracy;    
+  }  
   /*!
    * \brief The predicting utility of marriage learning using the (multimarginal) voting method
    * \param data the data block to be predicted
@@ -487,7 +560,7 @@ namespace d2 {
 	if (val_data.size() > 0) {
 	  for (size_t i=0; i<val_data.size(); ++i) {
 	    validate_accuracy_1 = ML_Predict_ByWinnerTakeAll(*val_data[i], learner, predictor, matchmaker, param);
-	    validate_accuracy_2 = ML_Predict_ByVoting(*val_data[i], predictor, matchmaker, param);
+	    validate_accuracy_2 = ML_Predict_ByWinnerTakeAll_v2(*val_data[i], predictor, matchmaker, param);
 	  }	
 	}	
 	if (GetRank() == 0) {
@@ -640,7 +713,7 @@ namespace d2 {
       
       
       train_accuracy_1 = ML_Predict_ByWinnerTakeAll(data, learner, predictor, matchmaker, param);
-      train_accuracy_2 = ML_Predict_ByVoting(data, predictor, matchmaker, param);
+      train_accuracy_2 = ML_Predict_ByWinnerTakeAll_v2(data, predictor, matchmaker, param);
 
     }
 
