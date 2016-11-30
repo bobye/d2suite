@@ -65,7 +65,7 @@ namespace d2 {
     
 
     struct _DT {
-      constexpr static real_t prior_weight = 0.1;
+      constexpr static real_t prior_weight = 0.001;
     };
     /*! \brief base class for decision tree nodes
      * which includes shared functions and data members of both leaf and branch
@@ -684,9 +684,11 @@ namespace d2 {
 	y[i] = leaf->label;
       }
     };
+    /*    
     real_t predict(const real_t *X) const {
       return root->get_leafnode(X)->label;
     }
+    */
     /*
     real_t eval(const real_t *X, const real_t y) const {
       LeafNode *leaf = root->get_leafnode(X);
@@ -781,37 +783,7 @@ namespace d2 {
 	}
       }
       if (presort) {
-	buf.sorted_samples.resize(dim);
-	buf.inv_ind_sorted.resize(dim);
-	buf.sample_mask_cache.resize(sample_size);
-	for (size_t k=0; k<dim; ++k) {
-	  auto &sorted_samples = buf.sorted_samples[k];
-	  auto &inv_ind_sorted = buf.inv_ind_sorted[k];
-	  sorted_samples.resize(sample_size);
-	  inv_ind_sorted.resize(sample_size);
-	  const real_t * XX = &buf.X[k][0];
-	  for (size_t i=0; i<sample_size; ++i) {
-	    auto &sample = sorted_samples[i];
-	    sample.x = XX[i];
-	    sample.y = (size_t) yy[i];
-	    if (ss)
-	      sample.weight = ss[i];
-	    else
-	      sample.weight = 1.;
-	    sample.index = i;
-	  }
-	  // presort
-	  std::sort(sorted_samples.begin(), sorted_samples.end(),
-		    [](const struct internal::sorted_sample &a,
-		       const struct internal::sorted_sample &b) -> bool {return a.x < b.x;});
-
-	  for (size_t i=0; i<sample_size; ++i) {
-	    inv_ind_sorted[sorted_samples[i].index] = i;
-	    if (i>0) {
-	      sorted_samples[i-1].next = &sorted_samples[i];
-	    }
-	  }
-	}
+	prepare_presort(XX, yy, ss, sample_size, buf);
       }
       root = build_tree<dim, n_class, criterion>(sample_size, buf, leaf_arr, branch_arr, presort);
       if (sparse) {
@@ -829,26 +801,6 @@ namespace d2 {
 
 #ifdef RABIT_RABIT_H_
     typedef rabit::utils::MemoryBufferStream MemoryBufferStream;
-
-    /*! \brief helper function that caches data to stream */
-    inline void save(dmlc::Stream* fo) {
-      for (const LeafNode &leaf : leaf_arr) {
-	leaf.write(fo);
-      }
-      for (const BranchNode &branch : branch_arr) {
-	branch.write(fo);
-      }
-    }
-    /*! \brief helper function that restores data from stream */
-    inline void load(dmlc::Stream* fi) {
-      for (LeafNode &leaf : leaf_arr) {
-	leaf.read(fi);
-      }
-      for (BranchNode &branch : branch_arr) {
-	branch.read(fi);
-      }
-    }
-
     /*! \brief synchronize between multiple processors */
     void sync(size_t rank) {
       bool no_model = false;
@@ -891,7 +843,65 @@ namespace d2 {
     size_t max_depth = 100;
     real_t min_leaf_weight = .0;
     bool presort = true;
-    bool communicate = true;    
+    bool communicate = true;
+
+    
+#ifdef RABIT_RABIT_H_
+    /*! \brief helper function that caches data to stream */
+    inline void save(dmlc::Stream* fo) {
+      for (const LeafNode &leaf : leaf_arr) {
+	leaf.write(fo);
+      }
+      for (const BranchNode &branch : branch_arr) {
+	branch.write(fo);
+      }
+    }
+    /*! \brief helper function that restores data from stream */
+    inline void load(dmlc::Stream* fi) {
+      for (LeafNode &leaf : leaf_arr) {
+	leaf.read(fi);
+      }
+      for (BranchNode &branch : branch_arr) {
+	branch.read(fi);
+      }
+    }
+#endif
+    void prepare_presort(const real_t *XX, const real_t *yy, const real_t* ss,
+			 const size_t sample_size,
+			 internal::buf_tree_constructor<dim, n_class> &buf) {
+      buf.sorted_samples.resize(dim);
+      buf.inv_ind_sorted.resize(dim);
+      buf.sample_mask_cache.resize(sample_size);
+      for (size_t k=0; k<dim; ++k) {
+	auto &sorted_samples = buf.sorted_samples[k];
+	auto &inv_ind_sorted = buf.inv_ind_sorted[k];
+	sorted_samples.resize(sample_size);
+	inv_ind_sorted.resize(sample_size);
+	const real_t * XX = &buf.X[k][0];
+	for (size_t i=0; i<sample_size; ++i) {
+	  auto &sample = sorted_samples[i];
+	  sample.x = XX[i];
+	  sample.y = (size_t) yy[i];
+	  if (ss)
+	    sample.weight = ss[i];
+	  else
+	    sample.weight = 1.;
+	  sample.index = i;
+	}
+	// presort
+	std::sort(sorted_samples.begin(), sorted_samples.end(),
+		  [](const struct internal::sorted_sample &a,
+		     const struct internal::sorted_sample &b) -> bool {return a.x < b.x;});
+
+	for (size_t i=0; i<sample_size; ++i) {
+	  inv_ind_sorted[sorted_samples[i].index] = i;
+	  if (i>0) {
+	    sorted_samples[i-1].next = &sorted_samples[i];
+	  }
+	}
+      }      
+    }
+
   };    
 }
 
