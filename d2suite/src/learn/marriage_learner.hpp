@@ -30,9 +30,10 @@ namespace d2 {
    * \param matchmaker the mm classifier learnt via marriage learning
    * \param write_label if false, compute the accuracy, otherwise overwrite labels to data
    */
-  template <typename ElemType, typename LearnerType, typename MatchmakerType, size_t dim>
+  template <typename ElemType, typename LearnerType, typename PredictorType, typename MatchmakerType, size_t dim>
   real_t ML_Predict_ByWinnerTakeAll(Block<ElemType> &data,
 				    const Elem<def::Function<LearnerType>, dim> &learner,
+				    const Elem<def::Function<PredictorType>, dim> &predictor,
 				    const MatchmakerType &matchmaker,
 				    const def::ML_BADMM_PARAM &param,
 				    bool write_label = false,
@@ -44,6 +45,8 @@ namespace d2 {
 
     real_t *C = new real_t [data.get_col() * learner.len];
     real_t *Ctmp = new real_t [data.get_col() * learner.len];
+    real_t *Cnew = new real_t [data.get_col() * learner.len];
+    real_t *Pi   = new real_t [data.get_col() * learner.len];
     real_t *emds;
     if (write_label && scores) {
       scores->resize(data.get_col() * learner.len);
@@ -52,16 +55,32 @@ namespace d2 {
       assert((write_label && scores) || !write_label);
       emds = new real_t [data.get_size() * LearnerType::NUMBER_OF_CLASSES];
     }
+    _pdist2(learner.supp, learner.len,
+	    data.get_support_ptr(), data.get_col(),
+	    data.meta, C);
     _pdist2_alllabel(&matchmaker, 1, data.get_support_ptr(), data.get_col(), data.meta, Ctmp);
+    for (size_t ii=0; ii<learner.len; ++ii)
+      for (size_t jj=0; jj<data.get_col(); ++jj) {
+	C[ii + jj*learner.len] += param.beta * Ctmp[jj + ii*data.get_col()];
+      }
     for (size_t i=0; i<LearnerType::NUMBER_OF_CLASSES; ++i) {
-      _pdist2_label(learner.supp, learner.len,
+      EMD(learner, data, NULL, C, Pi, NULL, true);
+      _pdist2_label(predictor.supp, predictor.len,
 		    data.get_support_ptr(), i, data.get_col(),
-		    data.meta, C);
+		    data.meta, Cnew);
       for (size_t ii=0; ii<learner.len; ++ii)
 	for (size_t jj=0; jj<data.get_col(); ++jj) {
-	  C[ii + jj*learner.len] += param.beta * Ctmp[jj + ii*data.get_col()];
+	  Cnew[ii + jj*learner.len] += param.beta * Ctmp[jj + ii*data.get_col()];
 	}
-      EMD(learner, data, emds + data.get_size() * i, C, NULL, NULL, true);
+      real_t *cc = Cnew;
+      real_t *ee = emds + i * data.get_size();
+      real_t *pp = Pi;
+      for (size_t ii=0; ii<data.get_size(); ++ii) {
+	size_t matsize = data[ii].len * learner.len;
+	ee[ii] = _D2_CBLAS_FUNC(dot)(matsize, pp, 1, cc, 1);
+	pp += matsize;
+	cc += matsize;
+      }
     }
 
 
@@ -91,6 +110,8 @@ namespace d2 {
     delete [] y;
     delete [] C;
     delete [] Ctmp;
+    delete [] Cnew;
+    delete [] Pi;
     if (!(write_label && scores))
       delete [] emds;
     
@@ -465,7 +486,7 @@ namespace d2 {
 	}
 	if (val_data.size() > 0) {
 	  for (size_t i=0; i<val_data.size(); ++i) {
-	    validate_accuracy_1 = ML_Predict_ByWinnerTakeAll(*val_data[i], predictor, matchmaker, param);
+	    validate_accuracy_1 = ML_Predict_ByWinnerTakeAll(*val_data[i], learner, predictor, matchmaker, param);
 	    validate_accuracy_2 = ML_Predict_ByVoting(*val_data[i], predictor, matchmaker, param);
 	  }	
 	}	
@@ -618,7 +639,7 @@ namespace d2 {
       Barrier();
       
       
-      train_accuracy_1 = ML_Predict_ByWinnerTakeAll(data, predictor, matchmaker, param);
+      train_accuracy_1 = ML_Predict_ByWinnerTakeAll(data, learner, predictor, matchmaker, param);
       train_accuracy_2 = ML_Predict_ByVoting(data, predictor, matchmaker, param);
 
     }
