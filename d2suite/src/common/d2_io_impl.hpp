@@ -329,7 +329,7 @@ namespace d2 {
       }
     }
     template<typename BlockType> 
-    void _train_test_split_write(const BlockType &block, const std::string &filename, const real_t train_ratio, const size_t start, const unsigned int seed) {
+    void _train_test_split_write(const BlockType &block, const std::string &filename, const real_t train_ratio, const size_t start, const unsigned int seed, const size_t tr_size = 0) {
       using namespace std;
       const size_t size = block.get_size();
       vector<size_t> rand_ind(size);
@@ -341,8 +341,16 @@ namespace d2 {
       
       if (filename != "") {
 	double startTime = getRealTime();
-	ofstream fs_train, fs_test;
-	size_t train_size = std::round(size * train_ratio);
+	ofstream fs_train, fs_test;	
+	size_t train_size;
+	assert(tr_size < block.get_size());
+	if (tr_size == 0)
+	  train_size = std::round(size * train_ratio);
+	else {
+	  assert(seed == 0);
+	  train_size = tr_size;
+	}
+	
 	size_t test_size  = size - train_size;
 
 	// write data
@@ -429,8 +437,8 @@ namespace d2 {
   }
 
   template<typename ElemType>
-  void Block<ElemType>::train_test_split_write(const std::string &filename, const real_t train_ratio, const size_t start, const unsigned int seed) const {
-    internal::_train_test_split_write(*this, filename, train_ratio, start, seed);
+  void Block<ElemType>::train_test_split_write(const std::string &filename, const real_t train_ratio, const size_t start, const unsigned int seed, const size_t tr_size) const {
+    internal::_train_test_split_write(*this, filename, train_ratio, start, seed, tr_size);
   }
 
   template<typename... Ts>
