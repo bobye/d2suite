@@ -50,8 +50,10 @@ namespace d2 {
 
 	real_t entropy = 0.;
 	for (size_t i = 0; i<n_class_plusone - 1; ++i) {
-	  if (proportion[i] > 0)
-	    entropy -= log(proportion[i] / total_weight) * (proportion[i] / total_weight) ;
+	  if (proportion[i] > 0) {
+	    real_t p = proportion[i] / total_weight;
+	    entropy -= log(p) * p ;
+	  }
 	}
       
 	return entropy;
@@ -413,7 +415,7 @@ namespace d2 {
 	  size_t ii = best_goodness - goodness.begin();
 	  branch->index = ii;
 	  branch->cutoff = cutoff[ii];
-	  branch->score = -log(prob);
+	  branch->score = criterion::loss(prob);
 	  branch->weight = all_class_w;
 	  branch->r = r * branch->weight;
 	  sample *sample_cache = &buf.sample_cache[0] + assignment.cache_offset;
@@ -782,7 +784,7 @@ namespace d2 {
     }
 
     inline void set_communicate(bool bval) { communicate = bval; }
-
+    inline void set_max_depth(size_t depth) { max_depth = depth; }
     typedef internal::_DTLeaf<dim, n_class> LeafNode;
     typedef internal::_DTBranch<dim, n_class> BranchNode;
 

@@ -32,8 +32,9 @@ int main() {
   real_t *w = new real_t[N];
   real_t *y_pred = new real_t[N];
   sample_naive_data(X, y, w);
-  auto classifier = new Decision_Tree<D, 2, def::entropy>();
+  auto classifier = new Decision_Tree<D, 2, def::gini>();
   classifier->init();
+  classifier->set_max_depth(10);
   real_t start=getRealTime();
   classifier->fit(X, y, w, N);
   printf("time: %lf seconds\n", getRealTime() - start);
