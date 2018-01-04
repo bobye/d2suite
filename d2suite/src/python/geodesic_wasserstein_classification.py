@@ -53,6 +53,19 @@ def get_losses_gradients(w, M, label):
     return tf.add_n(losses), [dL, dW]
     
 
+def update_one_step(dLW, learning_rate = 0.01):
+    L = tf.get_variable("L")
+    W = tf.get_variable("weights")
+    dL = dLW[0]
+    dW = dLW[1]
+    op1 = L.assign_sub(learning_rate * dL)
+    op2 = W.assign(W / tf.exp(learning_rate * dW))
+    with tf.control_dependencies([op2]):
+        op3 = W.assign(W / tf.reduce_sum(W))
+    with tf.control_dependencies([op1, op2, op3]):
+        return tf.no_op()
+
+
 class TestBADMM(unittest.TestCase):
     def test_BADMM(self):
         w = tf.constant([[0.1, 0.2, 0.3, 0.4], [0.7, 0.1, 0.1, 0.1]], dtype=tf.float32);
@@ -64,6 +77,7 @@ class TestBADMM(unittest.TestCase):
 
         with tf.variable_scope("test", reuse=tf.AUTO_REUSE):
             loss, dLW = get_losses_gradients(w, M, label)
+            one_step = update_one_step(dLW, learning_rate = 0.1)
 
         loss = tf.Print(loss, [loss], message = "loss: ")
         
@@ -71,7 +85,10 @@ class TestBADMM(unittest.TestCase):
             
         with tf.Session() as sess:
             sess.run(init)
-            sess.run([loss, dLW])
+            for i in range(100):
+                if (i+1) % 10 == 0:
+                    sess.run(loss)
+                sess.run(one_step)
 
 
 if __name__ == "__main__":
