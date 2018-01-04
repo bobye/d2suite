@@ -40,7 +40,7 @@ def badmm(w1, w2, D, rho = 1, niter = 100):
     Pi = w1 * w2
     for i in range(niter):
         Pi, Lambda = badmm_oneiter(Pi, Lambda, w1, w2, expD)
-    return Pi
+    return tf.squeeze(Pi)
 
 
 class TestBADMM(unittest.TestCase):
