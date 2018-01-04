@@ -230,6 +230,7 @@ namespace d2 {
       std::vector<std::vector<real_t> > X; ///< store data in coordinate-order
       std::vector<size_t> y;
       std::vector<real_t> sample_weight;
+      std::vector<real_t> sample_weight_validate;
       size_t max_depth;
       real_t min_leaf_weight;
       bool warm_start = false;
@@ -323,6 +324,10 @@ namespace d2 {
 					buf_tree_constructor<dim, n_class> &buf,
 					const bool presort,
 					const int dim_index = -1) {
+      bool use_validate = false;
+      if (!buf.sample_weight_validate.empty())
+	use_validate = true;
+
       // default: return leaf node
       aleft.ptr = NULL;
       aright.ptr= NULL;
@@ -332,26 +337,48 @@ namespace d2 {
 
       // compute the class histogram on the sample
       std::array<real_t, n_class> class_hist = {};
+      std::array<real_t, n_class> class_hist_validate = {};
       size_t *index=assignment.ptr;
       for (size_t ii = 0; ii < assignment.size; ++ii) {
-	class_hist[buf.y[index[ii]]] += buf.sample_weight[index[ii]];
+	class_hist[buf.y[index[ii]]] += buf.sample_weight[index[ii]];	
+      }
+
+      if (use_validate) {
+	for (size_t ii = 0; ii < assignment.size; ++ii) {
+	  class_hist_validate[buf.y[index[ii]]] += buf.sample_weight_validate[index[ii]];	
+	}
       }
 
       // basic statistics regarding class histogram
+      auto histogram = class_hist;
       real_t* max_class_w = std::max_element(class_hist.begin(), class_hist.end()); 
       real_t  all_class_w = std::accumulate(class_hist.begin(), class_hist.end(), 0.);      
 
       // get the probability score
       real_t prob =  (*max_class_w + _DT::prior_weight) / (all_class_w + _DT::prior_weight * n_class);
       real_t r = (1 - *max_class_w / all_class_w);
-      if (assignment.size == 1 || buf.tree_stack.size() > buf.max_depth || r < 0.01 || all_class_w < buf.min_leaf_weight) {
+      real_t label = max_class_w - class_hist.begin();
+
+      // leaf node condition
+      bool is_leaf = (assignment.size == 1 || buf.tree_stack.size() > buf.max_depth || r < 0.01 || all_class_w < buf.min_leaf_weight);
+
+      // update statistics if validation set is used
+      if (use_validate) {
+	histogram = class_hist_validate;
+	max_class_w = &class_hist_validate[label];
+	all_class_w = std::accumulate(class_hist_validate.begin(), class_hist_validate.end(), 0.);
+	prob =  (*max_class_w + _DT::prior_weight) / (all_class_w + _DT::prior_weight * n_class);
+	r = (1 - *max_class_w / all_class_w);	
+      }
+
+      if (is_leaf) {
 	// if the condtion to create a leaf node is satisfied
 	_DTLeaf<dim, n_class> *leaf = new _DTLeaf<dim, n_class>();
-	leaf->class_histogram = class_hist;
-	leaf->label = max_class_w - class_hist.begin();
-	leaf->score = criterion::loss(prob);
+	leaf->label = label;
+	leaf->class_histogram = histogram;
+	leaf->score = criterion::loss(prob);	
 	leaf->weight = all_class_w;
-	leaf->r = r * leaf->weight;
+	leaf->r = r * leaf->weight;	  
 	return leaf;
       } else {
 	// if it is possible to create a branch node
@@ -403,8 +430,8 @@ namespace d2 {
 	if (*best_goodness < 1E-5) {
 	  // if the best goodness is not good enough, a leaf node is still created
 	  _DTLeaf<dim, n_class> *leaf = new _DTLeaf<dim, n_class>();
-	  leaf->class_histogram = class_hist;
-	  leaf->label = max_class_w - class_hist.begin();
+	  leaf->class_histogram = histogram;
+	  leaf->label = label;
 	  leaf->score = criterion::loss(prob);
 	  leaf->weight = all_class_w;
 	  leaf->r = r * leaf->weight;
@@ -581,9 +608,9 @@ namespace d2 {
 	if (assignment_left.ptr && assignment_right.ptr) {// spanning the tree	  
 	  if (_buf.warm_start && cur_assignment.idx_cache_index >= 0) {
 	    assignment_left.idx_cache_index   = index_arr[cur_assignment.idx_cache_index].nleft;
-	    assignment_right.idx_cache_index= index_arr[cur_assignment.idx_cache_index].nright;
+	    assignment_right.idx_cache_index  = index_arr[cur_assignment.idx_cache_index].nright;
 	  } else {
-	    assignment_left.idx_cache_index = -1;
+	    assignment_left.idx_cache_index  = -1;
 	    assignment_right.idx_cache_index = -1;
 	  }
 	    
