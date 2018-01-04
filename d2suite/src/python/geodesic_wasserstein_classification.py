@@ -66,9 +66,14 @@ def update_one_step(dLW, learning_rate = 0.01):
         return tf.no_op()
 
 
+def inference(w, M):
+    v = gwc_model(w, M)
+    return tf.where(tf.less(v, 0), tf.ones_like(v), -tf.ones_like(v))
+
 class TestBADMM(unittest.TestCase):
     def test_BADMM(self):
         w = tf.constant([[0.1, 0.2, 0.3, 0.4], [0.7, 0.1, 0.1, 0.1]], dtype=tf.float32);
+        wtest = tf.constant([[0.1, 0.2, 0.4, 0.3], [0.6, 0.2, 0.1, 0.1]], dtype=tf.float32);
         M = tf.constant( [[[0,0], [0,-1], [-1,-1], [-1,0]],
                           [[0,1], [0,0],  [-1,1],  [-1,0]],
                           [[1,0], [1,-1], [0,0],   [0,-1]],
@@ -78,17 +83,19 @@ class TestBADMM(unittest.TestCase):
         with tf.variable_scope("test", reuse=tf.AUTO_REUSE):
             loss, dLW = get_losses_gradients(w, M, label)
             one_step = update_one_step(dLW, learning_rate = 0.1)
+            predicted_labels = inference(wtest, M)
 
         loss = tf.Print(loss, [loss], message = "loss: ")
-        
+        predicted_labels = tf.Print(predicted_labels, [predicted_labels], message = "predicted: ")
         init = tf.global_variables_initializer()
             
         with tf.Session() as sess:
             sess.run(init)
-            for i in range(100):
+            for i in range(1000):
                 if (i+1) % 10 == 0:
                     sess.run(loss)
                 sess.run(one_step)
+            sess.run(predicted_labels)
 
 
 if __name__ == "__main__":
