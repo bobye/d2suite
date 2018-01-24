@@ -36,8 +36,7 @@ if __name__ == "__main__":
     train_dataset = DataSet(train_images, train_labels, reshape=False)
     test_dataset = DataSet(test_images, test_labels, reshape=False)
 
-    batch_size = 4
-    batch = train_dataset.next_batch(batch_size, shuffle=True)
+    batch_size = 32
     dataM = get_M()
     
 
@@ -48,13 +47,29 @@ if __name__ == "__main__":
     with tf.variable_scope("gwc", reuse=tf.AUTO_REUSE):
         loss, dLW = gwc.get_losses_gradients(w, M, label)
         one_step = gwc.update_one_step(dLW, learning_rate = 0.1)
-    
+        tf.summary.scalar('loss', loss)
+
+
     loss = tf.Print(loss, [loss], message = "loss: ")
     init = tf.global_variables_initializer()
 
+
+    saver = tf.train.Saver(tf.global_variables())
+
+    merged = tf.summary.merge_all()
+    writer = tf.summary.FileWriter('/tmp/mnist_logs')
+    
     with tf.Session() as sess:
         sess.run(init)
         for i in range(1000):
+            batch = train_dataset.next_batch(batch_size, shuffle=True)
             if (i+1) % 1 == 0:
-                sess.run(loss, feed_dict = {w: batch[0], label: batch[1]})
+                summary, loss_v = sess.run([merged, loss],
+                                           feed_dict = {w: batch[0], label: batch[1]})
+                writer.add_summary(summary, i)
+                
             sess.run(one_step, feed_dict = {w: batch[0], label: batch[1]})
+            if (i+1) % 10 == 0:
+                saver.save(sess, '/tmp/mnist_logs/param',
+                           global_step = i, write_meta_graph=False)
+
