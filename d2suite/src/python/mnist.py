@@ -8,6 +8,13 @@ import geodesic_wasserstein_classification as gwc
 from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.contrib.learn.python.learn.datasets.mnist import DataSet
 
+from sklearn.linear_model import LogisticRegression
+
+FLAGS = tf.app.flags.FLAGS
+
+tf.app.flags.DEFINE_boolean('is_train', False,
+                            """Whether to train """)
+
 def get_two_classes(dataset, a, b):
     select = np.where(dataset.labels[:,a] + dataset.labels[:,b] > 0)
     train_labels = np.squeeze(dataset.labels[select,a]*2-1)
@@ -28,15 +35,25 @@ def get_M():
 
 if __name__ == "__main__":
     mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
-
-    train_images, train_labels = get_two_classes(mnist.train, 2, 6)
     
+    train_images, train_labels = get_two_classes(mnist.train, 2, 6)
+    train_images = train_images[:128]
+    train_labels = train_labels[:128]
     test_images, test_labels = get_two_classes(mnist.test, 2, 6)
+
+    lr = LogisticRegression()
+    lr.fit(train_images, (train_labels+1) / 2)
+    print('lr test accuracy: %f' % lr.score(test_images, (test_labels+1)/2))
+
 
     train_dataset = DataSet(train_images, train_labels, reshape=False)
     test_dataset = DataSet(test_images, test_labels, reshape=False)
 
-    batch_size = 32
+    if FLAGS.is_train:
+        batch_size = 128
+    else:
+        batch_size = 128
+        
     dataM = get_M()
     
 
@@ -46,9 +63,9 @@ if __name__ == "__main__":
 
     with tf.variable_scope("gwc", reuse=tf.AUTO_REUSE):
         loss, dLW = gwc.get_losses_gradients(w, M, label)
-        one_step = gwc.update_one_step(dLW, learning_rate = 0.1)
+        one_step = gwc.update_one_step(dLW, learning_rate = 1.)
         tf.summary.scalar('loss', loss)
-
+        accuracy = gwc.get_accuracy(w, M, label)
 
     loss = tf.Print(loss, [loss], message = "loss: ")
     init = tf.global_variables_initializer()
@@ -58,18 +75,32 @@ if __name__ == "__main__":
 
     merged = tf.summary.merge_all()
     writer = tf.summary.FileWriter('/tmp/mnist_logs')
-    
-    with tf.Session() as sess:
-        sess.run(init)
-        for i in range(1000):
-            batch = train_dataset.next_batch(batch_size, shuffle=True)
-            if (i+1) % 1 == 0:
-                summary, loss_v = sess.run([merged, loss],
-                                           feed_dict = {w: batch[0], label: batch[1]})
-                writer.add_summary(summary, i)
-                
-            sess.run(one_step, feed_dict = {w: batch[0], label: batch[1]})
-            if (i+1) % 10 == 0:
-                saver.save(sess, '/tmp/mnist_logs/param',
-                           global_step = i, write_meta_graph=False)
 
+
+    if FLAGS.is_train:
+        with tf.Session() as sess:
+            sess.run(init)
+            for i in range(1000):
+                batch = train_dataset.next_batch(batch_size, shuffle=True)
+                if (i+1) % 1 == 0:
+                    summary, loss_v = sess.run([merged, loss],
+                                           feed_dict = {w: batch[0], label: batch[1]})
+                    writer.add_summary(summary, i)
+                
+                sess.run(one_step, feed_dict = {w: batch[0], label: batch[1]})
+                if (i+1) % 10 == 0:
+                    saver.save(sess, '/tmp/mnist_logs/param',
+                               global_step = i, write_meta_graph=False)
+    else:
+        ckpt = tf.train.get_checkpoint_state('/tmp/mnist_logs')
+        with tf.Session() as sess:
+            saver.restore(sess, ckpt.model_checkpoint_path)
+            acc_v = 0
+            count = 0
+            for i in range(int(test_dataset.num_examples / batch_size)):
+                test_batch = test_dataset.next_batch(batch_size, shuffle=False)
+                acc_v += sess.run(accuracy, feed_dict = {w: test_batch[0], label: test_batch[1]})
+                count += 1
+                print('batch #d: %f' % i, acc_v / count)
+            acc_v /= count;
+            print('test accuracy: %f' % acc_v)

@@ -21,7 +21,7 @@ def gwc_model(w, M, l2_penalty = 0.001):
     assert(Mshape[0].value == num_bins and Mshape[1].value == num_bins and len(Mshape) == 3)
 
     L = tf.get_variable("L", shape=[num_bins, dim], dtype = tf.float32,
-                        initializer = tf.random_normal_initializer(stddev=0.1),
+                        initializer = tf.constant_initializer(0.),
                         regularizer = tf.contrib.layers.l2_regularizer(l2_penalty))
 
     D = tf.norm(M, ord = 2, axis = 2)
@@ -51,7 +51,7 @@ def get_losses_gradients(w, M, label):
     W = tf.get_variable("weights")
     dL, dW = tf.gradients(losses, xs = [L, W])
     return tf.add_n(losses), [dL, dW]
-    
+
 
 def update_one_step(dLW, learning_rate = 0.01):
     L = tf.get_variable("L")
@@ -69,6 +69,10 @@ def update_one_step(dLW, learning_rate = 0.01):
 def inference(w, M):
     v = gwc_model(w, M)
     return tf.where(tf.less(v, 0), tf.ones_like(v), -tf.ones_like(v))
+
+def get_accuracy(w, M, label):
+    predicted_labels = inference(w, M)
+    return tf.reduce_sum(tf.cast(tf.equal(predicted_labels,label), tf.float32)) / label.shape[0].value
 
 class TestBADMM(unittest.TestCase):
     def test_BADMM(self):
