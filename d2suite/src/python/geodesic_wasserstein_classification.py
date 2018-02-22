@@ -8,7 +8,7 @@ import unittest
 
 
 
-def gwc_model(w, M, l2_penalty = 0.001):
+def gwc_model(w, M, l2_penalty = 0.001, constr_penalty = 0.1):
     """
     Args:
          w: [num_sample, num_bins] and tf.reduce_sum(w, 1) == tf.constant(1., [num_sample])
@@ -29,11 +29,19 @@ def gwc_model(w, M, l2_penalty = 0.001):
     W = tf.get_variable("weights", shape=[num_bins], dtype = tf.float32,
                         initializer = tf.constant_initializer(1./num_bins))
 
-    E = tf.reduce_sum(tf.expand_dims(L, 0) * M, 2)
+    L1 = tf.expand_dims(L, 0)
+    L2 = tf.expand_dims(L, 1)
+
+    constr = tf.reduce_sum(tf.nn.relu(
+        tf.abs(tf.reduce_sum(L1 * M - L2 * M, 2)) - 2*D))
+
+    E = tf.reduce_sum(L1 * M, 2)
 
     medianD = tf.contrib.distributions.percentile(D, 50.0)
     
     Pi = badmm(tf.expand_dims(W,0), w, D, rho = medianD)
+    
+    tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, constr_penalty * constr * constr)
 
     return tf.reduce_sum(Pi * E, [1, 2])
 
@@ -53,7 +61,7 @@ def get_losses_gradients(w, M, label):
     return tf.add_n(losses), [dL, dW]
 
 
-def update_one_step(dLW, learning_rate = 0.01):
+def update_one_step(dLW, learning_rate = 0.01, step = None):
     L = tf.get_variable("L")
     W = tf.get_variable("weights")
     dL = dLW[0]
@@ -63,7 +71,10 @@ def update_one_step(dLW, learning_rate = 0.01):
     with tf.control_dependencies([op2]):
         op3 = W.assign(W / tf.reduce_sum(W))
     with tf.control_dependencies([op1, op2, op3]):
-        return tf.no_op()
+        if step is None:
+            return tf.no_op()
+        else:
+            return tf.assign_add(step, 1)
 
 
 def inference(w, M):

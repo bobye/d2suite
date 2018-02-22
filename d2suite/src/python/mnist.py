@@ -15,6 +15,9 @@ FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_boolean('is_train', False,
                             """Whether to train """)
 
+tf.app.flags.DEFINE_boolean('learning_rate', 1.,
+                            """ the learning rate in sgd """)
+
 def get_two_classes(dataset, a, b):
     select = np.where(dataset.labels[:,a] + dataset.labels[:,b] > 0)
     train_labels = np.squeeze(dataset.labels[select,a]*2-1)
@@ -60,10 +63,12 @@ if __name__ == "__main__":
     w = tf.placeholder(shape=[batch_size, 784], dtype = tf.float32)
     label = tf.placeholder(shape=[batch_size], dtype = tf.float32)
     M = tf.constant(get_M())
+    global_step = tf.contrib.framework.get_or_create_global_step()    
 
     with tf.variable_scope("gwc", reuse=tf.AUTO_REUSE):
         loss, dLW = gwc.get_losses_gradients(w, M, label)
-        one_step = gwc.update_one_step(dLW, learning_rate = 1.)
+        one_step = gwc.update_one_step(dLW, learning_rate = FLAGS.learning_rate,
+                                       step = global_step)
         tf.summary.scalar('loss', loss)
         accuracy = gwc.get_accuracy(w, M, label)
 
@@ -77,23 +82,29 @@ if __name__ == "__main__":
     writer = tf.summary.FileWriter('/tmp/mnist_logs')
 
 
+    config = tf.ConfigProto()
+    config.intra_op_parallelism_threads = 1
+    config.inter_op_parallelism_threads = 4
     if FLAGS.is_train:
-        with tf.Session() as sess:
+        ckpt = tf.train.get_checkpoint_state('/tmp/mnist_logs')
+        with tf.Session(config=config) as sess:
             sess.run(init)
+            if ckpt and ckpt.model_checkpoint_path:
+                saver.restore(sess, ckpt.model_checkpoint_path)
             for i in range(1000):
                 batch = train_dataset.next_batch(batch_size, shuffle=True)
                 if (i+1) % 1 == 0:
                     summary, loss_v = sess.run([merged, loss],
                                            feed_dict = {w: batch[0], label: batch[1]})
-                    writer.add_summary(summary, i)
+                    writer.add_summary(summary, global_step.eval())
                 
                 sess.run(one_step, feed_dict = {w: batch[0], label: batch[1]})
                 if (i+1) % 10 == 0:
                     saver.save(sess, '/tmp/mnist_logs/param',
-                               global_step = i, write_meta_graph=False)
+                               global_step = global_step.eval(), write_meta_graph=False)
     else:
         ckpt = tf.train.get_checkpoint_state('/tmp/mnist_logs')
-        with tf.Session() as sess:
+        with tf.Session(config=config) as sess:
             saver.restore(sess, ckpt.model_checkpoint_path)
             acc_v = 0
             count = 0
