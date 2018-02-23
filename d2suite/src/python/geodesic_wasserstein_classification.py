@@ -8,7 +8,7 @@ import unittest
 
 
 
-def gwc_model(w, M, l2_penalty = 0.001, constr_penalty = 0):
+def gwc_model(w, M, l2_penalty = 0.001, constr_penalty = 0.):
     """
     Args:
          w: [num_sample, num_bins] and tf.reduce_sum(w, 1) == tf.constant(1., [num_sample])

@@ -21,6 +21,8 @@ tf.app.flags.DEFINE_float('learning_rate', 1.,
 tf.app.flags.DEFINE_integer('image_size', 20,
                             """ """)
 
+tf.app.flags.DEFINE_integer('batch_size', 64, """ """)
+
 def get_two_classes(dataset, a, b):
     select = np.where(dataset.labels[:,a] + dataset.labels[:,b] > 0)
     train_labels = np.squeeze(dataset.labels[select,a]*2-1)
@@ -52,11 +54,11 @@ def get_crop_mask():
 if __name__ == "__main__":
     mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
     mask = get_crop_mask()
-    train_images, train_labels = get_two_classes(mnist.train, 2, 6)
-    train_images = train_images[:128]
+    train_images, train_labels = get_two_classes(mnist.train, 4, 9)
+    train_images = train_images[:FLAGS.batch_size]
     train_images = train_images[:, mask]
-    train_labels = train_labels[:128]
-    test_images, test_labels = get_two_classes(mnist.test, 2, 6)
+    train_labels = train_labels[:FLAGS.batch_size]
+    test_images, test_labels = get_two_classes(mnist.test, 4, 9)
     test_images = test_images[:, mask]
 
     lr = LogisticRegression()
@@ -67,10 +69,7 @@ if __name__ == "__main__":
     train_dataset = DataSet(train_images, train_labels, reshape=False)
     test_dataset = DataSet(test_images, test_labels, reshape=False)
 
-    if FLAGS.is_train:
-        batch_size = 128
-    else:
-        batch_size = 128
+    batch_size = FLAGS.batch_size
         
     dataM = get_M()
     
@@ -101,6 +100,7 @@ if __name__ == "__main__":
     config = tf.ConfigProto()
     config.intra_op_parallelism_threads = 1
     config.inter_op_parallelism_threads = 4
+    config.gpu_options.allow_growth=True
     if FLAGS.is_train:
         ckpt = tf.train.get_checkpoint_state('/tmp/mnist_logs')
         with tf.Session(config=config) as sess:

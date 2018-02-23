@@ -15,7 +15,7 @@ def badmm_oneiter(Pi, Lambda, w1, w2, expD, epsilon = 1E-9):
     Lambda = Lambda + cPi - Pi
     return Pi, Lambda
 
-def badmm(w1, w2, D, rho = 1, niter = 5):
+def badmm(w1, w2, D, rho = 1, niter = 15):
     """
     The tensorflow implementation of Bregman ADMM method with auto-diff
 
