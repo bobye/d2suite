@@ -9,6 +9,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 from tensorflow.contrib.learn.python.learn.datasets.mnist import DataSet
 
 from sklearn.linear_model import LogisticRegression
+from tqdm import tqdm
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -110,13 +111,13 @@ if __name__ == "__main__":
                 saver.restore(sess, ckpt.model_checkpoint_path)
             for i in range(1000):
                 batch = train_dataset.next_batch(batch_size, shuffle=True)
-                if (i+1) % 1 == 0:
+                if (i+1) % 10 == 0:
                     summary, loss_v = sess.run([merged, loss],
                                            feed_dict = {w: batch[0], label: batch[1]})
                     writer.add_summary(summary, global_step.eval())
                 
                 sess.run(one_step, feed_dict = {w: batch[0], label: batch[1]})
-                if (i+1) % 10 == 0:
+                if (i+1) % 50 == 0:
                     saver.save(sess, '/tmp/mnist_logs/param',
                                global_step = global_step.eval(), write_meta_graph=False)
     else:
@@ -125,10 +126,10 @@ if __name__ == "__main__":
             saver.restore(sess, ckpt.model_checkpoint_path)
             acc_v = 0
             count = 0
-            for i in range(int(test_dataset.num_examples / batch_size)):
+            for i in tqdm(range(int(test_dataset.num_examples / batch_size))):
                 test_batch = test_dataset.next_batch(batch_size, shuffle=False)
                 acc_v += sess.run(accuracy, feed_dict = {w: test_batch[0], label: test_batch[1]})
                 count += 1
-                print('batch #d: %f' % i, acc_v / count)
+                # print('batch #d: %f' % i, acc_v / count)
             acc_v /= count;
             print('test accuracy: %f' % acc_v)
