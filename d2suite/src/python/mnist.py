@@ -81,11 +81,12 @@ if __name__ == "__main__":
     global_step = tf.train.get_or_create_global_step()    
 
     with tf.variable_scope("gwc", reuse=tf.AUTO_REUSE):
-        loss, dLW = gwc.get_losses_gradients(nw, M, label)
+        logit = gwc.gwc_hist_model(nw, M)
+        loss, dLW = gwc.get_losses_gradients(logit, label)
         one_step = gwc.update_one_step(dLW, learning_rate = FLAGS.learning_rate,
                                        step = global_step)
         tf.summary.scalar('loss', loss)
-        accuracy = gwc.get_accuracy(nw, M, label)
+        accuracy = gwc.get_accuracy(logit, label)
 
     loss = tf.Print(loss, [loss], message = "loss: ")
     init = tf.global_variables_initializer()

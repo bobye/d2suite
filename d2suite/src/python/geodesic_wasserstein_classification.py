@@ -8,7 +8,13 @@ import unittest
 
 
 
-def gwc_model(w, M, l2_penalty = 0.001, constr_penalty = 0.):
+def gwc_d2_model(w, V, l2_penalty = 0.001):
+    """
+    Not implemented
+    """
+    return None
+
+def gwc_hist_model(w, M, l2_penalty = 0.001, constr_penalty = 0.):
     """
     Args:
          w: [num_sample, num_bins] and tf.reduce_sum(w, 1) == tf.constant(1., [num_sample])
@@ -45,15 +51,15 @@ def gwc_model(w, M, l2_penalty = 0.001, constr_penalty = 0.):
     return tf.reduce_sum(Pi * E, [1, 2])
 
 
-def get_binary_losses(w, M, label):
+def get_binary_losses(logit, label):
     """
     label: {-1., 1.}
     """
-    return [tf.reduce_mean(tf.sigmoid(gwc_model(w, M) * label))] + tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+    return [tf.reduce_mean(tf.sigmoid(logit * label))] + tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
 
 
-def get_losses_gradients(w, M, label):
-    losses = get_binary_losses(w, M, label)
+def get_losses_gradients(logit, label):
+    losses = get_binary_losses(logit, label)
     L = tf.get_variable("L")
     W = tf.get_variable("weights")
     dL, dW = tf.gradients(losses, xs = [L, W])
@@ -76,12 +82,11 @@ def update_one_step(dLW, learning_rate = 0.01, step = None):
             return tf.assign_add(step, 1)
 
 
-def inference(w, M):
-    v = gwc_model(w, M)
-    return tf.where(tf.less(v, 0), tf.ones_like(v), -tf.ones_like(v))
+def inference(logit):
+    return tf.where(tf.less(logit, 0), tf.ones_like(logit), -tf.ones_like(logit))
 
-def get_accuracy(w, M, label):
-    predicted_labels = inference(w, M)
+def get_accuracy(logit, label):
+    predicted_labels = inference(logit)
     return tf.reduce_sum(tf.cast(tf.equal(predicted_labels,label), tf.float32)) / label.shape[0].value
 
 class TestBADMM(unittest.TestCase):
