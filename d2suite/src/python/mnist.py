@@ -15,8 +15,11 @@ FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_boolean('is_train', False,
                             """Whether to train """)
 
-tf.app.flags.DEFINE_boolean('learning_rate', 1.,
-                            """ the learning rate in sgd """)
+tf.app.flags.DEFINE_float('learning_rate', 1.,
+                          """ the learning rate in sgd """)
+
+tf.app.flags.DEFINE_integer('image_size', 20,
+                            """ """)
 
 def get_two_classes(dataset, a, b):
     select = np.where(dataset.labels[:,a] + dataset.labels[:,b] > 0)
@@ -25,24 +28,36 @@ def get_two_classes(dataset, a, b):
     return train_images, train_labels
 
 def get_M():
-    M = np.zeros(shape = [784, 784, 2], dtype = np.float32)
-    for i in range(784):
-        for j in range(784):
-            xi = np.floor(i / 28)
-            yi = i % 28
-            xj = np.floor(i / 28)
-            yj = j % 28
+    M = np.zeros(shape = [ FLAGS.image_size *  FLAGS.image_size,  FLAGS.image_size *  FLAGS.image_size, 2], dtype = np.float32)
+    for i in range(FLAGS.image_size*FLAGS.image_size):
+        for j in range(FLAGS.image_size*FLAGS.image_size):
+            xi = np.floor(i /FLAGS.image_size)
+            yi = i % FLAGS.image_size
+            xj = np.floor(i /FLAGS.image_size)
+            yj = j % FLAGS.image_size
             M[i,j,0] = xi - xj
             M[i,j,1] = yi - yj
     return M
 
+
+def get_crop_mask():
+    mask = np.full(784, False)
+    padding = FLAGS.image_size / 2
+    for i in range(784):
+        x = np.floor(i / 28)
+        y = i % 28
+        mask[i] = np.abs(x - 13.5) < padding and np.abs(y - 13.5) < padding
+    return mask
+
 if __name__ == "__main__":
     mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
-    
+    mask = get_crop_mask()
     train_images, train_labels = get_two_classes(mnist.train, 2, 6)
     train_images = train_images[:128]
+    train_images = train_images[:, mask]
     train_labels = train_labels[:128]
     test_images, test_labels = get_two_classes(mnist.test, 2, 6)
+    test_images = test_images[:, mask]
 
     lr = LogisticRegression()
     lr.fit(train_images, (train_labels+1) / 2)
@@ -60,17 +75,18 @@ if __name__ == "__main__":
     dataM = get_M()
     
 
-    w = tf.placeholder(shape=[batch_size, 784], dtype = tf.float32)
+    w = tf.placeholder(shape=[batch_size, FLAGS.image_size * FLAGS.image_size], dtype = tf.float32)
+    nw = w / tf.reduce_sum(w, 1, keep_dims=True)
     label = tf.placeholder(shape=[batch_size], dtype = tf.float32)
     M = tf.constant(get_M())
-    global_step = tf.contrib.framework.get_or_create_global_step()    
+    global_step = tf.train.get_or_create_global_step()    
 
     with tf.variable_scope("gwc", reuse=tf.AUTO_REUSE):
-        loss, dLW = gwc.get_losses_gradients(w, M, label)
+        loss, dLW = gwc.get_losses_gradients(nw, M, label)
         one_step = gwc.update_one_step(dLW, learning_rate = FLAGS.learning_rate,
                                        step = global_step)
         tf.summary.scalar('loss', loss)
-        accuracy = gwc.get_accuracy(w, M, label)
+        accuracy = gwc.get_accuracy(nw, M, label)
 
     loss = tf.Print(loss, [loss], message = "loss: ")
     init = tf.global_variables_initializer()

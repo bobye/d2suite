@@ -8,7 +8,7 @@ import unittest
 
 
 
-def gwc_model(w, M, l2_penalty = 0.001, constr_penalty = 0.1):
+def gwc_model(w, M, l2_penalty = 0.001, constr_penalty = 0):
     """
     Args:
          w: [num_sample, num_bins] and tf.reduce_sum(w, 1) == tf.constant(1., [num_sample])
@@ -32,16 +32,15 @@ def gwc_model(w, M, l2_penalty = 0.001, constr_penalty = 0.1):
     L1 = tf.expand_dims(L, 0)
     L2 = tf.expand_dims(L, 1)
 
-    constr = tf.reduce_sum(tf.nn.relu(
-        tf.abs(tf.reduce_sum(L1 * M - L2 * M, 2)) - 2*D))
+    if constr_penalty > 0:
+        constr = tf.reduce_mean(1/(  (2*D+1.) - tf.square(tf.reduce_sum(L1 * M - L2 * M, 2))))
+        tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, constr_penalty * constr)
 
     E = tf.reduce_sum(L1 * M, 2)
 
     medianD = tf.contrib.distributions.percentile(D, 50.0)
     
-    Pi = badmm(tf.expand_dims(W,0), w, D, rho = medianD)
-    
-    tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, constr_penalty * constr * constr)
+    Pi = badmm(tf.expand_dims(W,0), w, D, rho = medianD)    
 
     return tf.reduce_sum(Pi * E, [1, 2])
 
