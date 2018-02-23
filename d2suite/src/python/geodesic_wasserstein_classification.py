@@ -8,11 +8,40 @@ import unittest
 
 
 
-def gwc_d2_model(w, V, l2_penalty = 0.001):
+def gwc_d2_model(w, V, mu_nbins, l2_penalty = 0.):
     """
-    Not implemented
+    Args:
+        w: [num_sample, num_bins]
+        V: [num_sample, num_bins, dim]
     """
-    return None
+    num_sample = w.shape[0].value
+    num_bins = V.shape[1].value
+    dim = V.shape[-1].value
+
+    V = V - tf.reduce_sum(tf.expand_dims(w, -1) * V, 1, keep_dims = True)
+
+    L = tf.get_variable("L", shape=[mu_nbins, dim], dtype = tf.float32,
+                        initializer = tf.constant_initializer(0.),
+                        regularizer = tf.contrib.layers.l2_regularizer(l2_penalty))
+
+    mu = tf.get_variable("mu", shape=[mu_nbins, dim], dtype = tf.float32,
+                         initializer = tf.uniform_unit_scaling_initializer(factor=10.))
+    
+    M = tf.expand_dims(V, 1) - tf.reshape(mu, [1, mu_nbins, 1, dim])
+
+    D = tf.norm(M, ord = 2, axis = 3)
+    meanD = 2.*tf.reduce_mean(D)
+
+    W = tf.get_variable("weights", shape=[mu_nbins], dtype = tf.float32,
+                        initializer = tf.constant_initializer(1./mu_nbins))
+
+    L1 = tf.reshape(L, [1, mu_nbins, 1, dim])
+
+    E = tf.reduce_sum(L1 * M, -1)
+
+    Pi = badmm(tf.expand_dims(W,0), w, D, rho = meanD)
+
+    return tf.reduce_sum(Pi * E, [1, 2])
 
 def gwc_hist_model(w, M, l2_penalty = 0.001, constr_penalty = 0.):
     """
@@ -31,6 +60,7 @@ def gwc_hist_model(w, M, l2_penalty = 0.001, constr_penalty = 0.):
                         regularizer = tf.contrib.layers.l2_regularizer(l2_penalty))
 
     D = tf.norm(M, ord = 2, axis = 2)
+    medianD = tf.contrib.distributions.percentile(D, 50.0)
 
     W = tf.get_variable("weights", shape=[num_bins], dtype = tf.float32,
                         initializer = tf.constant_initializer(1./num_bins))
@@ -39,12 +69,11 @@ def gwc_hist_model(w, M, l2_penalty = 0.001, constr_penalty = 0.):
     L2 = tf.expand_dims(L, 1)
 
     if constr_penalty > 0:
-        constr = tf.reduce_mean(1/(  (2*D+1.) - tf.square(tf.reduce_sum(L1 * M - L2 * M, 2))))
+        constr = tf.reduce_mean(tf.nn.relu(tf.abs(tf.reduce_sum(L1 * M - L2 * M, 2)) - 2*D - 0.1))
         tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, constr_penalty * constr)
 
     E = tf.reduce_sum(L1 * M, 2)
 
-    medianD = tf.contrib.distributions.percentile(D, 50.0)
     
     Pi = badmm(tf.expand_dims(W,0), w, D, rho = medianD)    
 
@@ -55,27 +84,42 @@ def get_binary_losses(logit, label):
     """
     label: {-1., 1.}
     """
-    return [tf.reduce_mean(tf.sigmoid(logit * label))] + tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+    return [tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=label, logits=logit))] + tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
 
 
-def get_losses_gradients(logit, label):
+def get_losses_gradients(logit, label, use_d2 = False):
     losses = get_binary_losses(logit, label)
     L = tf.get_variable("L")
     W = tf.get_variable("weights")
-    dL, dW = tf.gradients(losses, xs = [L, W])
-    return tf.add_n(losses), [dL, dW]
+
+    if use_d2:
+        mu = tf.get_variable("mu")
+        dL, dW, dmu = tf.gradients(losses, xs = [L, W, mu])
+        return tf.add_n(losses), [dL, dW, dmu]
+    else:
+        dL, dW = tf.gradients(losses, xs = [L, W])
+        return tf.add_n(losses), [dL, dW]
 
 
-def update_one_step(dLW, learning_rate = 0.01, step = None):
+def update_one_step(dLW, learning_rate = 0.01, step = None, use_d2 = False):
     L = tf.get_variable("L")
     W = tf.get_variable("weights")
     dL = dLW[0]
     dW = dLW[1]
+    if use_d2:
+        mu = tf.get_variable("mu")
+        dmu = dLW[2]
+
     op1 = L.assign_sub(learning_rate * dL)
+    if use_d2:
+        with tf.control_dependencies([op1]):
+            op1 = mu.assign_sub(learning_rate * dmu)
+
     op2 = W.assign(W / tf.exp(learning_rate * dW))
     with tf.control_dependencies([op2]):
-        op3 = W.assign(W / tf.reduce_sum(W))
-    with tf.control_dependencies([op1, op2, op3]):
+        op2 = W.assign(W / tf.reduce_sum(W))
+
+    with tf.control_dependencies([op1, op2]):
         if step is None:
             return tf.no_op()
         else:
@@ -83,7 +127,7 @@ def update_one_step(dLW, learning_rate = 0.01, step = None):
 
 
 def inference(logit):
-    return tf.where(tf.less(logit, 0), tf.ones_like(logit), -tf.ones_like(logit))
+    return tf.where(tf.less(logit, 0), tf.zeros_like(logit), tf.ones_like(logit))
 
 def get_accuracy(logit, label):
     predicted_labels = inference(logit)

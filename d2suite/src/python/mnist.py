@@ -26,7 +26,7 @@ tf.app.flags.DEFINE_integer('batch_size', 64, """ """)
 
 def get_two_classes(dataset, a, b):
     select = np.where(dataset.labels[:,a] + dataset.labels[:,b] > 0)
-    train_labels = np.squeeze(dataset.labels[select,a]*2-1)
+    train_labels = np.squeeze(dataset.labels[select,a])
     train_images = dataset.images[select]
     return train_images, train_labels
 
@@ -41,7 +41,6 @@ def get_M():
             M[i,j,0] = xi - xj
             M[i,j,1] = yi - yj
     return M
-
 
 def get_crop_mask():
     mask = np.full(784, False)
@@ -63,17 +62,14 @@ if __name__ == "__main__":
     test_images = test_images[:, mask]
 
     lr = LogisticRegression()
-    lr.fit(train_images, (train_labels+1) / 2)
-    print('lr test accuracy: %f' % lr.score(test_images, (test_labels+1)/2))
+    lr.fit(train_images, train_labels)
+    print('lr test accuracy: %f' % lr.score(test_images, test_labels))
 
 
     train_dataset = DataSet(train_images, train_labels, reshape=False)
     test_dataset = DataSet(test_images, test_labels, reshape=False)
 
     batch_size = FLAGS.batch_size
-        
-    dataM = get_M()
-    
 
     w = tf.placeholder(shape=[batch_size, FLAGS.image_size * FLAGS.image_size], dtype = tf.float32)
     nw = w / tf.reduce_sum(w, 1, keep_dims=True)
