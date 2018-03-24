@@ -25,12 +25,13 @@ def gwc_d2_model(w, V, mu_nbins, l2_penalty = 0.):
                         regularizer = tf.contrib.layers.l2_regularizer(l2_penalty))
 
     mu = tf.get_variable("mu", shape=[mu_nbins, dim], dtype = tf.float32,
-                         initializer = tf.uniform_unit_scaling_initializer(factor=10.))
+                         initializer = tf.contrib.layers.variance_scaling_initializer(factor=10.))
     
     M = tf.expand_dims(V, 1) - tf.reshape(mu, [1, mu_nbins, 1, dim])
 
     D = tf.norm(M, ord = 2, axis = 3)
     meanD = 2.*tf.reduce_mean(D)
+    #medianD = tf.contrib.distributions.percentile(D, 50.0)
 
     W = tf.get_variable("weights", shape=[mu_nbins], dtype = tf.float32,
                         initializer = tf.constant_initializer(1./mu_nbins))
@@ -74,8 +75,8 @@ def gwc_hist_model(w, M, l2_penalty = 0.001, constr_penalty = 0.):
 
     E = tf.reduce_sum(L1 * M, 2)
 
-    
     Pi = badmm(tf.expand_dims(W,0), w, D, rho = medianD)    
+    
 
     return tf.reduce_sum(Pi * E, [1, 2])
 
@@ -155,7 +156,7 @@ class TestBADMM(unittest.TestCase):
         with tf.Session() as sess:
             sess.run(init)
             for i in range(1000):
-                if (i+1) % 10 == 0:
+                if (i+1) % 1 == 0:
                     sess.run(loss)
                 sess.run(one_step)
             sess.run(predicted_labels)

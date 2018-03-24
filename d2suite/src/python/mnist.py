@@ -120,6 +120,9 @@ if __name__ == "__main__":
         ckpt = tf.train.get_checkpoint_state('/tmp/mnist_logs')
         with tf.Session(config=config) as sess:
             saver.restore(sess, ckpt.model_checkpoint_path)
+            train_batch = train_dataset.next_batch(batch_size, shuffle=False)
+            train_acc = sess.run(accuracy, feed_dict = {w: train_batch[0], label: train_batch[1]})
+            print('train accuracy: %f' % train_acc)
             acc_v = 0
             count = 0
             for i in tqdm(range(int(test_dataset.num_examples / batch_size))):

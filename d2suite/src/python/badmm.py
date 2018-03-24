@@ -13,7 +13,7 @@ def badmm_oneiter(Pi, Lambda, w1, w2, expD, epsilon = 1E-9):
     Pi = cPi * tf.exp(Lambda) + epsilon
     Pi = Pi * (w1 / tf.reduce_sum(Pi, 2, keep_dims = True))
     Lambda = Lambda + cPi - Pi
-    return Pi, Lambda
+    return Pi, cPi, Lambda
 
 def badmm(w1, w2, D, rho = 1, niter = 15):
     """
@@ -38,8 +38,10 @@ def badmm(w1, w2, D, rho = 1, niter = 15):
     w2 = tf.reshape(w2, [n2, 1, d2, 1])
     Lambda = tf.constant(0., shape=[n2, d1, d2, 1])
     Pi = w1 * w2
-    for i in range(niter):
-        Pi, Lambda = badmm_oneiter(Pi, Lambda, w1, w2, expD)
+    for i in range(niter-1):
+        Pi, _, Lambda = badmm_oneiter(Pi, Lambda, w1, w2, expD)
+    Pi, cPi, Lambda = badmm_oneiter(Pi, Lambda, w1, w2, expD)
+    tf.add_to_collection(tf.GraphKeys.REGULARIZATION_LOSSES, (niter * rho / tf.sqrt(tf.cast(n1*n2, tf.float32))) * tf.norm(Pi - cPi, ord=2))
     return tf.squeeze(Pi)
 
 

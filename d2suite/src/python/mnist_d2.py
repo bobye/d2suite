@@ -24,6 +24,8 @@ tf.app.flags.DEFINE_integer('image_size', 20,
 
 tf.app.flags.DEFINE_integer('batch_size', 64, """ """)
 
+tf.app.flags.DEFINE_integer('total_steps', 10000, """ """)
+
 tf.app.flags.DEFINE_string('log_dir', '/tmp/mnist_d2_logs', """ """)
 
 tf.app.flags.DEFINE_integer('mu_nbins', 1, 
@@ -120,7 +122,7 @@ if __name__ == "__main__":
             sess.run(init)
             if ckpt and ckpt.model_checkpoint_path:
                 saver.restore(sess, ckpt.model_checkpoint_path)
-            for i in range(1000):
+            for i in range(FLAGS.total_steps):
                 batch = train_dataset.next_batch(batch_size, shuffle=True)
                 if (i+1) % 10 == 0:
                     summary, loss_v = sess.run([merged, loss],
@@ -135,6 +137,9 @@ if __name__ == "__main__":
         ckpt = tf.train.get_checkpoint_state(FLAGS.log_dir)
         with tf.Session(config=config) as sess:
             saver.restore(sess, ckpt.model_checkpoint_path)
+            train_batch = train_dataset.next_batch(batch_size, shuffle=False)
+            train_acc = sess.run(accuracy, feed_dict = {w: train_batch[0], label: train_batch[1]})
+            print('train accuracy: %f' % train_acc)
             acc_v = 0
             count = 0
             for i in tqdm(range(int(test_dataset.num_examples / batch_size))):
