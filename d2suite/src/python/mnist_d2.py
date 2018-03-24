@@ -43,7 +43,7 @@ def get_M():
         for j in range(FLAGS.image_size*FLAGS.image_size):
             xi = np.floor(i /FLAGS.image_size)
             yi = i % FLAGS.image_size
-            xj = np.floor(i /FLAGS.image_size)
+            xj = np.floor(j /FLAGS.image_size)
             yj = j % FLAGS.image_size
             M[i,j,0] = xi - xj
             M[i,j,1] = yi - yj

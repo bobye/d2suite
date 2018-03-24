@@ -36,7 +36,7 @@ def get_M():
         for j in range(FLAGS.image_size*FLAGS.image_size):
             xi = np.floor(i /FLAGS.image_size)
             yi = i % FLAGS.image_size
-            xj = np.floor(i /FLAGS.image_size)
+            xj = np.floor(j /FLAGS.image_size)
             yj = j % FLAGS.image_size
             M[i,j,0] = xi - xj
             M[i,j,1] = yi - yj
@@ -83,6 +83,7 @@ if __name__ == "__main__":
         one_step = gwc.update_one_step(dLW, learning_rate = FLAGS.learning_rate,
                                        step = global_step)
         tf.summary.scalar('loss', loss)
+        tf.summary.image('mu', tf.reshape(tf.get_variable('weights'), [1, FLAGS.image_size, FLAGS.image_size, 1]))
         accuracy = gwc.get_accuracy(logit, label)
 
     loss = tf.Print(loss, [loss], message = "loss: ")
